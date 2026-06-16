@@ -40,5 +40,33 @@ class WorkerTimeoutMaintenanceTests(unittest.TestCase):
         self.assertFalse(ok)
 
 
+class HeartbeatTests(unittest.TestCase):
+    def test_heartbeat_posts_worker_id(self) -> None:
+        response = Mock()
+        response.status_code = 200
+        response.json.return_value = {"cancel_requested": False}
+
+        with patch.object(run_worker.requests, "post", return_value=response) as post:
+            cancelled = run_worker.heartbeat("job-abc")
+
+        self.assertFalse(cancelled)
+        post.assert_called_once_with(
+            f"{run_worker.SERVER_URL}/api/renders/job-abc/heartbeat",
+            json={"worker_id": run_worker.WORKER_ID},
+            timeout=10,
+        )
+
+    def test_heartbeat_returns_cancel_when_server_requests(self) -> None:
+        response = Mock()
+        response.status_code = 200
+        response.json.return_value = {"cancel_requested": True}
+
+        with patch.object(run_worker.requests, "post", return_value=response):
+            self.assertTrue(run_worker.heartbeat("job-cancel"))
+
+    def test_heartbeat_swallows_network_errors(self) -> None:
+        with patch.object(run_worker.requests, "post", side_effect=OSError("connection reset")):
+            self.assertFalse(run_worker.heartbeat("job-net"))
+
 if __name__ == "__main__":
     unittest.main()
