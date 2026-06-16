@@ -1,0 +1,1 @@
+"""Guide platform integration for Pixelle-Video."""

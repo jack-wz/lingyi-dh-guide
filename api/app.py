@@ -41,6 +41,7 @@ from loguru import logger
 from api.config import api_config
 from api.tasks import task_manager
 from api.dependencies import shutdown_pixelle_video
+from api.guide.manager import guide_manager
 
 # Import routers
 from api.routers import (
@@ -54,7 +55,10 @@ from api.routers import (
     files_router,
     resources_router,
     frame_router,
+    guide_router,
 )
+from api.routers.guide_static import UPLOADS_DIR, RENDERS_DIR
+from fastapi.staticfiles import StaticFiles
 
 
 @asynccontextmanager
@@ -67,12 +71,14 @@ async def lifespan(app: FastAPI):
     # Startup
     logger.info("🚀 Starting Pixelle-Video API...")
     await task_manager.start()
+    await guide_manager.start()
     logger.info("✅ Pixelle-Video API started successfully\n")
     
     yield
     
     # Shutdown
     logger.info("🛑 Shutting down Pixelle-Video API...")
+    await guide_manager.stop()
     await task_manager.stop()
     await shutdown_pixelle_video()
     logger.info("✅ Pixelle-Video API shutdown complete")
@@ -133,6 +139,11 @@ app.include_router(tasks_router, prefix=api_config.api_prefix)
 app.include_router(files_router, prefix=api_config.api_prefix)
 app.include_router(resources_router, prefix=api_config.api_prefix)
 app.include_router(frame_router, prefix=api_config.api_prefix)
+app.include_router(guide_router, prefix=api_config.api_prefix)
+
+# Guide platform static assets (uploads / renders)
+app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="guide-uploads")
+app.mount("/renders", StaticFiles(directory=str(RENDERS_DIR)), name="guide-renders")
 
 
 @app.get("/")
@@ -153,7 +164,16 @@ async def root():
             "files": f"{api_config.api_prefix}/files",
             "resources": f"{api_config.api_prefix}/resources",
             "frame": f"{api_config.api_prefix}/frame",
-        }
+            "guide": f"{api_config.api_prefix}/guide/health",
+            "templates": f"{api_config.api_prefix}/templates",
+            "digital_humans": f"{api_config.api_prefix}/digital-humans",
+            "renders": f"{api_config.api_prefix}/renders",
+        },
+        "guide_platform": {
+            "enabled": guide_manager.enabled,
+            "internal_api": guide_manager.internal_api_url,
+            "data_dir": str(UPLOADS_DIR.parent),
+        },
     }
 
 

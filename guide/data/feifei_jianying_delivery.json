@@ -1,0 +1,27 @@
+{
+  "status": "completed",
+  "template_id": "517a1920-6376-47ef-871b-9badbaa16b53",
+  "template_name": "飞鹤卓睿·剪映完整版",
+  "digital_human_id": "357571fb-5d2e-413e-a02f-c2e64f3623f0",
+  "delivery_job_id": "717ea774-fbd8-49e1-8fa3-b4f7b2985413",
+  "output_url": "/renders/job_717ea774-fbd8-49e1-8fa3-b4f7b2985413/final.mp4",
+  "output_ass_url": "/renders/job_717ea774-fbd8-49e1-8fa3-b4f7b2985413/final_ass_jianying.mp4",
+  "duration_sec": 33.87,
+  "size_bytes": 14104405,
+  "features": {
+    "ass_subtitles": true,
+    "libass": true,
+    "overlays": "Logo + GIF贴纸 + q底2字幕底栏",
+    "bgm": "08_剪辑工程/6月5日数字人demo素材/bgm.mp3",
+    "clips_source": "WaveSpeed InfiniteTalk 4分镜"
+  },
+  "full_render_job": {
+    "id": "f1c8518b-522e-4b36-ae9c-7f42c5bce8a2",
+    "status": "failed",
+    "error": "WaveSpeed provider timeout (可重试)"
+  },
+  "commands": {
+    "import_template": "uv run python guide/scripts/import_jianying_template.py",
+    "reassemble": "uv run python guide/scripts/reassemble_with_template.py <job_id> 517a1920-6376-47ef-871b-9badbaa16b53"
+  }
+}

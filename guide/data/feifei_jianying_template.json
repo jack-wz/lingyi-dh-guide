@@ -1,0 +1,19 @@
+{
+  "template_id": "517a1920-6376-47ef-871b-9badbaa16b53",
+  "name": "飞鹤卓睿·剪映完整版",
+  "segments": 4,
+  "uploaded": {
+    "bgm": "/uploads/00a1358c-76fa-4c5e-b2f8-6316ff364bf2.mp3",
+    "logo": "/uploads/13365b96-aa74-4483-ae41-db88a6a30ad6.png",
+    "subtitle_bar": "/uploads/6b7f5397-6285-4804-b552-b664afae4a93.png",
+    "gif_1": "/uploads/27845d00-8ff2-4e2d-b2ba-d0fdacc1e959.gif",
+    "gif_2": "/uploads/036009f9-7217-4bde-8632-344080b1da5e.gif",
+    "gif_3": "/uploads/08a32c58-2c57-4cc7-a5ce-acb9e364baf7.gif",
+    "gif_11": "/uploads/b0e7541b-6f9e-46ae-9115-9533f5d1fefa.gif",
+    "scene_1": "/uploads/6f801060-6e0c-4230-8b2a-14c899e75267.png",
+    "scene_2": "/uploads/777d5136-caf1-4dc5-aaa4-a7c401f594c1.png",
+    "scene_3": "/uploads/3c7f1960-8311-44fb-9df3-5b20f326d8af.png",
+    "scene_4": "/uploads/7cfb9da2-c36b-4693-b816-f8bf62da5a73.png"
+  },
+  "template_url": "http://127.0.0.1:8000/api/templates/517a1920-6376-47ef-871b-9badbaa16b53"
+}

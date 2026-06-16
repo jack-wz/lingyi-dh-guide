@@ -1,0 +1,57 @@
+name: Guide CI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'guide/**'
+      - 'Makefile'
+      - 'guide/Makefile'
+      - '.github/workflows/guide-ci.yml'
+  pull_request:
+    paths:
+      - 'guide/**'
+      - 'Makefile'
+      - 'guide/Makefile'
+      - '.github/workflows/guide-ci.yml'
+  workflow_dispatch:
+
+jobs:
+  guide-worker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-guide-worker-${{ hashFiles('guide/worker/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-guide-worker-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r guide/worker/requirements.txt
+
+      - name: Timeline QA gate (subtitle/TTS alignment unit tests)
+        run: make validate-renders-ci
+
+      - name: Worker unit tests
+        run: make test-guide
+
+      - name: Upload audit report (if generated)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: render-jobs-audit
+          path: guide/data/render_jobs_audit.json
+          if-no-files-found: ignore

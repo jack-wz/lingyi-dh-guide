@@ -1,0 +1,105 @@
+{
+  "meta": {
+    "name": "飞鹤卓睿·剪映完整版",
+    "type": "母婴奶粉",
+    "description": "参考 08_剪辑工程/6月5日：ASS 花字字幕 + q底2 底栏 + 贴纸 GIF + Logo + BGM",
+    "pipeline_key": "standard",
+    "input_mode": "template"
+  },
+  "globalConfig": {
+    "canvas_width": 1080,
+    "canvas_height": 1920,
+    "fps": 30,
+    "bgm_volume": 0.15,
+    "output_format": "mp4",
+    "background_color": "#000000",
+    "bgm_enabled": true,
+    "bgm_loop": true,
+    "transition_enabled": true,
+    "brand_color": "#E85D04",
+    "output_resolution": "720p",
+    "aspect_ratio": "9:16"
+  },
+  "segments": [
+    {
+      "id": "shot_01",
+      "type": "narration",
+      "narration_text": "当妈后怎么天天都这样松弛，我们快来请教请教她",
+      "duration_sec": 10,
+      "camera_shot": "medium",
+      "subtitle": { "enabled": true, "style_id": "yellow-highlight", "position": "bottom", "animation": "fadeIn" },
+      "transition": { "type": "fade", "duration": 0.5 },
+      "digital_human": { "enabled": true, "position": { "x": 50, "y": 72 }, "scale": 100 },
+      "overlays": [
+        { "id": "logo_s1", "asset_key": "logo", "position": { "x": 6, "y": 4 }, "scale": 100, "seg_start_time": 0, "duration": 10, "render_width_pct": 24, "render_height_pct": 7 },
+        { "id": "gif_s1", "asset_key": "gif_1", "position": { "x": 82, "y": 12 }, "scale": 100, "seg_start_time": 0, "duration": 10, "render_width_pct": 20, "render_height_pct": 11 },
+        { "id": "bar_s1", "asset_key": "subtitle_bar", "position": { "x": 50, "y": 86 }, "scale": 100, "seg_start_time": 0, "duration": 10, "render_width_pct": 88, "render_height_pct": 9 }
+      ]
+    },
+    {
+      "id": "shot_02",
+      "type": "narration",
+      "narration_text": "哎问我妈，美宝妈松弛带娃有秘籍吗，销冠口粮带娃真的so easy",
+      "duration_sec": 10,
+      "camera_shot": "medium",
+      "subtitle": { "enabled": true, "style_id": "yellow-highlight", "position": "bottom", "animation": "fadeIn" },
+      "transition": { "type": "fade", "duration": 0.5 },
+      "digital_human": { "enabled": true, "position": { "x": 50, "y": 72 }, "scale": 100 },
+      "overlays": [
+        { "id": "logo_s2", "asset_key": "logo", "position": { "x": 8, "y": 5 }, "scale": 100, "seg_start_time": 0, "duration": 10, "render_width_pct": 22, "render_height_pct": 8 },
+        { "id": "gif_s2a", "asset_key": "gif_2", "position": { "x": 78, "y": 18 }, "scale": 100, "seg_start_time": 0, "duration": 10, "render_width_pct": 16, "render_height_pct": 9 },
+        { "id": "gif_s2b", "asset_key": "gif_11", "position": { "x": 18, "y": 22 }, "scale": 100, "seg_start_time": 1.5, "duration": 8, "render_width_pct": 14, "render_height_pct": 8 },
+        { "id": "bar_s2", "asset_key": "subtitle_bar", "position": { "x": 50, "y": 86 }, "scale": 100, "seg_start_time": 0, "duration": 10, "render_width_pct": 88, "render_height_pct": 9 }
+      ]
+    },
+    {
+      "id": "shot_03",
+      "type": "narration",
+      "narration_text": "你是说飞鹤卓睿是松弛秘籍，搭载母源黄金配比，营养全覆盖，当妈也要像阿凡提一样反压力",
+      "duration_sec": 10,
+      "camera_shot": "medium",
+      "subtitle": { "enabled": true, "style_id": "bold-white-stroke", "position": "bottom", "animation": "fadeIn" },
+      "transition": { "type": "fade", "duration": 0.5 },
+      "digital_human": { "enabled": true, "position": { "x": 50, "y": 72 }, "scale": 100 },
+      "overlays": [
+        { "id": "logo_s3", "asset_key": "logo", "position": { "x": 8, "y": 5 }, "scale": 100, "seg_start_time": 0, "duration": 10, "render_width_pct": 22, "render_height_pct": 8 },
+        { "id": "product_s3", "asset_key": "logo", "position": { "x": 72, "y": 38 }, "scale": 100, "seg_start_time": 2, "duration": 7, "render_width_pct": 28, "render_height_pct": 12 },
+        { "id": "gif_s3", "asset_key": "gif_3", "position": { "x": 85, "y": 15 }, "scale": 100, "seg_start_time": 0, "duration": 10, "render_width_pct": 18, "render_height_pct": 10 },
+        { "id": "bar_s3", "asset_key": "subtitle_bar", "position": { "x": 50, "y": 86 }, "scale": 100, "seg_start_time": 0, "duration": 10, "render_width_pct": 88, "render_height_pct": 9 }
+      ]
+    },
+    {
+      "id": "shot_04",
+      "type": "narration",
+      "narration_text": "妈妈们，快来上海砖桥万达孩子王，找我安排上，带娃秘籍",
+      "duration_sec": 8,
+      "camera_shot": "medium",
+      "subtitle": { "enabled": true, "style_id": "yellow-highlight", "position": "bottom", "animation": "fadeIn" },
+      "transition": { "type": "fade", "duration": 0.5 },
+      "digital_human": { "enabled": true, "position": { "x": 50, "y": 72 }, "scale": 100 },
+      "overlays": [
+        { "id": "logo_s4", "asset_key": "logo", "position": { "x": 8, "y": 5 }, "scale": 100, "seg_start_time": 0, "duration": 8, "render_width_pct": 22, "render_height_pct": 8 },
+        { "id": "gif_s4", "asset_key": "gif_1", "position": { "x": 80, "y": 20 }, "scale": 100, "seg_start_time": 0, "duration": 8, "render_width_pct": 20, "render_height_pct": 11 },
+        { "id": "bar_s4", "asset_key": "subtitle_bar", "position": { "x": 50, "y": 86 }, "scale": 100, "seg_start_time": 0, "duration": 8, "render_width_pct": 88, "render_height_pct": 9 }
+      ]
+    }
+  ],
+  "variables": [],
+  "asset_sources": {
+    "clip_root": "08_剪辑工程/6月5日数字人demo素材",
+    "scene_root": "07_测试案例/飞鹤卓睿_V1测试/分镜素材",
+    "files": {
+      "bgm": "bgm.mp3",
+      "logo": "飞鹤.png",
+      "subtitle_bar": "q底2.png",
+      "gif_1": "1.gif",
+      "gif_2": "2.gif",
+      "gif_3": "3.gif",
+      "gif_11": "11.gif",
+      "scene_1": "shot_01_open/01.png",
+      "scene_2": "shot_02_think/02.png",
+      "scene_3": "shot_03_confident/03.png",
+      "scene_4": "shot_04_cta/04.png"
+    }
+  }
+}

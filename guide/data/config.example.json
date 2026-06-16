@@ -1,0 +1,19 @@
+{
+  "kie": {
+    "api_key": "",
+    "base_url": "https://api.kie.ai"
+  },
+  "yuntts": {
+    "api_key": "",
+    "base_url": "https://www.yuntts.com/api/v1"
+  },
+  "wavespeed": {
+    "api_key": "",
+    "base_url": "https://api.wavespeed.ai"
+  },
+  "server_url": "http://127.0.0.1:8000",
+  "pipeline": {
+    "timeline_validate": true,
+    "timeline_validate_strict": false
+  }
+}

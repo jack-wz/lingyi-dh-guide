@@ -66,8 +66,28 @@ tmp/
 # MkDocs build output
 site/
 
-data
-output
+/data
+/output
+
+# Guide platform (Node)
+guide/node_modules/
+guide/web/node_modules/
+guide/server/node_modules/
+guide/web/dist/
+guide/server/dist/
+guide/.env
+guide/data/uploads/*
+!guide/data/uploads/.gitkeep
+guide/data/renders/*
+!guide/data/renders/.gitkeep
+guide/data/templates.db
+guide/data/templates.db-*
+guide/data/config.json
+guide/data/*.log
+guide/data/render_jobs_audit.json
+guide/data/batch_reassemble_report.json
+guide/data/e2e_*
+guide/web/test-results/
 
 plans/
 examples/

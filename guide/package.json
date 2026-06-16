@@ -1,0 +1,20 @@
+{
+  "name": "pixelle-guide-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "零一数字人导购平台 — Pixelle-Video 子项目",
+  "workspaces": [
+    "web",
+    "server"
+  ],
+  "scripts": {
+    "dev": "npm run dev:server & npm run dev:web",
+    "dev:server": "npm run dev --workspace=server",
+    "dev:web": "npm run dev --workspace=web",
+    "build": "npm run build --workspace=server && npm run build --workspace=web",
+    "test": "npm run test --workspace=server && python3 -m unittest discover -s worker/tests",
+    "test:worker": "make -C .. test-guide",
+    "validate:renders": "make -C .. validate-renders",
+    "validate:renders:ci": "make -C .. validate-renders-ci"
+  }
+}
