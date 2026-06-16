@@ -56,6 +56,10 @@ export default function TemplateListPage() {
       if (statusFilter) params.set('status', statusFilter);
 
       const res = await fetch(`/api/templates?${params}`);
+      if (!res.ok) {
+        const body = await parseApiErrorResponse(res);
+        throw new Error(formatApiErrorMessage(body, '加载模板列表失败'));
+      }
       const data = await res.json();
       if (Array.isArray(data)) {
         setTemplates(data);
@@ -105,11 +109,16 @@ export default function TemplateListPage() {
 
   const deleteTemplate = async (id: string) => {
     try {
-      await fetch(`/api/templates/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/templates/${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const body = await parseApiErrorResponse(res);
+        throw new Error(formatApiErrorMessage(body, '删除模板失败'));
+      }
       setDeleteTarget(null);
       fetchTemplates();
     } catch (e) {
       console.error('Failed to delete', e);
+      showApiToast(e instanceof Error ? e.message : '删除模板失败', { destructive: true });
     }
   };
 
@@ -122,13 +131,14 @@ export default function TemplateListPage() {
         body: JSON.stringify({ status: statusTarget.status }),
       });
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || 'Failed to update template status');
+        const body = await parseApiErrorResponse(res);
+        throw new Error(formatApiErrorMessage(body, '更新模板状态失败'));
       }
       setStatusTarget(null);
       fetchTemplates();
     } catch (e) {
       console.error('Failed to update template status', e);
+      showApiToast(e instanceof Error ? e.message : '更新模板状态失败', { destructive: true });
     }
   };
 

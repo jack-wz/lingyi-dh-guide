@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { IconUser, IconPlus, IconTrash } from '../components/Icons';
 import ConfirmDialog from '../components/ConfirmDialog';
 import TextInputDialog from '../components/TextInputDialog';
+import { formatApiErrorMessage, parseApiErrorResponse } from '../utils/apiError';
 
 interface DigitalHuman {
   id: string;
@@ -23,9 +24,14 @@ export default function DigitalHumanListPage() {
   const fetchHumans = async () => {
     try {
       const res = await fetch('/api/digital-humans');
+      if (!res.ok) {
+        const body = await parseApiErrorResponse(res);
+        throw new Error(formatApiErrorMessage(body, '加载数字人列表失败'));
+      }
       setHumans(await res.json());
     } catch (e) {
       console.error('Failed to fetch digital humans', e);
+      setErrorMessage(e instanceof Error ? e.message : '加载数字人列表失败');
     } finally {
       setLoading(false);
     }
@@ -42,12 +48,15 @@ export default function DigitalHumanListPage() {
     if (!deleteTarget) return;
     try {
       const res = await fetch(`/api/digital-humans/${deleteTarget.id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Delete failed');
+      if (!res.ok) {
+        const body = await parseApiErrorResponse(res);
+        throw new Error(formatApiErrorMessage(body, '删除数字人失败'));
+      }
       setHumans((prev) => prev.filter((h) => h.id !== deleteTarget.id));
       setDeleteTarget(null);
     } catch (err) {
       console.error('Failed to delete digital human', err);
-      setErrorMessage('删除失败，请重试');
+      setErrorMessage(err instanceof Error ? err.message : '删除失败，请重试');
     }
   };
 
@@ -58,12 +67,16 @@ export default function DigitalHumanListPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name }),
       });
+      if (!res.ok) {
+        const body = await parseApiErrorResponse(res);
+        throw new Error(formatApiErrorMessage(body, '创建数字人失败'));
+      }
       const dh = await res.json();
       setShowCreateDialog(false);
       navigate(`/digital-humans/${dh.id}`);
     } catch (e) {
       console.error('Failed to create', e);
-      setErrorMessage('创建失败，请重试');
+      setErrorMessage(e instanceof Error ? e.message : '创建失败，请重试');
     }
   };
 

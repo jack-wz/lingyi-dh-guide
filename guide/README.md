@@ -69,3 +69,15 @@ npm run dev:web      # :5173，需 VITE_API_TARGET=http://127.0.0.1:8000 或 :30
 ```bash
 uv run python guide/scripts/verify_providers.py
 ```
+
+## 测试
+
+```bash
+cd guide
+make test-guide-server   # Express API 单测（57 tests）
+make test-guide          # Worker 单测
+make test-guide-fast     # 时间轴 / ASS 快速门禁
+make smoke-integrator SUBMIT_ONLY=1
+```
+
+Web E2E（需 dev server 在 `:5180`）：`cd web && npx playwright test`

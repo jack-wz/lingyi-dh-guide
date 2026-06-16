@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { formatApiErrorMessage, parseApiErrorResponse } from '../utils/apiError';
 
 interface RenderJob {
   id: string;
@@ -125,8 +126,12 @@ export default function RenderResultPage() {
     if (!id) return;
     const res = await fetch(`/api/renders/${id}/retry`, { method: 'POST' });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      setMessageDialog({ title: '重试失败', message: err.error || '无法重试该任务。', destructive: true });
+      const body = await parseApiErrorResponse(res);
+      setMessageDialog({
+        title: '重试失败',
+        message: formatApiErrorMessage(body, '无法重试该任务'),
+        destructive: true,
+      });
       return;
     }
     const next = await res.json();
@@ -143,8 +148,12 @@ export default function RenderResultPage() {
         body: JSON.stringify({ template_id: job.template_id }),
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        setMessageDialog({ title: '重拼失败', message: err.error || '无法重拼该任务。', destructive: true });
+        const body = await parseApiErrorResponse(res);
+        setMessageDialog({
+          title: '重拼失败',
+          message: formatApiErrorMessage(body, '无法重拼该任务'),
+          destructive: true,
+        });
         return;
       }
       const payload = await res.json();
@@ -159,8 +168,12 @@ export default function RenderResultPage() {
     if (!id) return;
     const res = await fetch(`/api/renders/${id}/duplicate`, { method: 'POST' });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      setMessageDialog({ title: '复制失败', message: err.error || '无法复制该任务。', destructive: true });
+      const body = await parseApiErrorResponse(res);
+      setMessageDialog({
+        title: '复制失败',
+        message: formatApiErrorMessage(body, '无法复制该任务'),
+        destructive: true,
+      });
       return;
     }
     const next = await res.json();

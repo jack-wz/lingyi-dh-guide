@@ -24,6 +24,7 @@ import { normalizeSegmentObjects, resolveElementTiming } from '../utils/elementT
 import { SUBTITLE_STYLES } from '../data/subtitleStyles';
 import { libraryPayloadToBrandPack } from '@shared/brandPack';
 import EditorCoachmark from '../components/EditorCoachmark';
+import { formatApiErrorMessage, parseApiErrorResponse } from '../utils/apiError';
 
 import { applyBrandLibraryItemToDsl } from '../utils/applyBrandPack';
 import { createEditorObject, getObjectLabel } from '../utils/editorObjects';
@@ -556,11 +557,10 @@ export default function EditorPage() {
       body: JSON.stringify(body),
     });
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      const code = err.error_code ? `[${err.error_code}] ` : '';
+      const body = await parseApiErrorResponse(res);
       setMessageDialog({
         title: '生成失败',
-        message: `${code}${err.error || '无法提交生成任务，请检查任务参数后重试。'}`,
+        message: formatApiErrorMessage(body, '无法提交生成任务，请检查任务参数后重试'),
         destructive: true,
       });
       return;

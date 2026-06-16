@@ -31,6 +31,8 @@
 - 时间轴审计：分镜已内嵌音轨时不再误报阻塞性 TTS 缺失
 - `smoke_integrator.sh`：修复 `set -u` 下空 `ARGS` 导致全量 smoke 无法启动
 - Worker 长任务期间后台心跳（15s）；`make restart-worker` 热重启 Worker
+- 前端主要页面统一 `apiError` 结构化错误展示（模板中心 / 我的视频 / 数字人 / 渲染详情 / 编辑器提交）
+- CI：`guide-server` job 运行 Express API 单测（`make test-guide-server`）
 
 ### Changed
 

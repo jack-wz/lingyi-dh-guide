@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { showApiToast } from '../components/ApiToast';
+import { formatApiErrorMessage, parseApiErrorResponse } from '../utils/apiError';
 
 interface RenderJob {
   id: string;
@@ -64,6 +66,10 @@ export default function PersonalCenterPage() {
         fetch(`/api/renders?limit=${PAGE_SIZE}&offset=${offset}`),
         fetch('/api/tasks?scope=active&limit=20'),
       ]);
+      if (!rendersRes.ok) {
+        const body = await parseApiErrorResponse(rendersRes);
+        throw new Error(formatApiErrorMessage(body, '加载视频列表失败'));
+      }
       const payload = await rendersRes.json();
       const items: RenderJob[] = Array.isArray(payload) ? payload : (payload.items || []);
       setJobs(items.filter(j => ['completed', 'failed', 'cancelled'].includes(j.status)));
@@ -72,6 +78,7 @@ export default function PersonalCenterPage() {
       setActiveTasks(tasksPayload.items || []);
     } catch (e) {
       console.error('Failed to fetch render jobs', e);
+      showApiToast(e instanceof Error ? e.message : '加载视频列表失败', { destructive: true });
     } finally {
       setLoading(false);
     }
@@ -109,13 +116,20 @@ export default function PersonalCenterPage() {
     if (!deleteTarget) return;
     try {
       const res = await fetch(`/api/renders/${deleteTarget.id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Delete failed');
+      if (!res.ok) {
+        const body = await parseApiErrorResponse(res);
+        throw new Error(formatApiErrorMessage(body, '删除渲染记录失败'));
+      }
       setJobs((prev) => prev.filter((j) => j.id !== deleteTarget.id));
       if (selectedVideo?.id === deleteTarget.id) setSelectedVideo(null);
       setDeleteTarget(null);
     } catch (err) {
       console.error('Failed to delete render job', err);
-      setMessageDialog({ title: '删除失败', message: '删除渲染记录失败，请重试。', destructive: true });
+      setMessageDialog({
+        title: '删除失败',
+        message: err instanceof Error ? err.message : '删除渲染记录失败，请重试。',
+        destructive: true,
+      });
     }
   };
 
