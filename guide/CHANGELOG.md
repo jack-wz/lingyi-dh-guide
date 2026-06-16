@@ -36,6 +36,7 @@
 - Playwright：`tests/e2e/playground.spec.ts`；`make test-guide-e2e`；CI `guide-e2e` job
 - Playground 健康检查：代理 `/api/guide/health` 不可用时回退 `/api/health`（直连导购 Server / E2E）
 - 运维脚本：`scripts/start_internal.sh` / `make start-guide-internal`（`:8000` 已占用时单独拉起 `:3001` + Worker）
+- `start_platform.sh`：检测到 `:8000` 已运行时跳过 API 启动并自动执行 `start-guide-internal`
 
 ### Changed
 

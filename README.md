@@ -40,6 +40,7 @@ https://github.com/user-attachments/assets/a42e7457-fcc8-40da-83fc-784c45a8b95d
 | [集成方 15 分钟上手](guide/docs/INTEGRATOR_QUICKSTART.md) | **推荐入口** — 预检、配 Key、启动、首条渲染 smoke |
 | [导购模块说明](guide/README.md) | 目录结构、API 路由、环境变量 |
 | 一键启动 | `chmod +x start_platform.sh && ./start_platform.sh` |
+| `:8000` 已占用时 | `make -C guide start-guide-internal`（单独拉起导购 `:3001` + Worker） |
 | 健康检查 | http://127.0.0.1:8000/api/guide/health |
 | 编辑器 | http://127.0.0.1:5173 |
 | Playground | http://127.0.0.1:5173/debug（一键 smoke 渲染） |

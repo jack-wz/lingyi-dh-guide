@@ -55,7 +55,7 @@ API_URL="${SERVER_URL:-http://127.0.0.1:8000}"
 if curl -sf "${API_URL}/api/guide/health" >/dev/null 2>&1; then
   ok "Guide API health (${API_URL}/api/guide/health)"
 else
-  warn "Guide API not reachable at $API_URL — start with: ./start_platform.sh (from repo root)"
+  warn "Guide API not reachable at $API_URL — start: ./start_platform.sh  or  make -C guide start-guide-internal"
 fi
 
 if [[ "$FAIL" -ne 0 ]]; then
