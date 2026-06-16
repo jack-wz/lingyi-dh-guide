@@ -108,3 +108,24 @@ async def proxy_hyperframes(request: Request, path: str = ""):
 async def proxy_config(request: Request, path: str = ""):
     suffix = f"/{path}" if path else ""
     return await _proxy(request, f"/api/config{suffix}")
+
+
+@router.api_route("/assets", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
+@router.api_route("/assets/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
+async def proxy_assets(request: Request, path: str = ""):
+    suffix = f"/{path}" if path else ""
+    return await _proxy(request, f"/api/assets{suffix}")
+
+
+@router.api_route("/tasks", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
+@router.api_route("/tasks/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
+async def proxy_tasks(request: Request, path: str = ""):
+    suffix = f"/{path}" if path else ""
+    return await _proxy(request, f"/api/tasks{suffix}")
+
+
+@router.api_route("/ops", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
+@router.api_route("/ops/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
+async def proxy_ops(request: Request, path: str = ""):
+    suffix = f"/{path}" if path else ""
+    return await _proxy(request, f"/api/ops{suffix}")

@@ -15,11 +15,14 @@ export interface Segment {
   overlays: Array<{
     id: string;
     asset_url: string;
+    asset_key?: string;
     position: { x: number; y: number };
     scale: number;
     seg_start_time: number;
     duration: number;
     animation: 'none' | 'fadeIn' | 'scaleIn';
+    render_width_pct?: number;
+    render_height_pct?: number;
   }>;
   thumbnail_url?: string;
   diagnostics?: string[];
@@ -67,6 +70,7 @@ export interface TemplateVariable {
   description: string;
   example_value: string;
   required: boolean;
+  default_value?: string;
 }
 
 export interface GlobalConfig {
@@ -84,6 +88,7 @@ export interface GlobalConfig {
   brand_color?: string;
   output_resolution?: string;
   aspect_ratio?: '9:16' | '16:9' | '1:1';
+  asset_map?: Record<string, string>;
 }
 
 export interface DSL {
@@ -98,6 +103,8 @@ export interface DSL {
     input_mode?: 'template' | 'topic' | 'script';
     topic?: string;
     script_text?: string;
+    digital_human_id?: string;
+    asset_map?: Record<string, string>;
   };
   globalConfig: GlobalConfig;
   segments: Segment[];
@@ -113,7 +120,7 @@ export type CanvasElement =
   | { type: 'none' };
 
 export type TrackId = 'video' | 'audio' | 'subtitle' | 'overlay';
-export type AssetTab = 'scene' | 'subtitle' | 'sound' | 'anim' | 'dh';
+export type AssetTab = 'scene' | 'subtitle' | 'sound' | 'anim' | 'dh' | 'sticker';
 
 export interface EditorState {
   dsl: DSL | null;
@@ -137,6 +144,9 @@ export interface EditorState {
   setCurrentSegIndex: (i: number) => void;
   setPlaying: (p: boolean) => void;
   setCurrentTime: (t: number) => void;
+  seekToTime: (t: number, opts?: { syncSegment?: boolean; clearSelection?: boolean; stopPlayback?: boolean }) => void;
+  seekToSegment: (index: number) => void;
+  togglePlayback: () => void;
   setSelectedElement: (el: CanvasElement) => void;
   setShowPresets: (show: boolean) => void;
   setTimelineZoom: (z: number) => void;
@@ -217,9 +227,52 @@ export const useEditorStore = create<EditorState>((set, get) => ({
       return { ...draft, segments };
     });
   },
-  setCurrentSegIndex: (i) => set({ currentSegIndex: i, selectedElement: { type: 'none' } }),
+  setCurrentSegIndex: (i) => {
+    const start = get().getSegmentStartTime(i);
+    set({ currentSegIndex: i, currentTime: start, selectedElement: { type: 'none' }, playing: false });
+  },
   setPlaying: (p) => set({ playing: p }),
   setCurrentTime: (t) => set({ currentTime: t }),
+  seekToTime: (t, opts = { syncSegment: true, clearSelection: true, stopPlayback: true }) => {
+    const { dsl } = get();
+    if (!dsl) return;
+    const total = get().getTotalDuration();
+    const clamped = Math.max(0, Math.min(t, total));
+    let segIndex = 0;
+    if (opts.syncSegment !== false) {
+      let acc = 0;
+      for (let i = 0; i < dsl.segments.length; i += 1) {
+        const dur = dsl.segments[i].duration_sec;
+        if (clamped < acc + dur || i === dsl.segments.length - 1) {
+          segIndex = i;
+          break;
+        }
+        acc += dur;
+      }
+    } else {
+      segIndex = get().currentSegIndex;
+    }
+    const patch: Partial<EditorState> = { currentTime: clamped };
+    if (opts.stopPlayback !== false) patch.playing = false;
+    if (opts.syncSegment !== false) patch.currentSegIndex = segIndex;
+    if (opts.clearSelection !== false) patch.selectedElement = { type: 'none' };
+    set(patch);
+  },
+  seekToSegment: (index) => {
+    const start = get().getSegmentStartTime(index);
+    get().seekToTime(start, { syncSegment: true, clearSelection: true });
+  },
+  togglePlayback: () => {
+    const { playing, currentTime, getTotalDuration, seekToTime } = get();
+    if (playing) {
+      set({ playing: false });
+      return;
+    }
+    const total = getTotalDuration();
+    if (total <= 0) return;
+    if (currentTime >= total - 0.05) seekToTime(0, { syncSegment: true, clearSelection: false });
+    set({ playing: true });
+  },
   setSelectedElement: (el) => set({ selectedElement: el }),
   setShowPresets: (show) => set({ showPresets: show }),
   setTimelineZoom: (z) => set({ timelineZoom: Math.max(0.5, Math.min(4, z)) }),

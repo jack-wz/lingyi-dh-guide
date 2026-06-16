@@ -16,8 +16,22 @@ interface RenderJob {
   completed_at: string;
 }
 
+interface UnifiedTask {
+  id: string;
+  task_type: 'render' | 'dh_training';
+  status: string;
+  progress: number;
+  stage: string;
+  title: string;
+  subtitle: string;
+  error_message: string;
+  link: string;
+  updated_at: string;
+}
+
 export default function PersonalCenterPage() {
   const [jobs, setJobs] = useState<RenderJob[]>([]);
+  const [activeTasks, setActiveTasks] = useState<UnifiedTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedVideo, setSelectedVideo] = useState<RenderJob | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<RenderJob | null>(null);
@@ -25,9 +39,14 @@ export default function PersonalCenterPage() {
 
   const fetchJobs = async () => {
     try {
-      const res = await fetch('/api/renders');
-      const data: RenderJob[] = await res.json();
+      const [rendersRes, tasksRes] = await Promise.all([
+        fetch('/api/renders'),
+        fetch('/api/tasks?scope=active&limit=20'),
+      ]);
+      const data: RenderJob[] = await rendersRes.json();
       setJobs(data.filter(j => ['completed', 'failed', 'cancelled'].includes(j.status)));
+      const tasksPayload = await tasksRes.json();
+      setActiveTasks(tasksPayload.items || []);
     } catch (e) {
       console.error('Failed to fetch render jobs', e);
     } finally {
@@ -37,7 +56,6 @@ export default function PersonalCenterPage() {
 
   useEffect(() => {
     fetchJobs();
-    // Refresh every 5 seconds
     const interval = setInterval(fetchJobs, 5000);
     return () => clearInterval(interval);
   }, []);
@@ -85,6 +103,30 @@ export default function PersonalCenterPage() {
     <div className="max-w-5xl mx-auto p-6">
       <h1 className="text-2xl font-bold text-foreground mb-2">个人中心</h1>
       <p className="text-muted-foreground mb-6">查看您的视频生成历史记录</p>
+
+      {activeTasks.length > 0 && (
+        <section className="mb-8">
+          <h2 className="text-lg font-semibold text-foreground mb-4">进行中 ({activeTasks.length})</h2>
+          <div className="space-y-2">
+            {activeTasks.map((task) => (
+              <Link
+                key={`${task.task_type}-${task.id}`}
+                to={task.link}
+                className="flex items-center gap-4 bg-card border border-border rounded-xl p-4 hover:border-brand-blue/40 transition-colors"
+              >
+                <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${task.task_type === 'dh_training' ? 'bg-brand-amber animate-pulse' : 'bg-brand-blue animate-pulse'}`} />
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-foreground truncate">{task.title}</div>
+                  <div className="text-xs text-muted-foreground mt-0.5">
+                    {task.task_type === 'dh_training' ? '数字人训练' : '视频渲染'} · {task.stage || task.status}
+                  </div>
+                </div>
+                <div className="text-sm text-muted-foreground shrink-0">{Math.round(task.progress)}%</div>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4 mb-8">

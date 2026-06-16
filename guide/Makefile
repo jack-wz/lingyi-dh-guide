@@ -13,7 +13,7 @@ RUN_PYTEST := "$(SCRIPTS)/run_pytest.sh"
 TEMPLATE_ID ?= 517a1920-6376-47ef-871b-9badbaa16b53
 MIN_SEGMENTS ?= 4
 
-.PHONY: help test-guide test-guide-fast test-guide-timeline lint-guide \
+.PHONY: help setup-worker-venv test-guide test-guide-fast test-guide-timeline lint-guide \
 	validate-renders validate-renders-strict validate-renders-ci validate-render-job \
 	batch-reassemble batch-reassemble-dry
 
@@ -27,8 +27,12 @@ help:
 	@echo "  validate-render-job     Audit one job (make validate-render-job JOB=<uuid>)"
 	@echo "  batch-reassemble-dry    Preview jobs that would be reassembled"
 	@echo "  batch-reassemble        Reassemble misaligned jobs (--needs-fix)"
+	@echo "  setup-worker-venv       Install worker venv deps (requests, pytest, ...)"
 
-test-guide:
+setup-worker-venv:
+	@"$(SCRIPTS)/setup_worker_venv.sh"
+
+test-guide: setup-worker-venv
 	$(RUN_PYTEST) guide/worker/tests -q
 
 test-guide-timeline:
@@ -37,6 +41,7 @@ test-guide-timeline:
 		guide/worker/tests/test_ass_generator.py \
 		guide/worker/tests/test_audit_render_job.py \
 		guide/worker/tests/test_timeline_validate_pipeline.py \
+		guide/worker/tests/test_whisper_aligner.py \
 		-q
 
 test-guide-fast: test-guide-timeline

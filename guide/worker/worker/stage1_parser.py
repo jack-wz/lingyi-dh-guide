@@ -1,5 +1,7 @@
 """Stage 1: Template parsing - variable substitution, timeline & overlay resolution."""
 
+from worker.asset_resolver import get_asset_map_from_dsl, resolve_segment_overlays
+
 
 def _replace_vars(value, resolved_vars: dict) -> str:
     text = "" if value is None else str(value)
@@ -79,6 +81,7 @@ def parse_template(dsl: dict, variables: dict) -> dict:
     global_config = dsl.get("globalConfig", {})
     segments = dsl.get("segments", [])
     dsl_variables = dsl.get("variables", [])
+    asset_map = get_asset_map_from_dsl(dsl)
 
     # Merge variables: user values override defaults
     resolved_vars = {}
@@ -133,7 +136,7 @@ def parse_template(dsl: dict, variables: dict) -> dict:
             normalized_objects.append(obj)
         seg["objects"] = normalized_objects
 
-        seg_overlays = list(seg.get("overlays", []) or [])
+        seg_overlays = resolve_segment_overlays(list(seg.get("overlays", []) or []), asset_map)
         for obj in normalized_objects:
             obj_overlay = _object_to_overlay(obj, duration, i)
             if obj_overlay:

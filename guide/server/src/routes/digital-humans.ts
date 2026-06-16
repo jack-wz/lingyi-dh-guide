@@ -155,7 +155,7 @@ router.post('/:id/train', (req: Request, res: Response) => {
     ).run(providerJobId, req.params.id);
 
     if (provider === 'cenker' || provider === 'kie-yuntts') {
-      spawnDetachedPython('train_digital_human.py', ['--id', req.params.id], 'DH-Train');
+      spawnDetachedPython('train_digital_human.py', ['--id', String(req.params.id)], 'DH-Train');
     }
 
     const updated = db.prepare('SELECT * FROM digital_humans WHERE id = ?').get(req.params.id);

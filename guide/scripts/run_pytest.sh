@@ -7,5 +7,9 @@ cd "$REPO_ROOT"
 if command -v uv >/dev/null 2>&1; then
   exec uv run pytest "$@"
 fi
+VENV_PY="${ROOT}/worker/.venv/bin/python3"
+if [[ -x "${VENV_PY}" ]]; then
+  exec "${VENV_PY}" -m pytest "$@"
+fi
 cd "${ROOT}/worker"
 exec python3 -m pytest "$@"

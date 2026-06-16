@@ -3,7 +3,7 @@ import { IconZap, IconPlay, IconSettings, IconMic, IconImage, IconFilm, IconType
 
 const API_BASE = '/api';
 
-type Tab = 'api' | 'pipeline' | 'prompts' | 'models';
+type Tab = 'api' | 'pipeline' | 'prompts' | 'models' | 'ops';
 
 interface LogEntry { time: string; level: 'info' | 'success' | 'error' | 'warn'; msg: string }
 
@@ -26,6 +26,8 @@ interface Config {
     ken_burns_zoom_end: number;
     timeline_validate: boolean;
     timeline_validate_strict: boolean;
+    subtitle_aligner: 'whisper' | 'heuristic';
+    whisper_model: string;
   };
 }
 
@@ -56,6 +58,7 @@ export default function DebugPage() {
     { id: 'pipeline', label: '流水线', icon: IconFilm },
     { id: 'prompts', label: '提示词', icon: IconType },
     { id: 'models', label: '模型配置', icon: IconSettings },
+    { id: 'ops', label: '运维工具', icon: IconZap },
   ];
 
   return (
@@ -83,6 +86,7 @@ export default function DebugPage() {
             {tab === 'pipeline' && <PipelinePanel apiCall={apiCall} loading={loading} />}
             {tab === 'prompts' && <PromptsPanel log={log} />}
             {tab === 'models' && <ModelsPanel log={log} />}
+            {tab === 'ops' && <OpsPanel apiCall={apiCall} loading={loading} />}
           </div>
 
           <div className="bg-card border border-border rounded-lg overflow-hidden">
@@ -309,6 +313,32 @@ function PromptsPanel({ log }: { log: (l: LogEntry['level'], m: string) => void 
             />
             严格模式（有 warn 也判失败）
           </label>
+          <div className="col-span-2">
+            <label className="text-[12px] text-muted-foreground block mb-1">字幕对齐</label>
+            <select
+              value={config.pipeline.subtitle_aligner || 'whisper'}
+              onChange={e => setConfig({
+                ...config,
+                pipeline: { ...config.pipeline, subtitle_aligner: e.target.value as 'whisper' | 'heuristic' },
+              })}
+              className="w-full h-9 bg-secondary border border-border rounded-md px-2 text-sm"
+            >
+              <option value="whisper">Whisper（词级 ASR，失败回退启发式）</option>
+              <option value="heuristic">启发式（按字数分配时长）</option>
+            </select>
+          </div>
+          <div className="col-span-2">
+            <label className="text-[12px] text-muted-foreground block mb-1">Whisper 模型</label>
+            <input
+              value={config.pipeline.whisper_model || 'base'}
+              onChange={e => setConfig({
+                ...config,
+                pipeline: { ...config.pipeline, whisper_model: e.target.value },
+              })}
+              className="w-full h-9 bg-secondary border border-border rounded-md px-2 text-sm font-mono"
+              placeholder="tiny / base / small"
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -407,6 +437,67 @@ function ModelsPanel({ log }: { log: (l: LogEntry['level'], m: string) => void }
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/* ===== 运维工具面板 ===== */
+function OpsPanel({ apiCall, loading }: { apiCall: (m: string, p: string, b?: any) => Promise<any>; loading: boolean }) {
+  const [templateId, setTemplateId] = useState('');
+  const [jobIds, setJobIds] = useState('');
+
+  return (
+    <div className="space-y-4">
+      <div className="bg-card border border-border rounded-lg p-4 space-y-3">
+        <h3 className="text-[14px] font-medium">渲染任务审计</h3>
+        <p className="text-[12px] text-muted-foreground">扫描 `data/renders/job_*`，输出 TTS/字幕/贴纸时间轴问题清单。</p>
+        <button
+          onClick={() => apiCall('GET', '/ops/render-audit')}
+          disabled={loading}
+          className="h-9 px-4 text-[14px] bg-primary text-primary-foreground rounded-md hover:opacity-90 disabled:opacity-50"
+        >
+          生成审计报告
+        </button>
+      </div>
+
+      <div className="bg-card border border-border rounded-lg p-4 space-y-3">
+        <h3 className="text-[14px] font-medium">批量重拼（batch-reassemble）</h3>
+        <p className="text-[12px] text-muted-foreground">
+          对已有分镜 clip 重新 FFmpeg 组装，跳过 TTS/口型。默认仅处理审计标记为需修复的任务。
+        </p>
+        <Field label="模板 ID（可选）" value={templateId} onChange={setTemplateId} />
+        <Field
+          label="指定 Job ID（可选，逗号分隔）"
+          value={jobIds}
+          onChange={setJobIds}
+        />
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => apiCall('POST', '/ops/batch-reassemble', {
+              dry_run: true,
+              needs_fix: true,
+              template_id: templateId || undefined,
+              job_ids: jobIds.split(',').map(s => s.trim()).filter(Boolean),
+            })}
+            disabled={loading}
+            className="h-9 px-4 text-[14px] border border-border rounded-md hover:bg-secondary disabled:opacity-50"
+          >
+            预览（dry-run）
+          </button>
+          <button
+            onClick={() => apiCall('POST', '/ops/batch-reassemble', {
+              dry_run: false,
+              needs_fix: true,
+              template_id: templateId || undefined,
+              job_ids: jobIds.split(',').map(s => s.trim()).filter(Boolean),
+            })}
+            disabled={loading}
+            className="h-9 px-4 text-[14px] bg-brand-blue text-primary-foreground rounded-md hover:opacity-90 disabled:opacity-50"
+          >
+            执行批量重拼
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

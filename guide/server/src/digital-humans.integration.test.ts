@@ -44,6 +44,7 @@ describe('digital human training lifecycle API', () => {
   before(async () => {
     process.env.DATA_DIR = mkdtempSync(join(tmpdir(), 'digital-human-api-'));
     process.env.DISABLE_RENDER_WORKER = '1';
+    process.env.DIGITAL_HUMAN_TRAINING_PROVIDER = 'local-assets';
 
     const appModule = await import('./app.js');
     const dbModule = await import('./db/database.js');
@@ -63,6 +64,7 @@ describe('digital human training lifecycle API', () => {
     delete process.env.DATA_DIR;
     delete process.env.DISABLE_RENDER_WORKER;
     delete process.env.DIGITAL_HUMAN_TRAINING_MODE;
+    delete process.env.DIGITAL_HUMAN_TRAINING_PROVIDER;
   });
 
   it('starts new records in pending_assets and reports missing training assets', async () => {

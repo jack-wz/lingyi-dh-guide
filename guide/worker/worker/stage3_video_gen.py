@@ -16,6 +16,7 @@ def generate_segment_videos(
     on_progress=None,
     voice_sample_url: str = "",
     avatar_adapter=None,
+    tts_adapter=None,
 ) -> list[dict]:
     """Generate video clips for each segment.
 
@@ -33,6 +34,7 @@ def generate_segment_videos(
         on_progress: Progress callback
         voice_sample_url: URL/path to voice sample for re-cloning if needed
         avatar_adapter: Optional AvatarAdapter instance for talking-head generation
+        tts_adapter: Optional TTSAdapter instance for speech synthesis
 
     Returns:
         Segments with clip_path added
@@ -41,10 +43,10 @@ def generate_segment_videos(
         raise RuntimeError("FFmpeg is not available. Install FFmpeg and ensure `ffmpeg` is on PATH.")
 
     ensure_dir(work_dir)
-    from worker.ai_clients.yuntts_client import YunTTSClient
     from worker.ai_clients.talking_head_client import TalkingHeadClient
+    from worker.tts_adapter import tts_registry
 
-    tts = YunTTSClient()
+    tts = tts_adapter or tts_registry.get("yuntts")
     talking_head = TalkingHeadClient()
     canvas_w = global_config.get("canvas_width", 1080)
     canvas_h = global_config.get("canvas_height", 1920)
@@ -70,7 +72,7 @@ def generate_segment_videos(
         if text and voice_clone_id:
             print(f"[Stage3] Segment {i+1}: Generating TTS audio...")
             audio_path = os.path.join(work_dir, f"tts_{i}.wav")
-            tts_path = tts.synthesize_speech(text, voice_clone_id, audio_path)
+            tts_path = tts.synthesize(text, voice_clone_id, audio_path)
 
             if not tts_path:
                 print(f"[Stage3] Segment {i+1}: TTS failed with stored voice_id, trying to re-clone...")
@@ -81,8 +83,8 @@ def generate_segment_videos(
                         text, voice_sample_path, audio_path, voice_name=f"vh_{i}"
                     )
                 else:
-                    print(f"[Stage3] Segment {i+1}: No voice sample available, trying Edge TTS...")
-                    tts_path = tts.synthesize_edge_tts(text, audio_path)
+                    print(f"[Stage3] Segment {i+1}: No voice sample available, trying fallback TTS...")
+                    tts_path = tts.synthesize_fallback(text, audio_path)
 
             if tts_path and os.path.exists(tts_path):
                 try:

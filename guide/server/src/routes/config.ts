@@ -28,6 +28,8 @@ interface Config {
     ken_burns_zoom_end: number;
     timeline_validate: boolean;
     timeline_validate_strict: boolean;
+    subtitle_aligner: 'whisper' | 'heuristic';
+    whisper_model: string;
   };
 }
 
@@ -50,6 +52,8 @@ const DEFAULT_CONFIG: Config = {
     ken_burns_zoom_end: 1.15,
     timeline_validate: true,
     timeline_validate_strict: false,
+    subtitle_aligner: 'whisper',
+    whisper_model: 'base',
   },
 };
 

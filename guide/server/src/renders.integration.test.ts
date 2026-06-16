@@ -46,7 +46,7 @@ async function createReadyDigitalHuman() {
     voice_sample_url: '/uploads/voice.wav',
   });
   assert.equal(updated.status, 200);
-  const trained = await request('POST', `/api/digital-humans/${id}/train`, {});
+  const trained = await request('POST', `/api/digital-humans/${id}/train`, { provider: 'local-assets' });
   assert.equal(trained.status, 200);
   assert.equal((trained.json as { status: string }).status, 'ready');
   return id;
@@ -67,6 +67,7 @@ describe('render API integration', () => {
   before(async () => {
     process.env.DATA_DIR = mkdtempSync(join(tmpdir(), 'render-api-'));
     process.env.DISABLE_RENDER_WORKER = '1';
+    process.env.DIGITAL_HUMAN_TRAINING_PROVIDER = 'local-assets';
 
     const appModule = await import('./app.js');
     const dbModule = await import('./db/database.js');
@@ -86,6 +87,7 @@ describe('render API integration', () => {
     closeDb();
     delete process.env.DATA_DIR;
     delete process.env.DISABLE_RENDER_WORKER;
+    delete process.env.DIGITAL_HUMAN_TRAINING_PROVIDER;
   });
 
   it('creates, claims, updates, logs, cancels, and duplicates a standard render job', async () => {

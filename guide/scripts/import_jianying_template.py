@@ -56,15 +56,17 @@ def resolve_template(raw: dict) -> dict:
     dsl = deepcopy(raw)
     dsl["globalConfig"]["bgm_url"] = uploaded.get("bgm", "")
     dsl["globalConfig"]["brand_logo_url"] = uploaded.get("logo", "")
+    dsl["globalConfig"]["asset_map"] = uploaded
     dsl["meta"]["coverUrl"] = uploaded.get("scene_1", "")
+    dsl["meta"]["asset_map"] = uploaded
 
     scene_keys = ["scene_1", "scene_2", "scene_3", "scene_4"]
     for i, seg in enumerate(dsl.get("segments", [])):
         if i < len(scene_keys):
             seg["scene_image_url"] = uploaded[scene_keys[i]]
         for ov in seg.get("overlays", []):
-            asset_key = ov.pop("asset_key", "")
-            if asset_key:
+            asset_key = str(ov.get("asset_key") or "").strip()
+            if asset_key and asset_key in uploaded:
                 ov["asset_url"] = uploaded[asset_key]
         seg.setdefault("layout", "avatar-center")
         seg.setdefault("overlays", seg.get("overlays") or [])

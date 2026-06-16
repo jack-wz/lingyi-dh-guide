@@ -6,11 +6,15 @@ import type { CanvasElement, DSL, EditorObject, Segment } from '../store/editorS
 import VideoCanvas from '../components/VideoCanvas';
 import Timeline from '../components/Timeline';
 import AssetLibrary from '../components/AssetLibrary';
+import LeftEditorPanel from '../components/LeftEditorPanel';
+import LayersPanel from '../components/LayersPanel';
+import { usePlaybackLoop } from '../hooks/usePlaybackLoop';
 import FileUploader from '../components/FileUploader';
 import { IconAlertCircle, IconArrowRight, IconCheck, IconChevronLeft, IconClock, IconCopy, IconEye, IconEyeOff, IconFilm, IconGrid, IconImage, IconLayers, IconLayout, IconMic, IconMousePointer, IconMusic, IconPalette, IconPlus, IconSave, IconSettings2, IconSparkles, IconTrash, IconType, IconUpload, IconUser, IconVideo, IconZap } from '../components/Icons';
 
 import { PRESET_TEMPLATES } from '../data/presetTemplates';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { applyVariableSubstitution, buildVariableDefaults } from '../utils/dslNormalize';
 
 interface PipelineOption {
   key: string;
@@ -102,6 +106,8 @@ const BRAND_KITS: BrandKit[] = [
 ];
 
 export default function EditorPage() {
+  usePlaybackLoop();
+  const togglePlayback = useEditorStore(s => s.togglePlayback);
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const dsl = useEditorStore(s => s.dsl);
@@ -121,6 +127,7 @@ export default function EditorPage() {
   const [saving, setSaving] = useState(false);
   const [savingState, setSavingState] = useState<'saved' | 'saving' | 'dirty'>('saved');
   const [selectedDhId, setSelectedDhId] = useState('');
+  const [variableValues, setVariableValues] = useState<Record<string, string>>({});
   const [showProps, setShowProps] = useState(true);
   const [pipelines, setPipelines] = useState<PipelineOption[]>([]);
   const [configDiagnostics, setConfigDiagnostics] = useState<ConfigDiagnostics | null>(null);
@@ -131,10 +138,10 @@ export default function EditorPage() {
   const [showRenderReview, setShowRenderReview] = useState(false);
   const [messageDialog, setMessageDialog] = useState<{ title: string; message: string; destructive?: boolean } | null>(null);
   const [showExitDialog, setShowExitDialog] = useState(false);
-  const [inspectorTab, setInspectorTab] = useState<'design' | 'scene' | 'object' | 'generate'>('design');
+  const [inspectorTab, setInspectorTab] = useState<'design' | 'scene' | 'layers' | 'object' | 'generate'>('design');
   const [sceneSearch, setSceneSearch] = useState('');
   const [activeTool, setActiveTool] = useState<ToolKey | null>(null);
-  const [leftPanelWidth, setLeftPanelWidth] = useState(176);
+  const [leftPanelWidth, setLeftPanelWidth] = useState(220);
   const [rightPanelWidth, setRightPanelWidth] = useState(288);
   const previousSelectionKey = useRef('');
 
@@ -183,6 +190,8 @@ export default function EditorPage() {
       setInputMode(raw.meta?.input_mode || 'template');
       setTopic(raw.meta?.topic || '');
       setScriptText(raw.meta?.script_text || '');
+      setSelectedDhId(raw.meta?.digital_human_id || raw.segments?.find((s: Segment) => s.avatar_id)?.avatar_id || '');
+      setVariableValues(buildVariableDefaults(raw));
       setSavingState('saved');
     } catch (e) { console.error(e); } finally { setLoading(false); }
   }, [id, setDsl]);
@@ -227,6 +236,7 @@ export default function EditorPage() {
           input_mode: inputMode,
           topic,
           script_text: scriptText,
+          digital_human_id: selectedDhId || dsl.meta.digital_human_id,
         },
       };
       await fetch(`/api/templates/${id}`, {
@@ -235,7 +245,7 @@ export default function EditorPage() {
       });
       setSavingState('saved');
     } catch (e) { console.error(e); setSavingState('dirty'); } finally { setSaving(false); }
-  }, [dsl, id, pipelineKey, inputMode, topic, scriptText]);
+  }, [dsl, id, pipelineKey, inputMode, topic, scriptText, selectedDhId]);
 
   const handleBack = () => {
     if (savingState === 'dirty') {
@@ -260,6 +270,11 @@ export default function EditorPage() {
     const handleKeyDown = (event: KeyboardEvent) => {
       const target = event.target as HTMLElement | null;
       const isTextEditing = target?.tagName === 'INPUT' || target?.tagName === 'TEXTAREA' || target?.isContentEditable;
+      if (event.code === 'Space' && !isTextEditing) {
+        event.preventDefault();
+        togglePlayback();
+        return;
+      }
       const mod = event.metaKey || event.ctrlKey;
       if (!mod) return;
       if (event.key.toLowerCase() === 's') {
@@ -285,7 +300,7 @@ export default function EditorPage() {
       window.removeEventListener('beforeunload', handleBeforeUnload);
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [redo, saveTemplate, savingState, undo]);
+  }, [redo, saveTemplate, savingState, togglePlayback, undo]);
 
   useEffect(() => {
     const selectionKey = getCanvasSelectionKey(selectedElement);
@@ -295,21 +310,42 @@ export default function EditorPage() {
     if (selectedElement.type === 'scene') {
       setInspectorTab('scene');
     } else if (
+      selectedElement.type === 'overlay'
+    ) {
+      setInspectorTab('layers');
+    } else if (
       selectedElement.type === 'object' ||
-      selectedElement.type === 'overlay' ||
       selectedElement.type === 'digital_human' ||
       selectedElement.type === 'subtitle'
     ) {
-      setInspectorTab('object');
-    } else if (inspectorTab === 'object') {
+      setInspectorTab(selectedElement.type === 'object' ? 'object' : 'layers');
+    } else if (inspectorTab === 'object' || inspectorTab === 'layers') {
       setInspectorTab('scene');
     }
   }, [inspectorTab, selectedElement]);
 
+  const bindDigitalHuman = (dhId: string) => {
+    setSelectedDhId(dhId);
+    if (!dsl) return;
+    updateDsl((draft) => ({
+      ...draft,
+      meta: { ...draft.meta, digital_human_id: dhId },
+      segments: draft.segments.map((seg) => ({
+        ...seg,
+        avatar_id: dhId,
+        digital_human: {
+          ...seg.digital_human,
+          enabled: seg.type === 'narration' ? true : seg.digital_human.enabled,
+        },
+      })),
+    }));
+    setSavingState('dirty');
+  };
+
   const executeRender = async () => {
     if (!dsl) return;
     const selectedPipeline = pipelines.find(p => p.key === pipelineKey);
-    const missing = getRenderIssues(dsl, selectedPipeline, selectedDhId, inputMode, topic, scriptText, configDiagnostics);
+    const missing = getRenderIssues(dsl, selectedPipeline, selectedDhId, inputMode, topic, scriptText, configDiagnostics, variableValues);
     if (missing.length > 0) return;
     await saveTemplate();
     const isAIFullAuto = pipelineKey === 'ai_full_auto';
@@ -320,7 +356,7 @@ export default function EditorPage() {
           digital_human_id: selectedDhId,
           topic,
           script_text: scriptText,
-          variables: {},
+          variables: variableValues,
           max_retries: 1,
         }
       : {
@@ -330,7 +366,7 @@ export default function EditorPage() {
           input_mode: inputMode,
           topic,
           script_text: scriptText,
-          variables: {},
+          variables: variableValues,
           max_retries: 1,
         };
     const res = await fetch(endpoint, {
@@ -475,7 +511,7 @@ export default function EditorPage() {
   if (!dsl) return <div className="h-screen flex items-center justify-center bg-background text-muted-foreground">模板不存在</div>;
   const totalDuration = dsl.segments.reduce((sum, seg) => sum + Number(seg.duration_sec || 0), 0);
   const selectedPipeline = pipelines.find(p => p.key === pipelineKey);
-  const renderIssues = getRenderIssues(dsl, selectedPipeline, selectedDhId, inputMode, topic, scriptText, configDiagnostics);
+  const renderIssues = getRenderIssues(dsl, selectedPipeline, selectedDhId, inputMode, topic, scriptText, configDiagnostics, variableValues);
   const readyToRender = renderIssues.length === 0;
   const filteredSegments = dsl.segments
     .map((seg, index) => ({ seg, index }))
@@ -522,14 +558,29 @@ export default function EditorPage() {
             addObject={addObject}
             showFeatureNote={showFeatureNote}
             selectedDhId={selectedDhId}
-            onSelectDh={setSelectedDhId}
+            onSelectDh={bindDigitalHuman}
           />
+          <button onClick={() => setShowPresets(true)}
+            className="h-9 px-3 text-[12px] flex items-center gap-1.5 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors"
+            title="预置模板">
+            <IconGrid size={16} />
+            预置
+          </button>
           <button onClick={() => setShowProps(!showProps)}
             className={`w-9 h-9 rounded-md flex items-center justify-center transition-colors ${showProps ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-accent'}`}>
             <IconLayout size={18} />
           </button>
-          <button onClick={() => window.open(`/api/hyperframes/${id}/preview-html`, '_blank')}
-            className="w-9 h-9 rounded-md flex items-center justify-center text-brand-blue hover:bg-brand-blue/10 transition-colors">
+          <button onClick={() => {
+              const params = new URLSearchParams({
+                variables: JSON.stringify(variableValues),
+                input_mode: inputMode,
+                topic,
+                script_text: scriptText,
+              });
+              window.open(`/api/hyperframes/${id}/preview-html?${params.toString()}`, '_blank');
+            }}
+            className="w-9 h-9 rounded-md flex items-center justify-center text-brand-blue hover:bg-brand-blue/10 transition-colors"
+            title="HyperFrames 预览（含变量与 objects 合成）">
             <IconFilm size={18} />
           </button>
           <button onClick={saveTemplate} disabled={saving}
@@ -547,20 +598,28 @@ export default function EditorPage() {
 
       {/* 主体 */}
       <div className="flex-1 flex overflow-hidden">
-        <SceneNavigator
-          items={filteredSegments}
-          search={sceneSearch}
-          setSearch={setSceneSearch}
-          totalCount={dsl.segments.length}
-          currentSegIndex={currentSegIndex}
-          onSelect={setCurrentSegIndex}
-          onAdd={addSegment}
-          onDuplicate={duplicateSegment}
-          onDelete={deleteSegment}
-          onMoveUp={(index) => moveSegment(index, index - 1)}
-          onMoveDown={(index) => moveSegment(index, index + 1)}
-          onReorder={(fromIndex, toIndex) => moveSegment(fromIndex, toIndex)}
+        <LeftEditorPanel
           style={{ width: leftPanelWidth }}
+          selectedDhId={selectedDhId}
+          onSelectDh={bindDigitalHuman}
+          onEdited={() => setSavingState('dirty')}
+          sceneList={(
+            <SceneNavigator
+              embedded
+              items={filteredSegments}
+              search={sceneSearch}
+              setSearch={setSceneSearch}
+              totalCount={dsl.segments.length}
+              currentSegIndex={currentSegIndex}
+              onSelect={setCurrentSegIndex}
+              onAdd={addSegment}
+              onDuplicate={duplicateSegment}
+              onDelete={deleteSegment}
+              onMoveUp={(index) => moveSegment(index, index - 1)}
+              onMoveDown={(index) => moveSegment(index, index + 1)}
+              onReorder={(fromIndex, toIndex) => moveSegment(fromIndex, toIndex)}
+            />
+          )}
         />
         <PanelResizer onResize={(delta) => setLeftPanelWidth(w => Math.max(160, Math.min(320, w + delta)))} />
 
@@ -572,6 +631,8 @@ export default function EditorPage() {
             currentSegIndex={currentSegIndex}
             updateDsl={updateEditorDsl}
             selectedDhId={selectedDhId}
+            variableValues={variableValues}
+            setVariableValues={setVariableValues}
           />
           <Timeline />
         </div>
@@ -599,6 +660,8 @@ export default function EditorPage() {
                 scriptText,
                 setScriptText,
                 selectedDhId,
+                variableValues,
+                setVariableValues,
                 onRender: openRenderReview,
                 diagnostics: configDiagnostics,
               }}
@@ -990,6 +1053,7 @@ function SceneNavigator({
   onMoveUp,
   onMoveDown,
   onReorder,
+  embedded = false,
   style,
 }: {
   items: Array<{ seg: Segment; index: number }>;
@@ -1004,10 +1068,11 @@ function SceneNavigator({
   onMoveUp: (index: number) => void;
   onMoveDown: (index: number) => void;
   onReorder: (fromIndex: number, toIndex: number) => void;
+  embedded?: boolean;
   style?: CSSProperties;
 }) {
-  return (
-    <aside className="bg-card border-r border-border flex flex-col shrink-0" style={style}>
+  const content = (
+    <>
       <div className="p-2 border-b border-border">
         <button
           onClick={onAdd}
@@ -1141,8 +1206,10 @@ function SceneNavigator({
           帮助
         </button>
       </div>
-    </aside>
+    </>
   );
+  if (embedded) return <div className="flex flex-col flex-1 min-h-0">{content}</div>;
+  return <aside className="bg-card border-r border-border flex flex-col shrink-0" style={style}>{content}</aside>;
 }
 
 function getSegmentIssues(seg: Segment) {
@@ -1161,14 +1228,19 @@ function ScriptWorkspace({
   currentSegIndex,
   updateDsl,
   selectedDhId,
+  variableValues,
+  setVariableValues,
 }: {
   dsl: DSL;
   currentSegIndex: number;
   updateDsl: (updater: (dsl: DSL) => DSL) => void;
   selectedDhId: string;
+  variableValues: Record<string, string>;
+  setVariableValues: (values: Record<string, string>) => void;
 }) {
   const seg = dsl.segments[currentSegIndex];
   if (!seg) return null;
+  const narrationPreview = applyVariableSubstitution(seg.narration_text || '', variableValues);
   const updateSeg = (partial: Partial<Segment>) => {
     updateDsl((draft) => {
       const segments = [...draft.segments];
@@ -1225,12 +1297,32 @@ function ScriptWorkspace({
             />
           </label>
         </div>
-        <textarea
-          value={seg.narration_text}
-          onChange={(e) => updateSeg({ narration_text: e.target.value })}
-          placeholder="输入该场景的数字人口播脚本。成熟编辑器通常把画面编辑和脚本编辑并列显示，避免用户在属性面板里来回寻找文案。"
-          className="w-full h-full resize-none rounded-lg border border-border bg-background px-4 py-3 text-[16px] leading-7 outline-none focus:ring-2 focus:ring-ring"
-        />
+        <div className="flex flex-col gap-2 min-h-0 overflow-hidden">
+          <textarea
+            value={seg.narration_text}
+            onChange={(e) => updateSeg({ narration_text: e.target.value })}
+            placeholder="输入该场景的数字人口播脚本，可用 {变量名} 占位。"
+            className="flex-1 min-h-0 resize-none rounded-lg border border-border bg-background px-4 py-3 text-[16px] leading-7 outline-none focus:ring-2 focus:ring-ring"
+          />
+          {narrationPreview !== (seg.narration_text || '') && (
+            <p className="text-[10px] text-muted-foreground shrink-0">预览：{narrationPreview}</p>
+          )}
+          {(dsl.variables?.length ?? 0) > 0 && (
+            <div className="grid grid-cols-2 gap-2 shrink-0">
+              {dsl.variables!.map((v) => (
+                <div key={v.name}>
+                  <label className="block text-[10px] text-muted-foreground mb-0.5">{v.label || v.name}</label>
+                  <input
+                    value={variableValues[v.name] ?? ''}
+                    onChange={(e) => setVariableValues({ ...variableValues, [v.name]: e.target.value })}
+                    className="w-full h-8 rounded-md border border-border bg-background px-2 text-[12px] outline-none"
+                    placeholder={v.example_value || v.description}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
     </section>
   );
@@ -1246,8 +1338,8 @@ function InspectorPanel({
   renderControlProps,
   style,
 }: {
-  tab: 'design' | 'scene' | 'object' | 'generate';
-  setTab: (tab: 'design' | 'scene' | 'object' | 'generate') => void;
+  tab: 'design' | 'scene' | 'layers' | 'object' | 'generate';
+  setTab: (tab: 'design' | 'scene' | 'layers' | 'object' | 'generate') => void;
   dsl: DSL;
   currentSegIndex: number;
   selectedElement: CanvasElement;
@@ -1272,10 +1364,16 @@ function InspectorPanel({
           分镜
         </button>
         <button
+          onClick={() => setTab('layers')}
+          className={`flex-1 text-sm font-medium ${tab === 'layers' ? 'text-foreground border-b-2 border-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+        >
+          图层
+        </button>
+        <button
           onClick={() => setTab('object')}
           className={`flex-1 text-sm font-medium ${tab === 'object' ? 'text-foreground border-b-2 border-foreground' : hasObjectSelection ? 'text-muted-foreground hover:text-foreground' : 'text-muted-foreground/50'}`}
         >
-          对象
+          属性
         </button>
         <button
           onClick={() => setTab('generate')}
@@ -1289,6 +1387,14 @@ function InspectorPanel({
           <DesignPanel dsl={dsl} currentSegIndex={currentSegIndex} updateDsl={updateDsl} />
         ) : tab === 'scene' ? (
           <ScenePanel dsl={dsl} currentSegIndex={currentSegIndex} updateDsl={updateDsl} />
+        ) : tab === 'layers' ? (
+          <LayersPanel
+            dsl={dsl}
+            currentSegIndex={currentSegIndex}
+            selectedElement={selectedElement}
+            updateDsl={updateDsl}
+            onOpenObjectTab={() => setTab('object')}
+          />
         ) : tab === 'object' ? (
           <ObjectPanel dsl={dsl} currentSegIndex={currentSegIndex} selectedElement={selectedElement} updateDsl={updateDsl} />
         ) : (
@@ -1759,64 +1865,7 @@ function ScenePanel({
         </button>
       </PanelSection>
 
-      <PanelSection title="图层" icon={<IconLayout size={15} />}>
-        <div className="space-y-1">
-          <LayerButton
-            active={selectedElement.type === 'scene'}
-            label="背景场景"
-            meta={seg.scene_image_url || seg.scene_description ? '已配置' : '缺素材'}
-            onClick={() => setSelectedElement({ type: 'scene', segIndex: currentSegIndex })}
-          />
-          <LayerButton
-            active={selectedElement.type === 'digital_human'}
-            label="数字人"
-            meta={seg.digital_human.enabled ? '显示' : '隐藏'}
-            onClick={() => setSelectedElement({ type: 'digital_human', segIndex: currentSegIndex })}
-          />
-          <LayerButton
-            active={selectedElement.type === 'subtitle'}
-            label="字幕"
-            meta={seg.subtitle.enabled ? seg.subtitle.position : '隐藏'}
-            onClick={() => setSelectedElement({ type: 'subtitle', segIndex: currentSegIndex })}
-          />
-          {seg.overlays.map((overlay, index) => (
-            <LayerButton
-              key={overlay.id}
-              active={selectedElement.type === 'overlay' && selectedElement.overlayIndex === index}
-              label={`贴片 ${index + 1}`}
-              meta={overlay.asset_url ? '素材' : '空贴片'}
-              onClick={() => setSelectedElement({ type: 'overlay', segIndex: currentSegIndex, overlayIndex: index })}
-            />
-          ))}
-          {(seg.objects || []).map((object, index) => (
-            <LayerButton
-              key={object.id}
-              active={selectedElement.type === 'object' && selectedElement.objectIndex === index}
-              label={getObjectLabel(object)}
-              meta={object.visible === false ? '隐藏' : object.type}
-              onClick={() => setSelectedElement({ type: 'object', segIndex: currentSegIndex, objectIndex: index })}
-            />
-          ))}
-        </div>
-      </PanelSection>
     </div>
-  );
-}
-
-function LayerButton({ active, label, meta, onClick }: { active: boolean; label: string; meta: string; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`w-full rounded-md border px-3 py-2 text-left transition-colors ${
-        active ? 'border-foreground bg-accent' : 'border-border hover:border-foreground/30 hover:bg-accent/40'
-      }`}
-    >
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-medium truncate">{label}</span>
-        <span className="text-[10px] text-muted-foreground shrink-0">{meta}</span>
-      </div>
-    </button>
   );
 }
 
@@ -1926,9 +1975,41 @@ function ObjectPanel({
             placeholder="素材链接"
             previewType="image"
           />
+          <label className="block text-xs text-muted-foreground mb-1">开始时间 (s)</label>
+          <input
+            type="number"
+            min={0}
+            max={seg.duration_sec}
+            step={0.1}
+            value={overlay.seg_start_time}
+            onChange={(e) => updateOverlay({ seg_start_time: Number(e.target.value) })}
+            className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
+          />
+          <label className="mt-3 block text-xs text-muted-foreground mb-1">持续时长 (s)</label>
+          <input
+            type="number"
+            min={0.1}
+            max={seg.duration_sec}
+            step={0.1}
+            value={overlay.duration}
+            onChange={(e) => updateOverlay({ duration: Number(e.target.value) })}
+            className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
+          />
+          <label className="mt-3 block text-xs text-muted-foreground mb-1">入场动画</label>
+          <select
+            value={overlay.animation}
+            onChange={(e) => updateOverlay({ animation: e.target.value as typeof overlay.animation })}
+            className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
+          >
+            <option value="none">无</option>
+            <option value="fadeIn">淡入</option>
+            <option value="scaleIn">缩放</option>
+          </select>
           <NumberField label="X 位置" value={overlay.position.x} min={0} max={100} onChange={(value) => updateOverlay({ position: { ...overlay.position, x: value } })} />
           <NumberField label="Y 位置" value={overlay.position.y} min={0} max={100} onChange={(value) => updateOverlay({ position: { ...overlay.position, y: value } })} />
           <NumberField label="缩放" value={overlay.scale} min={10} max={250} onChange={(value) => updateOverlay({ scale: value })} />
+          <NumberField label="宽度 %" value={overlay.render_width_pct ?? 20} min={5} max={100} onChange={(value) => updateOverlay({ render_width_pct: value })} />
+          <NumberField label="高度 %" value={overlay.render_height_pct ?? 12} min={5} max={100} onChange={(value) => updateOverlay({ render_height_pct: value })} />
         </PanelSection>
       </div>
     );
@@ -2324,6 +2405,7 @@ function getRenderIssues(
   topic: string,
   scriptText: string,
   diagnostics: ConfigDiagnostics | null = null,
+  variableValues: Record<string, string> = {},
 ) {
   const issues: string[] = [];
   if (!pipeline) issues.push('请选择生成流水线');
@@ -2331,6 +2413,11 @@ function getRenderIssues(
   if (inputMode === 'template' && !dsl.segments.some(s => s.narration_text.trim())) issues.push('模板模式需要至少一段口播文案');
   if (inputMode === 'topic' && !topic.trim()) issues.push('主题模式需要填写主题');
   if (inputMode === 'script' && !scriptText.trim()) issues.push('固定脚本模式需要填写脚本');
+  for (const v of dsl.variables || []) {
+    if (v.required && !String(variableValues[v.name] ?? '').trim()) {
+      issues.push(`请填写变量：${v.label || v.name}`);
+    }
+  }
   if (pipeline?.requires_digital_human && !selectedDhId) issues.push('数字人口播流水线需要选择一个就绪数字人');
   if (pipeline?.requires_digital_human && !dsl.segments.some(s => s.digital_human.enabled)) issues.push('数字人口播流水线至少需要一个启用数字人的场景');
   if (dsl.globalConfig.brand_logo_url && !dsl.globalConfig.brand_color) issues.push('已配置 Logo 时建议同时配置品牌色');
@@ -2397,6 +2484,8 @@ type RenderControlProps = {
   scriptText: string;
   setScriptText: (value: string) => void;
   selectedDhId: string;
+  variableValues: Record<string, string>;
+  setVariableValues: (values: Record<string, string>) => void;
   onRender: () => void;
   diagnostics: ConfigDiagnostics | null;
 };
@@ -2413,11 +2502,13 @@ function GeneratePanel({
   scriptText,
   setScriptText,
   selectedDhId,
+  variableValues,
+  setVariableValues,
   onRender,
   diagnostics,
 }: RenderControlProps) {
   const pipeline = pipelines.find(p => p.key === pipelineKey);
-  const issues = getRenderIssues(dsl, pipeline, selectedDhId, inputMode, topic, scriptText, diagnostics);
+  const issues = getRenderIssues(dsl, pipeline, selectedDhId, inputMode, topic, scriptText, diagnostics, variableValues);
   const duration = dsl.segments.reduce((sum, seg) => sum + Number(seg.duration_sec || 0), 0);
   const ready = issues.length === 0;
   const pipelineDiagnostics = pipeline ? diagnostics?.pipelines?.[pipeline.key] : undefined;
@@ -2498,6 +2589,25 @@ function GeneratePanel({
             </div>
           )}
         </div>
+
+        {(dsl.variables?.length ?? 0) > 0 && (
+          <div className="space-y-2">
+            <label className="block text-[10px] text-muted-foreground">模板变量</label>
+            {dsl.variables!.map((v) => (
+              <div key={v.name}>
+                <label className="block text-[10px] text-muted-foreground mb-0.5">
+                  {v.label || v.name}{v.required ? ' *' : ''}
+                </label>
+                <input
+                  value={variableValues[v.name] ?? ''}
+                  onChange={(e) => setVariableValues({ ...variableValues, [v.name]: e.target.value })}
+                  className="w-full h-9 rounded-md border border-border bg-background px-3 text-[12px] outline-none"
+                  placeholder={v.example_value || v.description}
+                />
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="grid grid-cols-2 gap-2 text-[11px]">
           <div className="rounded-md bg-background border border-border p-2">

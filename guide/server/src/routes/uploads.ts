@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { join, dirname, extname } from 'path';
 import { fileURLToPath } from 'url';
 import { mkdirSync, existsSync } from 'fs';
+import { registerUploadedAsset } from './assets.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const UPLOADS_DIR = join(__dirname, '../../../data/uploads');
@@ -43,8 +44,10 @@ router.post('/', upload.single('file'), (req: Request, res: Response) => {
   }
 
   const url = `/uploads/${req.file.filename}`;
+  const assetId = registerUploadedAsset(req.file, url);
   res.json({
     url,
+    asset_id: assetId,
     filename: req.file.filename,
     original_name: req.file.originalname,
     size: req.file.size,

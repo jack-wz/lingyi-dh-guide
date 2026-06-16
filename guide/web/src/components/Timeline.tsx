@@ -1,7 +1,7 @@
 import { useRef, useState, useCallback, useEffect, useMemo } from 'react';
 import { useEditorStore } from '../store/editorStore';
 import type { Segment, TrackId } from '../store/editorStore';
-import { IconFilm, IconMic, IconType, IconImage, IconPlus, IconTrash, IconMusic } from './Icons';
+import { IconFilm, IconMic, IconType, IconImage, IconPlus, IconMusic, IconPlay, IconPause } from './Icons';
 
 const TRACK_HEIGHT = 44;
 const RULER_HEIGHT = 28;
@@ -35,7 +35,10 @@ export default function Timeline() {
   const setCurrentSegIndex = useEditorStore(s => s.setCurrentSegIndex);
   const updateDsl = useEditorStore(s => s.updateDsl);
   const reorderSegment = useEditorStore(s => s.reorderSegment);
-  const setCurrentTime = useEditorStore(s => s.setCurrentTime);
+  const currentTime = useEditorStore(s => s.currentTime);
+  const playing = useEditorStore(s => s.playing);
+  const seekToTime = useEditorStore(s => s.seekToTime);
+  const togglePlayback = useEditorStore(s => s.togglePlayback);
   const timelineZoom = useEditorStore(s => s.timelineZoom);
   const setTimelineZoom = useEditorStore(s => s.setTimelineZoom);
   const mutedTracks = useEditorStore(s => s.mutedTracks);
@@ -44,7 +47,6 @@ export default function Timeline() {
 
   const containerRef = useRef<HTMLDivElement>(null);
   const draggingRef = useRef<{ clipId: string; startX: number; origStart: number; lastX: number } | null>(null);
-  const [playheadTime, setPlayheadTime] = useState(0);
   const [isDraggingPlayhead, setIsDraggingPlayhead] = useState(false);
   const [resizing, setResizing] = useState<{ clipId: string; edge: 'left' | 'right'; startX: number; origStart: number; origDur: number } | null>(null);
   const [dragging, setDragging] = useState<{ clipId: string; startX: number; origStart: number; lastX: number } | null>(null);
@@ -100,32 +102,27 @@ export default function Timeline() {
     { id: 'overlay', label: '叠加', icon: IconImage },
   ];
 
-  // 播放头拖拽
-  const handleRulerMouseDown = useCallback((e: React.MouseEvent) => {
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    const x = e.clientX - rect.left + (containerRef.current?.scrollLeft || 0);
-    const nextTime = Math.max(0, Math.min(totalDuration, x / pxPerSec));
-    setPlayheadTime(nextTime);
-    setCurrentTime(nextTime);
+  const timeFromClientX = useCallback((clientX: number) => {
+    const ruler = containerRef.current;
+    if (!ruler) return 0;
+    const rect = ruler.getBoundingClientRect();
+    const x = clientX - rect.left + ruler.scrollLeft;
+    return Math.max(0, Math.min(totalDuration, x / pxPerSec));
+  }, [pxPerSec, totalDuration]);
+
+  const handleSeekMouseDown = useCallback((e: React.MouseEvent) => {
+    seekToTime(timeFromClientX(e.clientX));
     setIsDraggingPlayhead(true);
-  }, [pxPerSec, totalDuration, setCurrentTime]);
+  }, [seekToTime, timeFromClientX]);
 
   useEffect(() => {
     if (!isDraggingPlayhead) return;
-    const handleMove = (e: MouseEvent) => {
-      const ruler = containerRef.current;
-      if (!ruler) return;
-      const rect = ruler.getBoundingClientRect();
-      const x = e.clientX - rect.left - HEADER_WIDTH + ruler.scrollLeft;
-      const nextTime = Math.max(0, Math.min(totalDuration, x / pxPerSec));
-      setPlayheadTime(nextTime);
-      setCurrentTime(nextTime);
-    };
+    const handleMove = (e: MouseEvent) => seekToTime(timeFromClientX(e.clientX));
     const handleUp = () => setIsDraggingPlayhead(false);
     window.addEventListener('mousemove', handleMove);
     window.addEventListener('mouseup', handleUp);
     return () => { window.removeEventListener('mousemove', handleMove); window.removeEventListener('mouseup', handleUp); };
-  }, [isDraggingPlayhead, pxPerSec, totalDuration, setCurrentTime]);
+  }, [isDraggingPlayhead, seekToTime, timeFromClientX]);
 
   // Clip 边缘拖拽调整时长
   const handleClipEdgeMouseDown = useCallback((e: React.MouseEvent, clip: ClipItem, edge: 'left' | 'right') => {
@@ -243,7 +240,16 @@ export default function Timeline() {
           </div>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="text-[10px] text-muted-foreground tabular-nums">{playheadTime.toFixed(1)}s / {totalDuration.toFixed(1)}s</span>
+          <button
+            onClick={togglePlayback}
+            className="w-7 h-7 rounded-md flex items-center justify-center bg-secondary hover:bg-accent text-foreground transition-colors"
+            title={playing ? '暂停' : '预览播放'}
+          >
+            {playing ? <IconPause size={14} /> : <IconPlay size={14} />}
+          </button>
+          <span className="text-[10px] text-muted-foreground tabular-nums" data-testid="timeline-time">
+            {currentTime.toFixed(1)}s / {totalDuration.toFixed(1)}s
+          </span>
           <button onClick={addSegment} className="h-7 px-2 text-[10px] bg-primary/80 text-primary-foreground rounded-md hover:bg-primary transition flex items-center gap-1"><IconPlus size={12} /> 片段</button>
         </div>
       </div>
@@ -277,7 +283,7 @@ export default function Timeline() {
             {/* 时间标尺 */}
             <div style={{ height: RULER_HEIGHT }}
               className="sticky top-0 z-10 bg-card/90 backdrop-blur border-b border-border cursor-pointer"
-              onMouseDown={handleRulerMouseDown}>
+              onMouseDown={handleSeekMouseDown}>
               {timeMarks.map(t => (
                 <div key={t} className="absolute bottom-0 flex flex-col items-center" style={{ left: t * pxPerSec }}>
                   <div className="w-px h-2 bg-muted" />
@@ -296,7 +302,7 @@ export default function Timeline() {
 
             {/* 播放头 */}
             <div className="absolute top-0 bottom-0 w-px bg-destructive z-30 pointer-events-none"
-              style={{ left: playheadTime * pxPerSec, top: RULER_HEIGHT }}>
+              style={{ left: currentTime * pxPerSec, top: RULER_HEIGHT }}>
               <div className="absolute -top-0 -left-[5px] w-[11px] h-3 bg-destructive"
                 style={{ clipPath: 'polygon(0 0, 100% 0, 50% 100%)' }} />
             </div>
@@ -306,8 +312,9 @@ export default function Timeline() {
               const trackClips = clips.filter(c => c.trackId === track.id);
               const y = RULER_HEIGHT + ti * TRACK_HEIGHT;
               return (
-                <div key={track.id} className="absolute left-0 right-0 border-b border-border/50"
-                  style={{ top: y, height: TRACK_HEIGHT }}>
+                <div key={track.id} className="absolute left-0 right-0 border-b border-border/50 cursor-pointer"
+                  style={{ top: y, height: TRACK_HEIGHT }}
+                  onMouseDown={handleSeekMouseDown}>
                   {/* 网格线 */}
                   {timeMarks.map(t => (
                     <div key={t} className="absolute top-0 bottom-0 w-px bg-card/30" style={{ left: t * pxPerSec }} />
@@ -330,7 +337,7 @@ export default function Timeline() {
                         }}
                         onClick={(e) => {
                           e.stopPropagation();
-                          setCurrentSegIndex(clip.segIndex);
+                          seekToTime(clip.startTime, { syncSegment: true, clearSelection: false, stopPlayback: true });
                           if (track.id === 'overlay' && clip.subIndex !== undefined) {
                             setSelectedElement({ type: 'overlay', segIndex: clip.segIndex, overlayIndex: clip.subIndex });
                           } else if (track.id === 'subtitle') {

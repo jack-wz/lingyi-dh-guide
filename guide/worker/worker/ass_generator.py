@@ -281,7 +281,19 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             use_style = style_name
 
         phrases = split_narration_phrases(text, max_chars=max_chars)
-        phrase_timings = allocate_phrase_timings(phrases, seg_start, seg_end - seg_start)
+        preset_timings = seg.get("subtitle_phrase_timings") or []
+        if preset_timings:
+            phrase_timings = [
+                (
+                    str(item.get("text", "")),
+                    float(item.get("start", seg_start)),
+                    float(item.get("end", seg_end)),
+                )
+                for item in preset_timings
+                if str(item.get("text", "")).strip()
+            ]
+        else:
+            phrase_timings = allocate_phrase_timings(phrases, seg_start, seg_end - seg_start)
 
         for phrase, start, end in phrase_timings:
             if end <= start:

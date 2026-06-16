@@ -67,6 +67,7 @@ function migrateDb(db: Database.Database): void {
 
   db.prepare("UPDATE digital_humans SET status = 'pending_assets' WHERE status = 'pending'").run();
   db.exec('CREATE INDEX IF NOT EXISTS idx_render_jobs_pipeline ON render_jobs(pipeline_key)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_assets_type ON assets(type)');
 }
 
 function tableSql(db: Database.Database, table: string): string {

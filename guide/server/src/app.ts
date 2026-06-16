@@ -8,6 +8,9 @@ import uploadsRouter from './routes/uploads.js';
 import rendersRouter from './routes/renders.js';
 import hyperframesRouter from './routes/hyperframes.js';
 import configRouter from './routes/config.js';
+import assetsRouter from './routes/assets.js';
+import tasksRouter from './routes/tasks.js';
+import opsRouter from './routes/ops.js';
 
 export function createApp() {
   const app = express();
@@ -31,6 +34,9 @@ export function createApp() {
   app.use('/api/renders', rendersRouter);
   app.use('/api/hyperframes', hyperframesRouter);
   app.use('/api/config', configRouter);
+  app.use('/api/assets', assetsRouter);
+  app.use('/api/tasks', tasksRouter);
+  app.use('/api/ops', opsRouter);
 
   return app;
 }

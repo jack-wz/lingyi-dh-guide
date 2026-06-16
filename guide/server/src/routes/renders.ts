@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { getDataDir, getDb } from '../db/database.js';
-import { spawn } from 'child_process';
+import { spawn, spawnSync } from 'child_process';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { existsSync, readFileSync } from 'fs';
@@ -524,6 +524,79 @@ router.post('/:id/duplicate', (req: Request, res: Response) => {
   ensureWorkerRunning();
   const created = db.prepare('SELECT * FROM render_jobs WHERE id = ?').get(newId) as any;
   res.status(201).json(enrichJob(created, DATA_DIR));
+});
+
+function resolveWorkerPython() {
+  const workerDir = join(PROJECT_ROOT, 'worker');
+  const venvPython =
+    process.platform === 'win32'
+      ? join(workerDir, '.venv', 'Scripts', 'python.exe')
+      : join(workerDir, '.venv', 'bin', 'python3');
+  return existsSync(venvPython)
+    ? venvPython
+    : process.platform === 'win32'
+      ? 'python'
+      : 'python3';
+}
+
+// POST /api/renders/:id/reassemble - rebuild final.mp4 from existing clips (no TTS/lip-sync)
+router.post('/:id/reassemble', (req: Request, res: Response) => {
+  const db = getDb();
+  const job = db.prepare('SELECT * FROM render_jobs WHERE id = ?').get(req.params.id) as any;
+  if (!job) return res.status(404).json({ error: 'Render job not found' });
+
+  const templateId = String(req.body?.template_id || job.template_id || '');
+  if (!templateId) return res.status(400).json({ error: 'template_id is required' });
+
+  const outputName = String(req.body?.output_name || 'final_ass_jianying.mp4');
+  const scriptPath = join(PROJECT_ROOT, 'scripts/reassemble_with_template.py');
+  const jobId = String(req.params.id);
+  const result = spawnSync(
+    resolveWorkerPython(),
+    [scriptPath, jobId, templateId],
+    {
+      cwd: PROJECT_ROOT,
+      env: {
+        ...process.env,
+        SERVER_URL: process.env.SERVER_URL || 'http://127.0.0.1:3001',
+        OUTPUT_NAME: outputName,
+        ASS_ONLY: req.body?.ass_only === false ? '0' : '1',
+      },
+      encoding: 'utf-8',
+      timeout: 10 * 60 * 1000,
+    },
+  );
+
+  if (result.status !== 0) {
+    db.prepare('INSERT INTO render_logs (render_job_id, level, message) VALUES (?, ?, ?)')
+      .run(req.params.id, 'error', `Reassemble failed: ${(result.stderr || result.stdout || '').slice(-500)}`);
+    return res.status(500).json({
+      error: 'Reassemble failed',
+      stderr: (result.stderr || '').slice(-2000),
+      stdout: (result.stdout || '').slice(-2000),
+    });
+  }
+
+  let payload: Record<string, unknown> = { ok: true };
+  try {
+    const lines = (result.stdout || '').trim().split('\n').filter(Boolean);
+    payload = JSON.parse(lines[lines.length - 1]);
+  } catch {
+    payload = { ok: true, stdout: result.stdout };
+  }
+
+  const outputRel = `/renders/job_${jobId}/${outputName}`;
+  db.prepare(
+    `UPDATE render_jobs
+     SET output_url = ?, status = 'completed', stage = 'completed', progress = 100,
+         error_message = '', completed_at = datetime('now'), updated_at = datetime('now')
+     WHERE id = ?`,
+  ).run(outputRel, jobId);
+  db.prepare('INSERT INTO render_logs (render_job_id, level, message) VALUES (?, ?, ?)')
+    .run(jobId, 'info', `Reassembled final video (${payload.bytes || 0} bytes)`);
+
+  const updated = db.prepare('SELECT * FROM render_jobs WHERE id = ?').get(jobId) as any;
+  res.json({ ...payload, output_url: outputRel, job: enrichJob(updated, DATA_DIR) });
 });
 
 // POST /api/renders/:id/logs - append a log entry

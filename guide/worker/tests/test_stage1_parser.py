@@ -54,6 +54,34 @@ class ParseTemplateTests(unittest.TestCase):
         self.assertEqual(result["overlays"][0]["global_start_s"], 1.0)
         self.assertEqual(result["overlays"][0]["global_end_s"], 4.0)
 
+    def test_asset_key_overlays_resolve_from_global_asset_map(self):
+        result = parse_template(
+            {
+                "globalConfig": {
+                    "asset_map": {"logo": "http://cdn/logo.png"},
+                },
+                "segments": [
+                    {
+                        "narration_text": "Hello",
+                        "duration_sec": 3,
+                        "overlays": [
+                            {
+                                "id": "logo",
+                                "asset_key": "logo",
+                                "seg_start_time": 0,
+                                "duration": 3,
+                                "position": {"x": 50, "y": 10},
+                                "scale": 100,
+                                "animation": "none",
+                            }
+                        ],
+                    }
+                ],
+            },
+            {},
+        )
+        self.assertEqual(result["overlays"][0]["asset_url"], "http://cdn/logo.png")
+
     def test_missing_variables_resolve_to_empty_strings(self):
         result = parse_template(
             {

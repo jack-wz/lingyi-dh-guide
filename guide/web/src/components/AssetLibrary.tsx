@@ -6,6 +6,7 @@ import { SCENE_IMAGES, SCENE_CATEGORIES } from '../data/sceneImages';
 import { SUBTITLE_STYLES } from '../data/subtitleStyles';
 import { SOUND_EFFECTS, SOUND_CATEGORIES } from '../data/soundEffects';
 import { ANIMATION_PRESETS, ANIM_CATEGORIES } from '../data/animations';
+import { getAssetMapFromDsl } from '@shared/assetResolver';
 
 interface Props {
   tab: AssetTab;
@@ -20,6 +21,7 @@ export default function AssetLibrary({ tab, selectedDhId = '', onSelectDh, onEdi
   const currentSegIndex = useEditorStore(s => s.currentSegIndex);
   const updateDsl = useEditorStore(s => s.updateDsl);
   const [digitalHumans, setDigitalHumans] = useState<Array<{ id: string; name: string; status: string; face_photo_url?: string }>>([]);
+  const [libraryAssets, setLibraryAssets] = useState<Array<{ id: string; name: string; type: string; file_url: string }>>([]);
   const [sceneCategory, setSceneCategory] = useState('all');
   const [search, setSearch] = useState('');
 
@@ -27,8 +29,92 @@ export default function AssetLibrary({ tab, selectedDhId = '', onSelectDh, onEdi
     fetch('/api/digital-humans').then(r => r.json()).then(setDigitalHumans).catch(() => {});
   }, []);
 
+  useEffect(() => {
+    if (tab !== 'sticker') return;
+    fetch('/api/assets?type=sticker,image,video,logo&limit=120')
+      .then(r => r.json())
+      .then((data) => setLibraryAssets(data.items || []))
+      .catch(() => setLibraryAssets([]));
+  }, [tab]);
+
   const seg = dsl?.segments[currentSegIndex];
+  const getSegmentStartTime = useEditorStore(s => s.getSegmentStartTime);
+  const currentTime = useEditorStore(s => s.currentTime);
+  const setSelectedElement = useEditorStore(s => s.setSelectedElement);
   const readyDhs = digitalHumans.filter(h => h.status === 'ready');
+
+  const applySceneBackground = (scene: { description: string; url?: string }) => {
+    if (!dsl) return;
+    updateDsl(d => {
+      const segs = [...d.segments];
+      segs[currentSegIndex] = {
+        ...segs[currentSegIndex],
+        scene_description: scene.description,
+        scene_image_url: scene.url || '',
+        thumbnail_url: scene.url || segs[currentSegIndex].thumbnail_url || '',
+      };
+      return { ...d, segments: segs };
+    });
+    onEdited?.();
+  };
+
+  const stickerEntries = dsl ? Object.entries(getAssetMapFromDsl(dsl)).filter(([, url]) => Boolean(url)) : [];
+  const catalogStickers = [
+    ...stickerEntries.map(([key, url]) => ({ key, url, source: 'template' as const })),
+    ...libraryAssets
+      .filter((asset) => !stickerEntries.some(([, url]) => url === asset.file_url))
+      .map((asset) => ({ key: asset.name || asset.id, url: asset.file_url, source: 'library' as const })),
+  ].filter((item) => {
+    if (!search) return true;
+    return item.key.toLowerCase().includes(search.toLowerCase());
+  });
+
+  const addStickerOverlay = (assetKey: string, assetUrl: string) => {
+    if (!dsl || !seg || !assetUrl) return;
+    const localT = Math.max(0, currentTime - getSegmentStartTime(currentSegIndex));
+    const duration = Math.min(3, Math.max(1, seg.duration_sec - localT));
+    updateDsl(d => {
+      const segs = [...d.segments];
+      const overlays = [...segs[currentSegIndex].overlays, {
+        id: `overlay-${Date.now()}`,
+        asset_key: assetKey,
+        asset_url: assetUrl,
+        position: { x: 50, y: 40 },
+        scale: 100,
+        seg_start_time: localT,
+        duration,
+        animation: 'fadeIn' as const,
+        render_width_pct: 20,
+        render_height_pct: 12,
+      }];
+      segs[currentSegIndex] = { ...segs[currentSegIndex], overlays };
+      return { ...d, segments: segs };
+    });
+    setSelectedElement({ type: 'overlay', segIndex: currentSegIndex, overlayIndex: seg.overlays.length });
+    onEdited?.();
+  };
+
+  const addSceneAsOverlay = (sceneUrl: string) => {
+    if (!dsl || !seg || !sceneUrl) return;
+    const localT = Math.max(0, currentTime - getSegmentStartTime(currentSegIndex));
+    const duration = Math.min(3, Math.max(1, seg.duration_sec - localT));
+    updateDsl(d => {
+      const segs = [...d.segments];
+      const overlays = [...segs[currentSegIndex].overlays, {
+        id: `overlay-${Date.now()}`,
+        asset_url: sceneUrl,
+        position: { x: 50, y: 40 },
+        scale: 100,
+        seg_start_time: localT,
+        duration,
+        animation: 'fadeIn' as const,
+      }];
+      segs[currentSegIndex] = { ...segs[currentSegIndex], overlays };
+      return { ...d, segments: segs };
+    });
+    setSelectedElement({ type: 'overlay', segIndex: currentSegIndex, overlayIndex: seg.overlays.length });
+    onEdited?.();
+  };
 
   const applyToSeg = (field: string, value: any) => {
     if (!dsl) return;
@@ -72,18 +158,36 @@ export default function AssetLibrary({ tab, selectedDhId = '', onSelectDh, onEdi
             </div>
             <div className="grid grid-cols-2 gap-1.5">
               {filteredScenes.map(scene => (
-                <div key={scene.id} onClick={() => applyToSeg('scene_description', scene.description)}
-                  className="group cursor-pointer rounded-md overflow-hidden border border-border hover:border-foreground/30 transition-colors">
-                  <div className="aspect-[9/16] bg-secondary flex items-center justify-center">
-                    {scene.url ? (
-                      <img src={scene.url} className="w-full h-full object-cover" alt="" />
-                    ) : (
-                      <IconImage size={24} className="text-muted-foreground/40" />
+                <div key={scene.id}
+                  className="group rounded-md overflow-hidden border border-border hover:border-foreground/30 transition-colors">
+                  <button
+                    type="button"
+                    onClick={() => applySceneBackground(scene)}
+                    className="w-full cursor-pointer text-left"
+                  >
+                    <div className="aspect-[9/16] bg-secondary flex items-center justify-center">
+                      {scene.url ? (
+                        <img src={scene.url} className="w-full h-full object-cover" alt="" />
+                      ) : (
+                        <IconImage size={24} className="text-muted-foreground/40" />
+                      )}
+                    </div>
+                  </button>
+                  <div className="p-1.5 flex items-center gap-1">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[10px] font-medium truncate">{scene.name}</p>
+                      <p className="text-[9px] text-muted-foreground truncate">{scene.description}</p>
+                    </div>
+                    {scene.url && (
+                      <button
+                        type="button"
+                        title="添加为当前时间贴片"
+                        onClick={(e) => { e.stopPropagation(); addSceneAsOverlay(scene.url!); }}
+                        className="shrink-0 text-[9px] px-1.5 py-0.5 rounded bg-secondary hover:bg-accent text-muted-foreground hover:text-foreground"
+                      >
+                        贴片
+                      </button>
                     )}
-                  </div>
-                  <div className="p-1.5">
-                    <p className="text-[10px] font-medium truncate">{scene.name}</p>
-                    <p className="text-[9px] text-muted-foreground truncate">{scene.description}</p>
                   </div>
                 </div>
               ))}
@@ -210,6 +314,51 @@ export default function AssetLibrary({ tab, selectedDhId = '', onSelectDh, onEdi
           </>
         )}
 
+        {tab === 'sticker' && (
+          <>
+            {showSearch && (
+              <div className="px-2 py-1.5 border-b border-border shrink-0 mb-2 -mx-2">
+                <div className="flex items-center gap-1.5 bg-secondary rounded-md px-2 py-1">
+                  <IconSearch size={14} className="text-muted-foreground shrink-0" />
+                  <input value={search} onChange={e => setSearch(e.target.value)}
+                    placeholder="搜索贴纸..."
+                    className="flex-1 bg-transparent text-[12px] outline-none placeholder-muted-foreground" />
+                </div>
+              </div>
+            )}
+            {catalogStickers.length === 0 ? (
+              <div className="text-center py-8 px-3">
+                <IconImage size={32} className="text-muted-foreground/40 mx-auto mb-2" />
+                <p className="text-[10px] text-muted-foreground">暂无贴纸素材</p>
+                <p className="text-[9px] text-muted-foreground/60 mt-1">上传文件会自动进入素材库；剪映模板 asset_map 也会显示在此</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-1.5">
+                {catalogStickers.map((item) => (
+                  <div key={`${item.source}-${item.key}-${item.url}`} className="rounded-md border border-border overflow-hidden hover:border-foreground/30 transition-colors">
+                    <div className="aspect-square bg-secondary flex items-center justify-center p-1">
+                      <img src={item.url} alt={item.key} className="max-w-full max-h-full object-contain" />
+                    </div>
+                    <div className="p-1.5 flex items-center justify-between gap-1">
+                      <span className="text-[9px] text-muted-foreground truncate" title={item.key}>
+                        {item.key}
+                        <span className="ml-1 opacity-60">{item.source === 'template' ? '模板' : '库'}</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => addStickerOverlay(item.key, item.url)}
+                        className="shrink-0 text-[9px] px-1.5 py-0.5 rounded bg-secondary hover:bg-accent"
+                      >
+                        贴片
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+
         {tab === 'dh' && (
           <>
             {readyDhs.length === 0 ? (
@@ -221,7 +370,23 @@ export default function AssetLibrary({ tab, selectedDhId = '', onSelectDh, onEdi
             ) : (
               <div className="grid grid-cols-2 gap-2">
                 {readyDhs.map(dh => (
-                  <div key={dh.id} onClick={() => onSelectDh?.(dh.id)}
+                  <div key={dh.id} onClick={() => {
+                      onSelectDh?.(dh.id);
+                      if (!dsl) return;
+                      updateDsl(d => ({
+                        ...d,
+                        meta: { ...d.meta, digital_human_id: dh.id },
+                        segments: d.segments.map(seg => ({
+                          ...seg,
+                          avatar_id: dh.id,
+                          digital_human: {
+                            ...seg.digital_human,
+                            enabled: seg.type === 'narration' ? true : seg.digital_human.enabled,
+                          },
+                        })),
+                      }));
+                      onEdited?.();
+                    }}
                     className={`cursor-pointer rounded-lg overflow-hidden border transition-colors ${
                       selectedDhId === dh.id ? 'border-brand-purple ring-1 ring-brand-purple' : 'border-border hover:border-foreground/30'
                     }`}>

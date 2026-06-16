@@ -3,6 +3,8 @@ import type { PointerEvent as ReactPointerEvent } from 'react';
 import { Stage, Layer, Rect, Text, Image as KonvaImage, Circle, Group } from 'react-konva';
 import { useEditorStore } from '../store/editorStore';
 import type { EditorObject, Segment } from '../store/editorStore';
+import { normalizeDslForDisplay } from '../utils/dslNormalize';
+import { getOverlayPreviewStyle, getSegmentLocalTime, isOverlayVisibleAtLocalTime } from '../utils/overlayTiming';
 
 function useCanvasSize() {
   const dsl = useEditorStore(s => s.dsl);
@@ -42,17 +44,28 @@ function SceneImage({ url, width, height }: { url: string; width: number; height
 
 export default function VideoCanvas() {
   const dsl = useEditorStore(s => s.dsl);
+  const displayDsl = useMemo(() => (dsl ? normalizeDslForDisplay(dsl) : null), [dsl]);
   const currentSegIndex = useEditorStore(s => s.currentSegIndex);
+  const currentTime = useEditorStore(s => s.currentTime);
+  const getSegmentStartTime = useEditorStore(s => s.getSegmentStartTime);
+  const playing = useEditorStore(s => s.playing);
   const selectedElement = useEditorStore(s => s.selectedElement);
   const setSelectedElement = useEditorStore(s => s.setSelectedElement);
   const updateDsl = useEditorStore(s => s.updateDsl);
   const { displayW, displayH } = useCanvasSize();
 
-  const segment = dsl?.segments[currentSegIndex];
-  if (!segment || !dsl) return <div className="flex-1 flex items-center justify-center text-muted-foreground">无片段</div>;
+  const segment = displayDsl?.segments[currentSegIndex];
+  if (!segment || !dsl || !displayDsl) return <div className="flex-1 flex items-center justify-center text-muted-foreground">无片段</div>;
 
   const backgroundColor = dsl.globalConfig.background_color || '#f6f6f6';
   const hasCanvasSelection = selectedElement.type !== 'none' && selectedElement.segIndex === currentSegIndex;
+  const segmentStart = getSegmentStartTime(currentSegIndex);
+  const localTime = getSegmentLocalTime(currentTime, segmentStart);
+  const visibleOverlays = segment.overlays
+    .map((ov, oi) => ({ ov, oi }))
+    .filter(({ ov, oi }) => !playing
+      || isOverlayVisibleAtLocalTime(ov, localTime)
+      || (selectedElement.type === 'overlay' && selectedElement.segIndex === currentSegIndex && selectedElement.overlayIndex === oi));
 
   const handleStageClick = (e: { target: { getStage: () => unknown } }) => {
     if (e.target === e.target.getStage()) {
@@ -190,26 +203,31 @@ export default function VideoCanvas() {
                 </Group>
               )}
 
-              {/* 叠加素材 */}
-              {segment.overlays.map((ov, oi) => (
-                <OverlayItem
-                  key={ov.id}
-                  overlay={ov}
-                  displayW={displayW}
-                  displayH={displayH}
-                  isSelected={selectedElement.type === 'overlay' && selectedElement.segIndex === currentSegIndex && selectedElement.overlayIndex === oi}
-                  onSelect={() => setSelectedElement({ type: 'overlay', segIndex: currentSegIndex, overlayIndex: oi })}
-                  onDragEnd={(x, y) => {
-                    updateDsl(d => {
-                      const segs = [...d.segments];
-                      const overlays = [...segs[currentSegIndex].overlays];
-                      overlays[oi] = { ...overlays[oi], position: { x: Math.round(x), y: Math.round(y) } };
-                      segs[currentSegIndex] = { ...segs[currentSegIndex], overlays };
-                      return { ...d, segments: segs };
-                    });
-                  }}
-                />
-              ))}
+              {/* 叠加素材（按播放时间过滤） */}
+              {visibleOverlays.map(({ ov, oi }) => {
+                const preview = getOverlayPreviewStyle(ov, localTime);
+                return (
+                  <OverlayItem
+                    key={ov.id}
+                    overlay={ov}
+                    opacity={preview.opacity}
+                    scaleMultiplier={preview.scaleMultiplier}
+                    displayW={displayW}
+                    displayH={displayH}
+                    isSelected={selectedElement.type === 'overlay' && selectedElement.segIndex === currentSegIndex && selectedElement.overlayIndex === oi}
+                    onSelect={() => setSelectedElement({ type: 'overlay', segIndex: currentSegIndex, overlayIndex: oi })}
+                    onDragEnd={(x, y) => {
+                      updateDsl(d => {
+                        const segs = [...d.segments];
+                        const overlays = [...segs[currentSegIndex].overlays];
+                        overlays[oi] = { ...overlays[oi], position: { x: Math.round(x), y: Math.round(y) } };
+                        segs[currentSegIndex] = { ...segs[currentSegIndex], overlays };
+                        return { ...d, segments: segs };
+                      });
+                    }}
+                  />
+                );
+              })}
 
               {(segment.objects || []).map((object, oi) => (
                 <GenericObjectItem
@@ -266,6 +284,14 @@ export default function VideoCanvas() {
           <span className="px-2 py-0.5 bg-black/60 backdrop-blur-sm rounded text-white text-[10px]">
             {segment.duration_sec}s
           </span>
+          <span className="px-2 py-0.5 bg-black/60 backdrop-blur-sm rounded text-white text-[10px] tabular-nums" data-testid="canvas-time">
+            {localTime.toFixed(1)}s
+          </span>
+          {playing && (
+            <span className="px-2 py-0.5 bg-brand-blue/80 backdrop-blur-sm rounded text-white text-[10px]">
+              预览中
+            </span>
+          )}
         </div>
         {hasCanvasSelection && (
           <div className="absolute top-3 left-1/2 -translate-x-1/2 rounded-lg border border-border bg-card/95 shadow-xl backdrop-blur px-2 py-1 flex items-center gap-1">
@@ -301,10 +327,12 @@ export default function VideoCanvas() {
   );
 }
 
-function OverlayItem({ overlay, displayW, displayH, isSelected, onSelect, onDragEnd }: {
+function OverlayItem({ overlay, displayW, displayH, isSelected, onSelect, onDragEnd, opacity = 1, scaleMultiplier = 1 }: {
   overlay: { asset_url: string; position: { x: number; y: number }; scale: number };
   displayW: number; displayH: number; isSelected: boolean;
   onSelect: () => void; onDragEnd: (x: number, y: number) => void;
+  opacity?: number;
+  scaleMultiplier?: number;
 }) {
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   useEffect(() => {
@@ -321,7 +349,9 @@ function OverlayItem({ overlay, displayW, displayH, isSelected, onSelect, onDrag
   return (
     <Group
       x={x} y={y} draggable
-      scaleX={overlay.scale / 100} scaleY={overlay.scale / 100}
+      opacity={opacity}
+      scaleX={(overlay.scale / 100) * scaleMultiplier}
+      scaleY={(overlay.scale / 100) * scaleMultiplier}
       onDragEnd={(e) => onDragEnd((e.target.x() / displayW) * 100, (e.target.y() / displayH) * 100)}
       onClick={onSelect}
     >

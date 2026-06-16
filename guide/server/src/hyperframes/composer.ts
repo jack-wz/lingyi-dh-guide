@@ -1,5 +1,6 @@
 import { join } from 'path';
 import { writeFileSync, mkdirSync } from 'fs';
+import { getAssetMapFromDsl, resolveOverlayAssetUrl, resolveSegmentOverlays } from '@shared/assetResolver';
 
 interface Segment {
   id: string;
@@ -15,17 +16,32 @@ interface Segment {
   overlays: Array<{
     id: string;
     asset_url: string;
+    asset_key?: string;
     position: { x: number; y: number };
     scale: number;
     seg_start_time: number;
     duration: number;
     animation: string;
+    render_width_pct?: number;
+    render_height_pct?: number;
+    text?: string;
+    label?: string;
+    style?: { fill?: string; textColor?: string; variant?: string };
   }>;
 }
 
 interface DSL {
-  meta: { name: string; type: string };
-  globalConfig: { canvas_width: number; canvas_height: number; fps: number; bgm_url: string; bgm_volume: number };
+  meta: { name: string; type: string; [key: string]: unknown };
+  globalConfig: {
+    canvas_width: number;
+    canvas_height: number;
+    fps: number;
+    bgm_url: string;
+    bgm_volume: number;
+    asset_map?: Record<string, string>;
+    brand_logo_url?: string;
+    [key: string]: unknown;
+  };
   segments: Segment[];
 }
 
@@ -51,7 +67,12 @@ function escapeHtml(text: string): string {
 }
 
 export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]): string {
-  const segs = resolvedSegments || dsl.segments;
+  const assetMap = getAssetMapFromDsl(dsl);
+  const baseSegs = resolvedSegments || dsl.segments;
+  const segs = baseSegs.map((seg) => ({
+    ...seg,
+    overlays: resolveSegmentOverlays(seg.overlays, assetMap),
+  }));
   const { canvas_width: w, canvas_height: h, fps, bgm_url, bgm_volume } = dsl.globalConfig;
 
   let totalDuration = 0;
@@ -99,15 +120,38 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
     let overlaysHtml = '';
     seg.overlays.forEach(ov => {
       const ovStart = start + ov.seg_start_time;
-      if (ov.asset_url) {
-        const isVideo = ov.asset_url.match(/\.(mp4|mov|webm)$/i);
+      const assetUrl = resolveOverlayAssetUrl(ov, assetMap);
+      const widthPct = ov.render_width_pct ?? 20;
+      const heightPct = ov.render_height_pct ?? 12;
+      const maxW = Math.round((w * widthPct) / 100);
+      const maxH = Math.round((h * heightPct) / 100);
+      const animClass = ov.animation === 'fadeIn' ? 'fade-in' : ov.animation === 'scaleIn' ? 'scale-in' : '';
+
+      if (ov.text && !assetUrl) {
+        const fill = ov.style?.fill || 'rgba(255,255,255,0.9)';
+        const color = ov.style?.textColor || '#111827';
         overlaysHtml += `
-        <div class="clip" data-start="${ovStart}" data-duration="${ov.duration}" data-track-index="3"
+        <div class="clip ${animClass}" data-start="${ovStart}" data-duration="${ov.duration}" data-track-index="3"
+             style="position:absolute;left:${ov.position.x}%;top:${ov.position.y}%;
+                    transform:translate(-50%,-50%) scale(${ov.scale / 100});
+                    max-width:${maxW}px;padding:8px 14px;border-radius:8px;
+                    background:${escapeHtml(fill)};color:${escapeHtml(color)};
+                    font-size:${Math.max(14, Math.round(maxH * 0.35))}px;font-weight:600;text-align:center;
+                    font-family:'PingFang SC','Microsoft YaHei',sans-serif;">
+          ${escapeHtml(ov.text)}
+        </div>`;
+        return;
+      }
+
+      if (assetUrl) {
+        const isVideo = assetUrl.match(/\.(mp4|mov|webm|gif)$/i);
+        overlaysHtml += `
+        <div class="clip ${animClass}" data-start="${ovStart}" data-duration="${ov.duration}" data-track-index="3"
              style="position:absolute;left:${ov.position.x}%;top:${ov.position.y}%;
                     transform:translate(-50%,-50%) scale(${ov.scale / 100});">
-          ${isVideo
-            ? `<video src="${escapeHtml(ov.asset_url)}" muted playsinline style="max-width:200px;"></video>`
-            : `<img src="${escapeHtml(ov.asset_url)}" style="max-width:200px;max-height:200px;object-fit:contain;" />`
+          ${isVideo && !assetUrl.match(/\.gif$/i)
+            ? `<video src="${escapeHtml(assetUrl)}" muted playsinline style="max-width:${maxW}px;max-height:${maxH}px;"></video>`
+            : `<img src="${escapeHtml(assetUrl)}" style="max-width:${maxW}px;max-height:${maxH}px;object-fit:contain;" />`
           }
         </div>`;
       }
@@ -148,6 +192,12 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
       opacity: 0;
     }
     @keyframes fadeIn { to { opacity: 1; } }
+
+    .scale-in {
+      animation: scaleIn 0.4s ease-out forwards;
+      transform: translate(-50%, -50%) scale(0.6);
+    }
+    @keyframes scaleIn { to { transform: translate(-50%, -50%) scale(1); } }
 
     .typewriter {
       overflow: hidden;

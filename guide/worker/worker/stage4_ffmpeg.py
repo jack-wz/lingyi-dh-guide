@@ -3,6 +3,7 @@
 import os
 import subprocess
 from worker.ass_generator import generate_ass
+from worker.whisper_aligner import apply_whisper_subtitle_timings
 from worker.timeline_sync import (
     reconcile_timeline,
     validate_segments_for_assembly,
@@ -354,7 +355,15 @@ def assemble_final_video(
         if asset and os.path.exists(asset):
             resolved_overlays.append({**ov, "asset_path": asset})
 
-    # Generate ASS subtitles
+    # Generate ASS subtitles (Whisper word alignment when available, else heuristic)
+    from worker.config import _load_json
+
+    aligner_mode = apply_whisper_subtitle_timings(
+        segments,
+        work_dir=work_dir,
+        config=_load_json(),
+    )
+    print(f"[Stage4] Subtitle aligner mode: {aligner_mode}")
     ass_path = os.path.join(work_dir, "subtitles.ass")
     ass_result = generate_ass(segments, global_config, ass_path)
 

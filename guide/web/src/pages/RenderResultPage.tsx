@@ -49,6 +49,7 @@ export default function RenderResultPage() {
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [messageDialog, setMessageDialog] = useState<{ title: string; message: string; destructive?: boolean } | null>(null);
+  const [reassembling, setReassembling] = useState(false);
   const logEndRef = useRef<HTMLDivElement>(null);
   const lastLogIdRef = useRef(0);
 
@@ -111,6 +112,28 @@ export default function RenderResultPage() {
     }
     const next = await res.json();
     navigate(`/render/${next.id}`);
+  };
+
+  const reassembleJob = async () => {
+    if (!id || !job) return;
+    setReassembling(true);
+    try {
+      const res = await fetch(`/api/renders/${id}/reassemble`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ template_id: job.template_id }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        setMessageDialog({ title: '重拼失败', message: err.error || '无法重拼该任务。', destructive: true });
+        return;
+      }
+      const payload = await res.json();
+      setJob(payload.job || job);
+      setMessageDialog({ title: '重拼完成', message: '已使用现有分镜 clip 重新组装成片（跳过 TTS/口型）。' });
+    } finally {
+      setReassembling(false);
+    }
   };
 
   const duplicateJob = async () => {
@@ -193,6 +216,15 @@ export default function RenderResultPage() {
           <button onClick={duplicateJob} className="px-3 py-1.5 text-sm border border-border rounded-lg hover:bg-secondary">
             复制再生成
           </button>
+          {['completed', 'failed'].includes(job.status) && (
+            <button
+              onClick={reassembleJob}
+              disabled={reassembling}
+              className="px-3 py-1.5 text-sm border border-brand-blue/30 text-brand-blue rounded-lg hover:bg-brand-blue/10 disabled:opacity-50"
+            >
+              {reassembling ? '重拼中...' : '重拼成片'}
+            </button>
+          )}
         </div>
       </div>
 
