@@ -35,6 +35,7 @@
 - CI：`guide-server` job 运行 Express API 单测（`make test-guide-server`）
 - Playwright：`tests/e2e/playground.spec.ts`；`make test-guide-e2e`；CI `guide-e2e` job
 - Playground 健康检查：代理 `/api/guide/health` 不可用时回退 `/api/health`（直连导购 Server / E2E）
+- 运维脚本：`scripts/start_internal.sh` / `make start-guide-internal`（`:8000` 已占用时单独拉起 `:3001` + Worker）
 
 ### Changed
 

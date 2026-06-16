@@ -13,7 +13,7 @@ RUN_PYTEST := "$(SCRIPTS)/run_pytest.sh"
 TEMPLATE_ID ?= 517a1920-6376-47ef-871b-9badbaa16b53
 MIN_SEGMENTS ?= 4
 
-.PHONY: help setup-worker-venv test-guide test-guide-server test-guide-e2e test-guide-fast test-guide-timeline smoke-brand-render smoke-integrator smoke-integrator-ci verify-playground restart-worker lint-guide \
+.PHONY: help setup-worker-venv test-guide test-guide-server test-guide-e2e test-guide-fast test-guide-timeline smoke-brand-render smoke-integrator smoke-integrator-ci verify-playground start-guide-internal restart-worker lint-guide \
 	validate-renders validate-renders-strict validate-renders-ci validate-render-job \
 	batch-reassemble batch-reassemble-dry preflight
 
@@ -28,6 +28,7 @@ help:
 	@echo "  preflight               Check node/uv/ffmpeg and guide/.env"
 	@echo "  smoke-integrator-ci     CI gate: preflight + compile smoke script (no live API)"
 	@echo "  verify-playground       Preflight + /debug reachable + smoke submit-only"
+	@echo "  start-guide-internal    Start :3001 server + worker when :8000 API already up"
 	@echo "  restart-worker          Restart render worker (load latest worker code)"
 	@echo "  validate-renders        Audit all jobs under data/renders (fail on errors)"
 	@echo "  validate-renders-strict Also fail on warnings"
@@ -76,6 +77,10 @@ smoke-integrator-ci: preflight
 verify-playground:
 	@chmod +x "$(SCRIPTS)/verify_playground.sh" 2>/dev/null || true
 	@"$(SCRIPTS)/verify_playground.sh"
+
+start-guide-internal:
+	@chmod +x "$(SCRIPTS)/start_internal.sh" 2>/dev/null || true
+	@"$(SCRIPTS)/start_internal.sh"
 
 restart-worker:
 	@chmod +x "$(SCRIPTS)/restart_worker.sh" 2>/dev/null || true
