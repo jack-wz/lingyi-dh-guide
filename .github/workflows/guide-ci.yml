@@ -42,6 +42,36 @@ jobs:
         working-directory: guide
         run: npm run test --workspace=server
 
+  guide-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: guide/package-lock.json
+
+      - name: Install native build tools (better-sqlite3)
+        run: sudo apt-get update && sudo apt-get install -y build-essential python3
+
+      - name: Install guide workspaces
+        working-directory: guide
+        run: npm ci
+
+      - name: Install Playwright Chromium
+        working-directory: guide/web
+        run: npx playwright install --with-deps chromium
+
+      - name: Playwright E2E
+        working-directory: guide/web
+        env:
+          CI: 'true'
+        run: npm run test:e2e
+
   guide-worker:
     runs-on: ubuntu-latest
     steps:

@@ -46,11 +46,12 @@ export default function IntegratorPlayground() {
   const loadStatus = useCallback(async () => {
     setHealth('checking');
     try {
-      const [guideRes, diagRes] = await Promise.all([
+      const [guideRes, directRes, diagRes] = await Promise.all([
         fetch('/api/guide/health'),
+        fetch('/api/health'),
         fetch('/api/config/diagnostics'),
       ]);
-      setHealth(guideRes.ok ? 'ok' : 'down');
+      setHealth(guideRes.ok || directRes.ok ? 'ok' : 'down');
       if (diagRes.ok) {
         setDiagnostics(await diagRes.json());
       }
@@ -220,6 +221,7 @@ export default function IntegratorPlayground() {
             disabled={phase === 'submitting' || phase === 'polling' || health !== 'ok'}
             onClick={() => void runSmoke(true)}
             className="h-10 px-4 border border-border rounded-md hover:bg-secondary disabled:opacity-50 text-[13px]"
+            data-testid="playground-submit-only"
           >
             仅入队（不等待成片）
           </button>

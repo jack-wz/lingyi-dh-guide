@@ -80,4 +80,4 @@ make test-guide-fast     # 时间轴 / ASS 快速门禁
 make smoke-integrator SUBMIT_ONLY=1
 ```
 
-Web E2E（需 dev server 在 `:5180`）：`cd web && npx playwright test`
+Web E2E（自启隔离 server `:3100` + web `:5180`）：`make test-guide-e2e`

@@ -33,6 +33,8 @@
 - Worker 长任务期间后台心跳（15s）；`make restart-worker` 热重启 Worker
 - 前端主要页面统一 `apiError` 结构化错误展示（模板中心 / 我的视频 / 数字人 / 渲染详情 / 编辑器提交）
 - CI：`guide-server` job 运行 Express API 单测（`make test-guide-server`）
+- Playwright：`tests/e2e/playground.spec.ts`；`make test-guide-e2e`；CI `guide-e2e` job
+- Playground 健康检查：代理 `/api/guide/health` 不可用时回退 `/api/health`（直连导购 Server / E2E）
 
 ### Changed
 
