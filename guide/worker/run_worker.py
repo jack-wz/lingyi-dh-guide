@@ -6,6 +6,7 @@ import json
 import asyncio
 import os
 import socket
+import threading
 import traceback
 import requests
 
@@ -156,6 +157,16 @@ def process_job(job):
     )
 
     set_job_config_snapshot(provider_config_snapshot)
+    stop_heartbeat = threading.Event()
+
+    def _heartbeat_loop():
+        while not stop_heartbeat.wait(15):
+            if heartbeat(job_id):
+                stop_heartbeat.set()
+                return
+
+    heartbeat_thread = threading.Thread(target=_heartbeat_loop, daemon=True)
+    heartbeat_thread.start()
     try:
         pipeline = pipeline_registry.get(pipeline_key)
         if heartbeat(job_id):
@@ -181,6 +192,8 @@ def process_job(job):
         update_job(job_id, status="failed", stage="failed", error_message=error_msg)
         post_log(job_id, f"任务失败: {error_msg}", level="error")
     finally:
+        stop_heartbeat.set()
+        heartbeat_thread.join(timeout=2)
         set_job_config_snapshot({})
 
 

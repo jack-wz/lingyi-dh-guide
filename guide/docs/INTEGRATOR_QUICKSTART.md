@@ -142,7 +142,14 @@ make verify-playground
 
 等价于：`preflight` → 检查 `/debug` 可访问 → `SUBMIT_ONLY=1` smoke 入队。
 
-更新 `guide/worker/` 代码后，需 **重启平台** 以加载新 Worker（`Ctrl+C` 停掉 `./start_platform.sh` 后重新执行）。
+更新 `guide/worker/` 代码后，重启 Worker：
+
+```bash
+make restart-worker
+# 或完整重启：Ctrl+C 停掉 ./start_platform.sh 后重新执行
+```
+
+Worker 在 KIE/WaveSpeed 长轮询期间会每 15s 发送心跳，避免被误判为僵死。
 
 ---
 

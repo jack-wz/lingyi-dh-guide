@@ -22,6 +22,7 @@
 - Smoke 模板无 `voice_clone_id` 时仍生成降级 TTS，避免时间轴校验 `TTS missing` 导致任务失败
 - 时间轴审计：分镜已内嵌音轨时不再误报阻塞性 TTS 缺失
 - `smoke_integrator.sh`：修复 `set -u` 下空 `ARGS` 导致全量 smoke 无法启动
+- Worker 长任务期间后台心跳（15s）；`make restart-worker` 热重启 Worker
 
 ### Changed
 
