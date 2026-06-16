@@ -54,7 +54,8 @@ test_outputs/
 *.mp3
 *.wav
 *.bak
-test_*.py
+/test_*.py
+!guide/worker/tests/test_*.py
 
 !bgm/default.mp3
 
