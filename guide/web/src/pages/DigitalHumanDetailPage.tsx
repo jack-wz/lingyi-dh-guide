@@ -330,6 +330,24 @@ export default function DigitalHumanDetailPage() {
           {trainLabel}
         </button>
       </div>
+
+      {dh.status === 'ready' && (
+        <div className="mt-4 p-4 border border-brand-green/30 rounded-xl bg-brand-green/5 flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm text-muted-foreground">数字人已就绪，可在编辑器中选用并生成导购视频。</p>
+          <button
+            type="button"
+            onClick={() => {
+              const lastEditor = localStorage.getItem('guide-last-editor-id');
+              if (lastEditor) navigate(`/editor/${lastEditor}?dh_id=${dh.id}`);
+              else navigate('/');
+            }}
+            className="px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90"
+          >
+            用此数字人继续编辑
+          </button>
+        </div>
+      )}
+
       <ConfirmDialog
         open={showDeleteDialog}
         title="删除数字人"

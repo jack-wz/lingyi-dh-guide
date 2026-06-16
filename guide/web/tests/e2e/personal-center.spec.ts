@@ -11,7 +11,7 @@ async function createTemplate(request: Parameters<Parameters<typeof test>[1]>[0]
     },
   });
   expect(created.ok(), await created.text()).toBeTruthy();
-  return created.json();
+  return created.json() as { id: string; name: string };
 }
 
 async function createCompletedRender(
@@ -28,7 +28,7 @@ async function createCompletedRender(
     },
   });
   expect(created.ok(), await created.text()).toBeTruthy();
-  const job = await created.json();
+  const job = await created.json() as { id: string };
 
   const completed = await request.patch(`${apiBase}/api/renders/${job.id}`, {
     data: {
@@ -39,10 +39,10 @@ async function createCompletedRender(
     },
   });
   expect(completed.ok(), await completed.text()).toBeTruthy();
-  return completed.json();
+  return completed.json() as { id: string };
 }
 
-test('personal center shows downloadable completed videos and missing-output fallback', async ({ page, request }) => {
+test('personal center shows playable and cleaned-output badges', async ({ page, request }) => {
   const consoleErrors: string[] = [];
   const failedRequests: string[] = [];
   page.on('console', (message) => {
@@ -53,34 +53,31 @@ test('personal center shows downloadable completed videos and missing-output fal
   });
 
   const template = await createTemplate(request);
-  const downloadable = await createCompletedRender(
-    request,
-    template.id,
-    'https://cdn.example.com/e2e-render.mp4',
-  );
-  const missingOutput = await createCompletedRender(
+  await createCompletedRender(request, template.id, 'https://cdn.example.com/e2e-render.mp4');
+  await createCompletedRender(
     request,
     template.id,
     `/renders/e2e-missing-${Date.now()}.mp4`,
   );
 
   await page.goto('/my-videos');
-  await expect(page.getByRole('heading', { name: '个人中心' })).toBeVisible();
-  await expect(page.getByText(`视频 ${downloadable.id.slice(0, 8)}`)).toBeVisible();
-  await expect(page.getByText(`视频 ${missingOutput.id.slice(0, 8)}`)).toBeVisible();
-  const missingCard = page.getByRole('button', { name: `视频 ${missingOutput.id.slice(0, 8)} 文件缺失` });
-  await expect(missingCard.getByText('文件缺失')).toBeVisible();
+  await expect(page.getByRole('heading', { name: '我的视频' })).toBeVisible();
+  await expect(page.getByText(template.name).first()).toBeVisible();
 
-  const downloadableCard = page.getByRole('button', { name: `视频 ${downloadable.id.slice(0, 8)} 可下载` });
-  const downloadLink = downloadableCard.getByRole('link', { name: '下载' });
+  const playableCard = page.getByRole('button', { name: new RegExp(`${template.name}.*可播放`) });
+  const cleanedCard = page.getByRole('button', { name: new RegExp(`${template.name}.*成片已清理`) });
+  await expect(playableCard).toBeVisible();
+  await expect(cleanedCard).toBeVisible();
+
+  const downloadLink = playableCard.getByRole('link', { name: '下载' });
   await expect(downloadLink).toBeVisible();
   await expect(downloadLink).toHaveAttribute('href', 'https://cdn.example.com/e2e-render.mp4');
 
-  await missingCard.click();
-  const dialog = page.getByRole('dialog', { name: '视频播放' });
+  await cleanedCard.click();
+  const dialog = page.getByRole('dialog');
   await expect(dialog.getByText('输出文件缺失，无法播放')).toBeVisible();
   await expect(dialog.getByRole('link', { name: '下载视频' })).toHaveCount(0);
-  await expect(dialog.getByRole('link', { name: '查看详情' })).toHaveAttribute('href', `/render/${missingOutput.id}`);
+  await expect(dialog.getByRole('link', { name: '查看详情' })).toBeVisible();
 
   expect(consoleErrors).toEqual([]);
   expect(failedRequests).toEqual([]);

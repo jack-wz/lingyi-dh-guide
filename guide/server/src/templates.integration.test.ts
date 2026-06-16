@@ -129,6 +129,35 @@ describe('template lifecycle API', () => {
     assert.equal((offline.json as { published_at: string }).published_at, publishedBody.published_at);
   });
 
+  it('filters e2e templates when exclude_e2e=1 and reports meta counts', async () => {
+    const e2e = await request('POST', '/api/templates', {
+      name: 'E2E Filter Test',
+      type: 'e2e',
+      description: 'browser smoke',
+    });
+    assert.equal(e2e.status, 201);
+
+    const ops = await request('POST', '/api/templates', {
+      name: 'Ops Template',
+      type: '新品发布',
+      description: 'operator template',
+    });
+    assert.equal(ops.status, 201);
+
+    const filtered = await request('GET', '/api/templates?exclude_e2e=1&with_meta=1');
+    assert.equal(filtered.status, 200);
+    const body = filtered.json as { items: Array<{ type: string; name: string }>; meta: { e2e_count: number } };
+    assert.ok(body.items.every((t) => t.type !== 'e2e'));
+    assert.ok(body.items.some((t) => t.name === 'Ops Template'));
+    assert.equal(body.meta.e2e_count, 1);
+
+    const all = await request('GET', '/api/templates?include_e2e=1&q=E2E%20Filter');
+    assert.equal(all.status, 200);
+    const allItems = all.json as Array<{ name: string }>;
+    assert.equal(allItems.length, 1);
+    assert.equal(allItems[0].name, 'E2E Filter Test');
+  });
+
   it('keeps legacy PUT status updates validated', async () => {
     const template = await createTemplate();
     const invalid = await request('PUT', `/api/templates/${template.id}`, {

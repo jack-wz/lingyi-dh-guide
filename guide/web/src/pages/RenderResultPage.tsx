@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import ConfirmDialog from '../components/ConfirmDialog';
 
 interface RenderJob {
@@ -31,6 +31,12 @@ interface LogEntry {
   created_at: string;
 }
 
+interface ErrorCatalogEntry {
+  code: string;
+  remediation: string;
+  doc_path?: string;
+}
+
 const stageLabels: Record<string, string> = {
   queued: '等待中',
   parsing: '解析模板',
@@ -48,11 +54,19 @@ export default function RenderResultPage() {
   const navigate = useNavigate();
   const [job, setJob] = useState<RenderJob | null>(null);
   const [logs, setLogs] = useState<LogEntry[]>([]);
+  const [errorCatalog, setErrorCatalog] = useState<ErrorCatalogEntry[]>([]);
   const [showCancelDialog, setShowCancelDialog] = useState(false);
   const [messageDialog, setMessageDialog] = useState<{ title: string; message: string; destructive?: boolean } | null>(null);
   const [reassembling, setReassembling] = useState(false);
   const logEndRef = useRef<HTMLDivElement>(null);
   const lastLogIdRef = useRef(0);
+
+  useEffect(() => {
+    fetch('/api/error-catalog')
+      .then((r) => r.json())
+      .then((data) => setErrorCatalog(data.errors || []))
+      .catch(() => setErrorCatalog([]));
+  }, []);
 
   useEffect(() => {
     if (!id) return;
@@ -86,10 +100,14 @@ export default function RenderResultPage() {
     return () => clearInterval(interval);
   }, [id]);
 
-  // Auto-scroll to bottom when new logs arrive
   useEffect(() => {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [logs]);
+
+  const errorMeta = useMemo(() => {
+    if (!job?.error_code) return null;
+    return errorCatalog.find((e) => e.code === job.error_code) || null;
+  }, [job?.error_code, errorCatalog]);
 
   if (!job) return <div className="text-center py-20 text-muted-foreground">加载中...</div>;
 
@@ -151,10 +169,20 @@ export default function RenderResultPage() {
 
   return (
     <div className="max-w-3xl mx-auto p-6">
-      <button onClick={() => navigate('/')} className="text-brand-blue hover:text-blue-800 mb-4 inline-block">
-        ← 返回模板列表
+      <button onClick={() => navigate('/my-videos')} className="text-brand-blue hover:text-blue-800 mb-4 inline-block">
+        ← 返回我的视频
       </button>
-      <h1 className="text-2xl font-bold text-foreground mb-6">视频生成</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <h1 className="text-2xl font-bold text-foreground">视频生成</h1>
+        {job.template_id && (
+          <Link
+            to={`/editor/${job.template_id}`}
+            className="px-3 py-1.5 text-sm border border-brand-blue/40 text-brand-blue rounded-lg hover:bg-brand-blue/10 no-underline"
+          >
+            回编辑器继续改
+          </Link>
+        )}
+      </div>
 
       <div className="bg-card border border-border rounded-xl p-6 mb-6">
         <div className="flex items-center gap-3 mb-4">
@@ -203,7 +231,7 @@ export default function RenderResultPage() {
           </div>
         </div>
 
-        <div className="mt-5 flex gap-2 justify-end">
+        <div className="mt-5 flex gap-2 justify-end flex-wrap">
           {canCancel && (
             <button onClick={() => setShowCancelDialog(true)} className="px-3 py-1.5 text-sm border border-destructive/30 text-destructive rounded-lg hover:bg-destructive/10">
               取消任务
@@ -229,7 +257,6 @@ export default function RenderResultPage() {
         </div>
       </div>
 
-      {/* 日志面板 */}
       <div className="bg-card border border-border rounded-xl p-4 mb-6">
         <h2 className="text-sm font-semibold text-foreground/80 mb-3">执行日志</h2>
         <div className="bg-background rounded-lg p-3 h-64 overflow-y-auto font-mono text-xs">
@@ -283,7 +310,31 @@ export default function RenderResultPage() {
           {job.error_code ? (
             <p className="text-[11px] font-mono text-muted-foreground mb-2 select-all">错误码：{job.error_code}</p>
           ) : null}
+          {errorMeta?.remediation && (
+            <div className="rounded-lg border border-border bg-card/80 p-3 mb-3">
+              <p className="text-xs font-medium text-foreground mb-1">建议处理</p>
+              <p className="text-sm text-muted-foreground">{errorMeta.remediation}</p>
+              {errorMeta.doc_path && (
+                <a
+                  href={`/${errorMeta.doc_path}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-brand-blue hover:underline mt-2 inline-block"
+                >
+                  查看文档
+                </a>
+              )}
+            </div>
+          )}
           <p className="text-destructive text-sm">{job.error_message || '未知错误'}</p>
+          {job.template_id && (
+            <Link
+              to={`/editor/${job.template_id}`}
+              className="inline-block mt-4 px-4 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 no-underline"
+            >
+              回编辑器继续改
+            </Link>
+          )}
         </div>
       )}
       <ConfirmDialog

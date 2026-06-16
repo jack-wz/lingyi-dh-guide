@@ -5,6 +5,8 @@ import AssetPreviewPanel from '../components/AssetPreviewPanel';
 import { libraryPayloadToBrandPack } from '@shared/brandPack';
 import BrandColorSwatches from '../components/BrandColorSwatches';
 import BrandAssetEditor from '../components/BrandAssetEditor';
+import ConfirmDialog from '../components/ConfirmDialog';
+import ImportCatalogBanner from '../components/ImportCatalogBanner';
 import type { AssetHubTab, LibraryItem, LibrarySummary } from '../types/library';
 
 const TABS: { id: AssetHubTab; label: string; hint: string; primary?: boolean }[] = [
@@ -137,6 +139,7 @@ export default function AssetHubPage() {
   const [brandEditorOpen, setBrandEditorOpen] = useState(false);
   const [brandEditorMode, setBrandEditorMode] = useState<'create' | 'edit'>('edit');
   const [brandEditorId, setBrandEditorId] = useState<string | undefined>(undefined);
+  const [deleteTarget, setDeleteTarget] = useState<{ kind: 'library' | 'media'; id: string; name: string } | null>(null);
 
   const setTab = (tab: AssetHubTab) => {
     const next: Record<string, string> = { tab };
@@ -216,21 +219,18 @@ export default function AssetHubPage() {
     setShowForm(false);
   };
 
-  const deleteStoredItem = async (id: string) => {
-    if (!confirm('确定删除该资产？')) return;
-    await fetch(`/api/library/${id}`, { method: 'DELETE' });
+  const confirmDelete = async () => {
+    if (!deleteTarget) return;
+    if (deleteTarget.kind === 'library') {
+      await fetch(`/api/library/${deleteTarget.id}`, { method: 'DELETE' });
+      if (editing?.id === deleteTarget.id) setEditing(null);
+    } else {
+      await fetch(`/api/assets/${deleteTarget.id}`, { method: 'DELETE' });
+    }
     loadItems();
     loadSummary();
-    if (editing?.id === id) setEditing(null);
-    if (previewItem?.id === id) setPreviewItem(null);
-  };
-
-  const deleteMedia = async (id: string) => {
-    if (!confirm('确定删除该媒体素材？')) return;
-    await fetch(`/api/assets/${id}`, { method: 'DELETE' });
-    loadItems();
-    loadSummary();
-    if (previewItem?.id === id) setPreviewItem(null);
+    if (previewItem?.id === deleteTarget.id) setPreviewItem(null);
+    setDeleteTarget(null);
   };
 
   const uploadFile = async (file: File) => {
@@ -467,11 +467,11 @@ export default function AssetHubPage() {
             {STORED_TABS.has(activeTab) && activeTab !== 'knowledge' && (
               <>
                 <button type="button" className="text-xs text-brand-blue" onClick={() => startEdit(item)}>编辑</button>
-                <button type="button" className="text-xs text-red-500" onClick={() => deleteStoredItem(item.id)}>删除</button>
+                <button type="button" className="text-xs text-red-500" onClick={() => setDeleteTarget({ kind: 'library', id: item.id, name: item.name })}>删除</button>
               </>
             )}
             {activeTab === 'media' && (
-              <button type="button" className="text-xs text-red-500" onClick={() => deleteMedia(item.id)}>删除</button>
+              <button type="button" className="text-xs text-red-500" onClick={() => setDeleteTarget({ kind: 'media', id: item.id, name: item.name })}>删除</button>
             )}
             {activeTab === 'knowledge' && (
               <button type="button" className="text-xs text-muted-foreground" onClick={() => setDevNotice(true)}>查看文档</button>
@@ -514,21 +514,48 @@ export default function AssetHubPage() {
           </div>
         )}
 
-        <div className="flex flex-wrap gap-2 mb-4">
-          {TABS.map(tab => (
-            <button key={tab.id} type="button" onClick={() => setTab(tab.id)}
-              className={`px-3 py-1.5 rounded-full text-sm border transition-opacity duration-150 ${
-                activeTab === tab.id
-                  ? 'bg-brand-blue text-white border-brand-blue'
-                  : tab.primary
-                    ? 'border-brand-blue/40 text-foreground hover:bg-brand-blue/5'
-                    : 'border-border text-muted-foreground hover:text-foreground'
-              }`}>
-              {tab.label}
-              {tab.primary && activeTab !== tab.id && <span className="ml-1 text-[9px] text-brand-blue">推荐</span>}
-              {summary?.counts?.[tab.id] != null && <span className="ml-1 opacity-70">({summary.counts[tab.id]})</span>}
-            </button>
-          ))}
+        <ImportCatalogBanner
+          summary={summary}
+          className="mb-4"
+          onImported={() => { loadSummary(); loadItems(); }}
+        />
+
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          <div className="flex flex-wrap gap-2">
+            {TABS.filter((t) => t.primary).map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setTab(tab.id)}
+                className={`px-3 py-1.5 rounded-full text-sm border font-medium transition-colors duration-150 ${
+                  activeTab === tab.id
+                    ? 'bg-brand-blue text-white border-brand-blue'
+                    : 'border-brand-blue/50 text-foreground hover:bg-brand-blue/8'
+                }`}
+              >
+                {tab.label}
+                {summary?.counts?.[tab.id] != null && <span className="ml-1 opacity-80">({summary.counts[tab.id]})</span>}
+              </button>
+            ))}
+          </div>
+          <div className="hidden sm:block w-px h-6 bg-border mx-0.5" aria-hidden />
+          <div className="flex flex-wrap gap-1.5">
+            {TABS.filter((t) => !t.primary).map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setTab(tab.id)}
+                className={`px-2.5 py-1 rounded-full text-xs border transition-colors duration-150 ${
+                  activeTab === tab.id
+                    ? 'bg-accent text-accent-foreground border-border'
+                    : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-accent/60'
+                }`}
+              >
+                {tab.label}
+                {summary?.counts?.[tab.id] != null && <span className="ml-1 opacity-60">({summary.counts[tab.id]})</span>}
+              </button>
+            ))}
+          </div>
         </div>
 
         {activeTab === 'brand' && items.length === 0 && !loading && (
@@ -651,6 +678,16 @@ export default function AssetHubPage() {
         itemId={brandEditorId}
         onClose={() => setBrandEditorOpen(false)}
         onSaved={() => { loadItems(); loadSummary(); }}
+      />
+
+      <ConfirmDialog
+        open={Boolean(deleteTarget)}
+        title="删除资产"
+        message={deleteTarget ? `确定删除「${deleteTarget.name}」吗？此操作不可撤销。` : ''}
+        confirmLabel="删除"
+        destructive
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleteTarget(null)}
       />
 
       {devNotice && (

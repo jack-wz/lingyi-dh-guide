@@ -145,7 +145,6 @@ export interface EditorState {
   playing: boolean;
   currentTime: number;
   selectedElement: CanvasElement;
-  showPresets: boolean;
   timelineZoom: number;
   timelineScrollLeft: number;
   mutedTracks: Set<TrackId>;
@@ -167,7 +166,6 @@ export interface EditorState {
   seekToSegment: (index: number) => void;
   togglePlayback: () => void;
   setSelectedElement: (el: CanvasElement) => void;
-  setShowPresets: (show: boolean) => void;
   setTimelineZoom: (z: number) => void;
   setTimelineScrollLeft: (l: number) => void;
   toggleMuteTrack: (id: TrackId) => void;
@@ -183,7 +181,6 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   playing: false,
   currentTime: 0,
   selectedElement: { type: 'none' },
-  showPresets: false,
   timelineZoom: 1,
   timelineScrollLeft: 0,
   mutedTracks: new Set<TrackId>(),
@@ -295,7 +292,6 @@ export const useEditorStore = create<EditorState>((set, get) => ({
     set({ playing: true });
   },
   setSelectedElement: (el) => set({ selectedElement: el }),
-  setShowPresets: (show) => set({ showPresets: show }),
   setTimelineZoom: (z) => set({ timelineZoom: Math.max(0.5, Math.min(4, z)) }),
   setTimelineScrollLeft: (l) => set({ timelineScrollLeft: l }),
   toggleMuteTrack: (id) => set(s => {

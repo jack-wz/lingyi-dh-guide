@@ -8,6 +8,14 @@
 
 ### Added
 
+- 模板中心：默认隐藏 `type=e2e` 测试模板，支持搜索/状态筛选与「显示测试模板」开关
+- 编辑器顶栏：数字人 / 品牌 / 脚本 ghost 控件 + 单一「生成视频」主 CTA；预置模板弹窗改为跳转模板中心
+- 资产库：`ImportCatalogBanner` 空库引导同步；主次 Tab 视觉分组
+- 新手引导：`OnboardingWizard` 三步向导（资产 → 数字人 → 模板）
+- 渲染详情：错误码对照 `GET /api/error-catalog` 展示 remediation；「回编辑器继续改」入口
+- 我的视频：渲染列表分页（`GET /api/renders?limit&offset`）
+- 运维脚本：`scripts/cleanup_e2e_templates.py`（dry-run / `--apply` 清理 E2E 模板）
+- Playwright：`tests/e2e/template-list.spec.ts`
 - 集成方快速上手：[docs/INTEGRATOR_QUICKSTART.md](docs/INTEGRATOR_QUICKSTART.md)
 - 依赖预检：`scripts/preflight.sh`
 - 集成 smoke：`scripts/smoke_integrator.py`、`make smoke-integrator`

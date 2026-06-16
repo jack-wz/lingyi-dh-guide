@@ -91,8 +91,8 @@ export default function DigitalHumanListPage() {
         <div className="text-center py-20 text-muted-foreground">加载中...</div>
       ) : humans.length === 0 ? (
         <div className="text-center py-20">
-          <div className="text-6xl mb-4">🧑‍💼</div>
-          <p className="text-muted-foreground mb-4">还没有数字人</p>
+          <div className="text-muted-foreground mb-4 flex justify-center"><IconUser size={48} /></div>
+          <p className="text-muted-foreground mb-4">还没有数字人，创建后可上传照片与声音样本进行训练</p>
           <button onClick={() => setShowCreateDialog(true)} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90">
             创建第一个数字人
           </button>

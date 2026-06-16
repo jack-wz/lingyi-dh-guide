@@ -42,11 +42,64 @@ function serializeTemplate(row: any) {
   return row;
 }
 
-// GET /api/templates - list all templates
-router.get('/', (_req: Request, res: Response) => {
+function parseBoolQuery(value: unknown, defaultValue: boolean): boolean {
+  if (value === undefined || value === null || value === '') return defaultValue;
+  const text = String(value).toLowerCase();
+  if (text === '1' || text === 'true' || text === 'yes') return true;
+  if (text === '0' || text === 'false' || text === 'no') return false;
+  return defaultValue;
+}
+
+function listTemplatesQuery(req: Request) {
+  const includeE2e = parseBoolQuery(req.query.include_e2e, false);
+  const excludeE2e = !includeE2e && parseBoolQuery(req.query.exclude_e2e, false);
+  const q = String(req.query.q || '').trim();
+  const statusFilter = String(req.query.status || '').trim();
+
+  const conditions: string[] = [];
+  const params: unknown[] = [];
+
+  if (excludeE2e) {
+    conditions.push("type != 'e2e'");
+  }
+  if (statusFilter && isTemplateStatus(statusFilter)) {
+    conditions.push('status = ?');
+    params.push(statusFilter);
+  }
+  if (q) {
+    conditions.push('(name LIKE ? OR description LIKE ? OR type LIKE ?)');
+    const like = `%${q}%`;
+    params.push(like, like, like);
+  }
+
+  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+  return {
+    sql: `SELECT * FROM templates ${where} ORDER BY updated_at DESC`,
+    params,
+    excludeE2e,
+  };
+}
+
+// GET /api/templates - list templates (optional filters: exclude_e2e, include_e2e, q, status, with_meta)
+router.get('/', (req: Request, res: Response) => {
   const db = getDb();
-  const templates = db.prepare('SELECT * FROM templates ORDER BY updated_at DESC').all();
-  res.json(templates);
+  const withMeta = parseBoolQuery(req.query.with_meta, false);
+  const { sql, params } = listTemplatesQuery(req);
+  const templates = db.prepare(sql).all(...params);
+
+  if (!withMeta) {
+    res.json(templates);
+    return;
+  }
+
+  const e2eCount = (db.prepare("SELECT COUNT(*) as n FROM templates WHERE type = 'e2e'").get() as { n: number }).n;
+  res.json({
+    items: templates,
+    meta: {
+      e2e_count: e2eCount,
+      shown_count: templates.length,
+    },
+  });
 });
 
 // GET /api/templates/:id - get single template

@@ -2,7 +2,8 @@ import { defineConfig, devices } from '@playwright/test';
 
 const browserChannel = process.env.PLAYWRIGHT_CHANNEL || undefined;
 const e2eApiUrl = process.env.E2E_API_URL || 'http://127.0.0.1:3100';
-const e2eBaseUrl = process.env.E2E_BASE_URL || 'http://127.0.0.1:5174';
+// Dedicated port — 5174 is often taken by OpenTalking Studio in local dev.
+const e2eBaseUrl = process.env.E2E_BASE_URL || 'http://127.0.0.1:5180';
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -26,9 +27,9 @@ export default defineConfig({
       timeout: 30_000,
     },
     {
-      command: 'VITE_API_TARGET=http://127.0.0.1:3100 npm run dev -- --host 127.0.0.1 --port 5174',
+      command: 'VITE_API_TARGET=http://127.0.0.1:3100 npm run dev -- --host 127.0.0.1 --port 5180',
       url: e2eBaseUrl,
-      reuseExistingServer: true,
+      reuseExistingServer: !process.env.CI,
       timeout: 30_000,
     },
   ],

@@ -5,6 +5,8 @@ import ConfirmDialog from '../components/ConfirmDialog';
 interface RenderJob {
   id: string;
   template_id: string;
+  template_name?: string;
+  template_type?: string;
   digital_human_id: string;
   status: string;
   output_url: string;
@@ -14,6 +16,20 @@ interface RenderJob {
   stage: string;
   created_at: string;
   completed_at: string;
+}
+
+function completedPlaybackBadge(job: RenderJob): { label: string; className: string } {
+  if (job.output_url && job.output_exists) {
+    return { label: '可播放', className: 'bg-brand-green text-primary-foreground' };
+  }
+  if (job.output_url) {
+    return { label: '成片已清理', className: 'bg-brand-amber/90 text-foreground' };
+  }
+  return { label: '无成片', className: 'bg-secondary text-muted-foreground' };
+}
+
+function jobDisplayTitle(job: RenderJob): string {
+  return job.template_name?.trim() || '未命名模板';
 }
 
 interface UnifiedTask {
@@ -29,8 +45,12 @@ interface UnifiedTask {
   updated_at: string;
 }
 
+const PAGE_SIZE = 12;
+
 export default function PersonalCenterPage() {
   const [jobs, setJobs] = useState<RenderJob[]>([]);
+  const [totalJobs, setTotalJobs] = useState(0);
+  const [page, setPage] = useState(0);
   const [activeTasks, setActiveTasks] = useState<UnifiedTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedVideo, setSelectedVideo] = useState<RenderJob | null>(null);
@@ -39,12 +59,15 @@ export default function PersonalCenterPage() {
 
   const fetchJobs = async () => {
     try {
+      const offset = page * PAGE_SIZE;
       const [rendersRes, tasksRes] = await Promise.all([
-        fetch('/api/renders'),
+        fetch(`/api/renders?limit=${PAGE_SIZE}&offset=${offset}`),
         fetch('/api/tasks?scope=active&limit=20'),
       ]);
-      const data: RenderJob[] = await rendersRes.json();
-      setJobs(data.filter(j => ['completed', 'failed', 'cancelled'].includes(j.status)));
+      const payload = await rendersRes.json();
+      const items: RenderJob[] = Array.isArray(payload) ? payload : (payload.items || []);
+      setJobs(items.filter(j => ['completed', 'failed', 'cancelled'].includes(j.status)));
+      setTotalJobs(Array.isArray(payload) ? items.length : Number(payload.total ?? items.length));
       const tasksPayload = await tasksRes.json();
       setActiveTasks(tasksPayload.items || []);
     } catch (e) {
@@ -55,10 +78,11 @@ export default function PersonalCenterPage() {
   };
 
   useEffect(() => {
+    setLoading(true);
     fetchJobs();
     const interval = setInterval(fetchJobs, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [page]);
 
   const completedJobs = jobs.filter(j => j.status === 'completed');
   const failedJobs = jobs.filter(j => j.status === 'failed');
@@ -101,7 +125,7 @@ export default function PersonalCenterPage() {
 
   return (
     <div className="max-w-5xl mx-auto p-6">
-      <h1 className="text-2xl font-bold text-foreground mb-2">个人中心</h1>
+      <h1 className="text-2xl font-bold text-foreground mb-2">我的视频</h1>
       <p className="text-muted-foreground mb-6">查看您的视频生成历史记录</p>
 
       {activeTasks.length > 0 && (
@@ -160,7 +184,7 @@ export default function PersonalCenterPage() {
                 key={job.id}
                 role="button"
                 tabIndex={0}
-                aria-label={`视频 ${job.id.slice(0, 8)} ${job.output_url && job.output_exists ? '可下载' : '文件缺失'}`}
+                aria-label={`${jobDisplayTitle(job)} ${completedPlaybackBadge(job).label}`}
                 className="bg-card border border-border rounded-xl overflow-hidden hover:shadow-lg transition cursor-pointer"
                 onClick={() => setSelectedVideo(job)}
                 onKeyDown={(e) => {
@@ -180,19 +204,19 @@ export default function PersonalCenterPage() {
                     />
                   ) : (
                     <div className="flex items-center justify-center h-full text-muted-foreground">
-                    {job.output_url ? '文件缺失' : '无视频'}
+                    {job.output_url ? '成片已清理' : '无视频'}
                     </div>
                   )}
-                  <div className="absolute top-2 right-2 bg-brand-green text-primary-foreground text-xs px-2 py-0.5 rounded">
-                    成功
+                  <div className={`absolute top-2 right-2 text-xs px-2 py-0.5 rounded ${completedPlaybackBadge(job).className}`}>
+                    {completedPlaybackBadge(job).label}
                   </div>
                 </div>
                 <div className="p-3">
                   <div className="text-sm text-foreground/80 font-medium truncate">
-                    视频 {job.id.slice(0, 8)}
+                    {jobDisplayTitle(job)}
                   </div>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    {formatDate(job.completed_at || job.created_at)}
+                  <div className="text-xs text-muted-foreground mt-1 font-mono">
+                    {job.id.slice(0, 8)} · {formatDate(job.completed_at || job.created_at)}
                   </div>
                   <div className="flex gap-2 mt-2">
                     <button
@@ -283,7 +307,7 @@ export default function PersonalCenterPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-3">
-              <h3 id="video-player-title" className="font-semibold text-foreground">视频播放</h3>
+              <h3 id="video-player-title" className="font-semibold text-foreground">{jobDisplayTitle(selectedVideo)}</h3>
               <button
                 onClick={() => setSelectedVideo(null)}
                 className="text-muted-foreground hover:text-muted-foreground text-xl"
@@ -331,7 +355,7 @@ export default function PersonalCenterPage() {
       <ConfirmDialog
         open={Boolean(deleteTarget)}
         title="删除渲染记录"
-        message={`确定删除视频 ${deleteTarget?.id.slice(0, 8) || ''} 的渲染记录吗？关联输出文件也会一起清理。`}
+        message={`确定删除「${deleteTarget ? jobDisplayTitle(deleteTarget) : ''}」的渲染记录吗？关联输出文件也会一起清理。`}
         confirmLabel="删除"
         destructive
         onConfirm={deleteJob}
@@ -346,6 +370,34 @@ export default function PersonalCenterPage() {
         onConfirm={() => setMessageDialog(null)}
         onCancel={() => setMessageDialog(null)}
       />
+
+      {totalJobs > PAGE_SIZE && (
+        <div className="mt-8 flex items-center justify-center gap-3 text-sm text-muted-foreground">
+          <button
+            type="button"
+            disabled={page === 0}
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            className="px-3 py-1.5 rounded-md border border-border hover:bg-accent disabled:opacity-40"
+          >
+            上一页
+          </button>
+          <span>
+            第 {page + 1} / {Math.max(1, Math.ceil(totalJobs / PAGE_SIZE))} 页 · 共 {totalJobs} 条
+          </span>
+          <button
+            type="button"
+            disabled={(page + 1) * PAGE_SIZE >= totalJobs}
+            onClick={() => setPage((p) => p + 1)}
+            className="px-3 py-1.5 rounded-md border border-border hover:bg-accent disabled:opacity-40"
+          >
+            下一页
+          </button>
+        </div>
+      )}
+
+      <p className="mt-8 text-center text-xs text-muted-foreground">
+        <Link to="/debug" className="text-brand-blue hover:underline">开发者 · 集成 Playground</Link>
+      </p>
     </div>
   );
 }

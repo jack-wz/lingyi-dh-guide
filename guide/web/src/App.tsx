@@ -15,11 +15,20 @@ import ApiToastHost from './components/ApiToast'
 
 function NavBar() {
   const location = useLocation()
-  const isActive = (path: string) => location.pathname === path || location.pathname.startsWith(path + '/')
+  const path = location.pathname
 
-  const linkCls = (path: string) =>
+  const isEditorOrRender = path.startsWith('/editor') || path.startsWith('/render')
+
+  const isNavActive = (href: string) => {
+    if (href === '/') {
+      return (path === '/' || path === '') && !isEditorOrRender
+    }
+    return path === href || path.startsWith(`${href}/`)
+  }
+
+  const linkCls = (href: string) =>
     `text-sm px-3 py-1.5 rounded-md no-underline transition-colors ${
-      isActive(path)
+      isNavActive(href)
         ? 'bg-accent text-accent-foreground font-medium'
         : 'text-muted-foreground hover:text-foreground hover:bg-accent/50'
     }`
@@ -30,10 +39,9 @@ function NavBar() {
         <IconFilm size={18} />
         <span>数字人导购</span>
       </Link>
-      <Link to="/" className={linkCls('/') && (!isActive('/editor') && !isActive('/render') ? linkCls('/') : linkCls('/').replace('font-medium', ''))}>模板中心</Link>
+      <Link to="/" className={linkCls('/')}>模板中心</Link>
       <Link to="/assets" className={linkCls('/assets')}>资产库</Link>
-      <Link to="/my-videos" className={linkCls('/my-videos')}>个人中心</Link>
-      <Link to="/debug" className={linkCls('/debug')}>Playground</Link>
+      <Link to="/my-videos" className={linkCls('/my-videos')}>我的视频</Link>
       <div className="flex-1" />
       <ThemeToggle />
     </nav>

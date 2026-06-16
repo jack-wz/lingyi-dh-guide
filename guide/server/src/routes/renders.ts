@@ -361,10 +361,17 @@ router.post('/maintenance/timeouts', (req: Request, res: Response) => {
   res.json({ timed_out: timedOutIds.length, job_ids: timedOutIds, timeout_ms: timeoutMs });
 });
 
+function selectRenderJobWithTemplate(whereClause: string) {
+  return `SELECT rj.*, t.name AS template_name, t.type AS template_type
+    FROM render_jobs rj
+    LEFT JOIN templates t ON t.id = rj.template_id
+    ${whereClause}`;
+}
+
 // GET /api/renders/:id - get job status
 router.get('/:id', (req: Request, res: Response) => {
   const db = getDb();
-  const job = db.prepare('SELECT * FROM render_jobs WHERE id = ?').get(req.params.id) as any;
+  const job = db.prepare(`${selectRenderJobWithTemplate('WHERE rj.id = ?')}`).get(req.params.id) as any;
   if (!job) return apiError(res, ErrorCodes.JOB_NOT_FOUND, 'Render job not found', 404);
   res.json(enrichJob(job, DATA_DIR));
 });
@@ -647,11 +654,32 @@ router.delete('/:id', (req: Request, res: Response) => {
   res.json({ success: true, deleted_artifacts: true });
 });
 
-// GET /api/renders - list all render jobs
-router.get('/', (_req: Request, res: Response) => {
+// GET /api/renders - list render jobs (paginated: limit, offset, optional status)
+router.get('/', (req: Request, res: Response) => {
   const db = getDb();
-  const jobs = db.prepare('SELECT * FROM render_jobs ORDER BY created_at DESC LIMIT 50').all() as any[];
-  res.json(jobs.map((job) => enrichJob(job, DATA_DIR)));
+  const limit = Math.min(100, Math.max(1, Number(req.query.limit || 20)));
+  const offset = Math.max(0, Number(req.query.offset || 0));
+  const status = String(req.query.status || '').trim();
+
+  const whereParts: string[] = [];
+  const params: unknown[] = [];
+  if (status) {
+    whereParts.push('rj.status = ?');
+    params.push(status);
+  }
+  const whereClause = whereParts.length > 0 ? `WHERE ${whereParts.join(' AND ')}` : '';
+
+  const totalRow = db.prepare(`SELECT COUNT(*) AS c FROM render_jobs rj ${whereClause}`).get(...params) as { c: number };
+  const jobs = db
+    .prepare(`${selectRenderJobWithTemplate(`${whereClause} ORDER BY rj.created_at DESC LIMIT ? OFFSET ?`)}`)
+    .all(...params, limit, offset) as any[];
+
+  res.json({
+    items: jobs.map((job) => enrichJob(job, DATA_DIR)),
+    total: totalRow.c,
+    limit,
+    offset,
+  });
 });
 
 export default router;

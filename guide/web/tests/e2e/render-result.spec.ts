@@ -57,8 +57,8 @@ test('render task page supports cancel, retry, and duplicate from real controls'
   await page.getByRole('button', { name: '取消任务' }).click();
   await expect(page.getByRole('dialog', { name: '取消生成任务' })).toBeVisible();
   await page.getByRole('dialog', { name: '取消生成任务' }).getByRole('button', { name: '取消任务' }).click();
-  await expect(page.getByText('任务已取消')).toBeVisible();
-  await expect(page.getByText('用户已请求取消任务')).toBeVisible();
+  await expect(page.getByRole('heading', { name: '任务已取消' })).toBeVisible();
+  await expect(page.getByText('用户已请求取消任务').first()).toBeVisible();
 
   const failed = await createRender(request, template.id);
   const patched = await request.patch(`${apiBase}/api/renders/${failed.id}`, {
@@ -74,6 +74,7 @@ test('render task page supports cancel, retry, and duplicate from real controls'
   await page.goto(`/render/${failed.id}`);
   await expect(page.getByText('生成失败')).toBeVisible();
   await expect(page.getByText('provider timeout in browser smoke')).toBeVisible();
+  await expect(page.getByRole('link', { name: '回编辑器继续改' }).first()).toHaveAttribute('href', `/editor/${template.id}`);
 
   const failedUrl = page.url();
   await page.getByRole('button', { name: '重试' }).click();

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { ReactNode, CSSProperties } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom';
 import EditorLeftPanel from '../components/EditorLeftPanel';
 import { getSegmentIssues } from '../utils/segmentIssues';
 import { useEditorStore } from '../store/editorStore';
@@ -18,7 +18,6 @@ import { assetHubHref, fetchLibraryItem, fetchLibraryItems, libraryBgmItems, lib
 import FileUploader from '../components/FileUploader';
 import { IconAlertCircle, IconArrowRight, IconCheck, IconChevronLeft, IconChevronRight, IconClock, IconCopy, IconEye, IconEyeOff, IconFilm, IconGrid, IconImage, IconLayers, IconLayout, IconMic, IconMusic, IconPalette, IconPlus, IconSave, IconSettings2, IconTrash, IconType, IconUpload, IconUser, IconZap } from '../components/Icons';
 
-import { PRESET_TEMPLATES } from '../data/presetTemplates';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { applyVariableSubstitution, buildVariableDefaults } from '../utils/dslNormalize';
 import { normalizeSegmentObjects, resolveElementTiming } from '../utils/elementTiming';
@@ -26,7 +25,6 @@ import { SUBTITLE_STYLES } from '../data/subtitleStyles';
 import { libraryPayloadToBrandPack } from '@shared/brandPack';
 import EditorCoachmark from '../components/EditorCoachmark';
 
-import BrandAssetSelector from '../components/BrandAssetSelector';
 import { applyBrandLibraryItemToDsl } from '../utils/applyBrandPack';
 import { createEditorObject, getObjectLabel } from '../utils/editorObjects';
 import {
@@ -77,6 +75,7 @@ export default function EditorPage() {
   usePlaybackLoop();
   const togglePlayback = useEditorStore(s => s.togglePlayback);
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const dsl = useEditorStore(s => s.dsl);
   const setDsl = useEditorStore(s => s.setDsl);
@@ -87,8 +86,6 @@ export default function EditorPage() {
   const currentSegIndex = useEditorStore(s => s.currentSegIndex);
   const selectedElement = useEditorStore(s => s.selectedElement);
   const setSelectedElement = useEditorStore(s => s.setSelectedElement);
-  const showPresets = useEditorStore(s => s.showPresets);
-  const setShowPresets = useEditorStore(s => s.setShowPresets);
   const setCurrentSegIndex = useEditorStore(s => s.setCurrentSegIndex);
   const seekToTime = useEditorStore(s => s.seekToTime);
   const getSegmentStartTime = useEditorStore(s => s.getSegmentStartTime);
@@ -210,10 +207,58 @@ export default function EditorPage() {
       .catch(() => setConfigDiagnostics(null));
   }, []);
 
+  useEffect(() => {
+    if (id) localStorage.setItem('guide-last-editor-id', id);
+  }, [id]);
+
+  const appliedDhFromUrlRef = useRef<string | null>(null);
+  useEffect(() => {
+    const dhId = searchParams.get('dh_id');
+    if (!dhId || loading || !dsl || appliedDhFromUrlRef.current === dhId) return;
+    let cancelled = false;
+    fetchDigitalHumanRecord(dhId)
+      .then((dh) => {
+        if (cancelled || !dh?.id) return;
+        appliedDhFromUrlRef.current = dhId;
+        setSelectedDhId(dh.id);
+        updateDsl((draft) => applyDigitalHumanCatalogToDsl(draft, dh));
+        setSavingState('dirty');
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [searchParams, loading, dsl, updateDsl]);
+
+  useEffect(() => {
+    if (loading || !dsl || dsl.globalConfig.brand_pack_id) return;
+    if (localStorage.getItem('guide-editor-brand-prompted')) return;
+    const timer = window.setTimeout(() => {
+      setAssetPicker({ open: true, category: 'brand' });
+      localStorage.setItem('guide-editor-brand-prompted', '1');
+    }, 1200);
+    return () => window.clearTimeout(timer);
+  }, [loading, dsl?.globalConfig.brand_pack_id]);
+
   const updateEditorDsl = useCallback((updater: (dsl: DSL) => DSL) => {
     updateDsl(updater);
     setSavingState('dirty');
   }, [updateDsl]);
+
+  useEffect(() => {
+    if (loading || !dsl || dsl.globalConfig.brand_pack_id) return;
+    const embeddedName = String(
+      (dsl.globalConfig.brand_pack as Record<string, unknown> | undefined)?.name || '',
+    ).trim();
+    if (!embeddedName) return;
+    let cancelled = false;
+    fetchLibraryItems({ category: 'brand', limit: 120 })
+      .then((items) => {
+        if (cancelled) return;
+        const match = items.find((item) => item.name.trim() === embeddedName);
+        if (match) applyBrandLibraryItemToDsl(updateEditorDsl, match, { currentSegIndex });
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [loading, dsl?.globalConfig.brand_pack_id, dsl?.globalConfig.brand_pack, currentSegIndex, updateEditorDsl]);
 
   useEffect(() => {
     if (!pageRefreshTick || !dsl?.globalConfig.brand_pack_id) return;
@@ -538,7 +583,7 @@ export default function EditorPage() {
       setInspectorTab('layers');
       setActiveTool('media');
     } else if (issue.includes('数字人')) {
-      setActiveTool('avatar');
+      openAssetPicker('digital_human');
       setInspectorTab('layers');
     } else if (issue.includes('品牌') || issue.includes('Logo')) {
       setInspectorTab('design');
@@ -546,30 +591,6 @@ export default function EditorPage() {
       setActiveTool('generate');
     }
     setShowRenderReview(false);
-  };
-
-  const applyPreset = (preset: typeof PRESET_TEMPLATES[0]) => {
-    if (!dsl) return;
-    const segs = preset.segments.map((s, i) => ({
-      id: `seg-${Date.now()}-${i}`, type: s.type as Segment['type'], narration_text: s.narration_text, duration_sec: s.duration_sec,
-      scene_image_url: '', scene_description: s.scene_description, camera_shot: s.camera_shot, segment_bgm_url: '',
-      subtitle: {
-        enabled: true,
-        style_id: s.subtitle.style_id,
-        position: s.subtitle.position as Segment['subtitle']['position'],
-        animation: s.subtitle.animation as Segment['subtitle']['animation'],
-      },
-      transition: s.transition, digital_human: s.digital_human, overlays: [],
-      thumbnail_url: '',
-      diagnostics: [],
-      layout: 'avatar-center' as const,
-      avatar_id: '',
-      voice_id: '',
-      objects: [],
-    }));
-    updateEditorDsl((draft) => ({ ...draft, meta: { ...draft.meta, name: preset.name, type: preset.type }, segments: segs, variables: preset.variables }));
-    setCurrentSegIndex(0);
-    setShowPresets(false);
   };
 
   const createSegment = (): Segment => ({
@@ -682,6 +703,45 @@ export default function EditorPage() {
           </span>
         </div>
         <div className="flex items-center gap-0.5 shrink-0 min-w-0">
+          <div className="flex items-center gap-0.5 mr-1">
+            <button
+              type="button"
+              onClick={() => openAssetPicker('digital_human')}
+              className={`h-8 px-2.5 text-[12px] rounded-md flex items-center gap-1 shrink-0 transition-colors border ${
+                selectedDhId
+                  ? 'border-brand-green/40 bg-brand-green/5 text-foreground'
+                  : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-accent'
+              }`}
+              title="选择数字人"
+            >
+              <IconUser size={14} />
+              数字人
+              {selectedDhId && <span className="w-1.5 h-1.5 rounded-full bg-brand-green" />}
+            </button>
+            <button
+              type="button"
+              onClick={() => openAssetPicker('brand')}
+              className={`h-8 px-2.5 text-[12px] rounded-md flex items-center gap-1 shrink-0 transition-colors border ${
+                dsl.globalConfig.brand_pack_id
+                  ? 'border-brand-blue/40 bg-brand-blue/5 text-foreground'
+                  : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-accent'
+              }`}
+              title="选择品牌包"
+            >
+              <IconPalette size={14} />
+              品牌
+            </button>
+            <button
+              type="button"
+              onClick={() => openAssetPicker('script', undefined, 'full')}
+              className="h-8 px-2.5 text-[12px] rounded-md flex items-center gap-1 shrink-0 transition-colors border border-transparent text-muted-foreground hover:text-foreground hover:bg-accent"
+              title="从资产库选择脚本"
+            >
+              <IconType size={14} />
+              脚本
+            </button>
+          </div>
+          <div className="w-px h-4 bg-border mx-0.5" />
           <button onClick={undo} className="w-9 h-9 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition-colors" title="撤销">
             <IconArrowRight size={16} className="rotate-180" />
           </button>
@@ -693,21 +753,9 @@ export default function EditorPage() {
             activeTool={activeTool}
             setActiveTool={setActiveTool}
             addObject={addObject}
-            selectedDhId={selectedDhId}
-            onSelectDh={bindDigitalHuman}
             onEdited={() => setSavingState('dirty')}
             onApplyScript={applyLibraryScriptToSegment}
             onApplyVoice={applyLibraryVoiceToSegment}
-          />
-          <div className="w-px h-4 bg-border mx-0.5" />
-          <BrandAssetSelector
-            variant="toolbar"
-            editorId={id}
-            selectedId={dsl.globalConfig.brand_pack_id}
-            onSelect={(item) => {
-              applyBrandLibraryItemToDsl(updateEditorDsl, item, { currentSegIndex });
-              setSavingState('dirty');
-            }}
           />
           <Link
             to={`/assets?from=${encodeURIComponent(`/editor/${id}`)}`}
@@ -769,7 +817,6 @@ export default function EditorPage() {
                   setVariableValues={setVariableValues}
                   onRender={openRenderReview}
                   diagnostics={configDiagnostics}
-                  onOpenPresets={() => { setShowPresets(true); setActiveTool(null); }}
                   editorId={id || ''}
                   onPickScript={() => { openAssetPicker('script', undefined, 'full'); setActiveTool(null); }}
                 />
@@ -786,13 +833,22 @@ export default function EditorPage() {
 
       {!dsl.globalConfig.brand_pack_id && (
         <div className="px-4 py-2 bg-brand-amber/10 border-b border-brand-amber/20 text-xs text-muted-foreground shrink-0 flex items-center justify-between gap-3">
-          <span>建议先在顶栏选择品牌包，字幕样式与成片字体将与预览保持一致。</span>
-          <Link
-            to={`/assets?tab=brand&from=${encodeURIComponent(`/editor/${id}`)}`}
-            className="text-brand-blue hover:underline shrink-0"
-          >
-            前往资产库选品牌
-          </Link>
+          <span>尚未关联资产库品牌包，字幕样式与成片字体可能与预览不一致。</span>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => openAssetPicker('brand')}
+              className="text-[11px] px-2.5 py-1 rounded-md bg-brand-blue text-white hover:opacity-90"
+            >
+              选择品牌包
+            </button>
+            <Link
+              to={`/assets?tab=brand&from=${encodeURIComponent(`/editor/${id}`)}`}
+              className="text-brand-blue hover:underline"
+            >
+              管理
+            </Link>
+          </div>
         </div>
       )}
 
@@ -854,42 +910,6 @@ export default function EditorPage() {
           </>
         )}
       </div>
-
-      {/* 预置模板弹窗 */}
-      {showPresets && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={() => setShowPresets(false)}>
-          <div className="bg-card rounded-xl shadow-2xl w-[700px] max-h-[80vh] overflow-hidden border border-border" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-              <h2 className="text-base font-semibold">选择预置模板</h2>
-              <button onClick={() => setShowPresets(false)} className="text-muted-foreground hover:text-foreground text-xl transition-colors">×</button>
-            </div>
-            <div className="p-6 overflow-y-auto max-h-[calc(80vh-80px)]">
-              <div className="grid grid-cols-2 gap-4">
-                {PRESET_TEMPLATES.map((preset, i) => (
-                  <div key={i} onClick={() => applyPreset(preset)}
-                    className="border border-border rounded-lg p-4 cursor-pointer hover:border-brand-blue hover:bg-brand-blue/10 transition-colors group">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-2xl">{preset.coverEmoji}</span>
-                      <div>
-                        <h3 className="text-sm font-medium group-hover:text-brand-blue transition-colors">{preset.name}</h3>
-                        <span className="text-[10px] text-muted-foreground">{preset.type} · {preset.segments.length} 个片段</span>
-                      </div>
-                    </div>
-                    <p className="text-[11px] text-muted-foreground mb-2">{preset.description}</p>
-                    <div className="flex gap-1 flex-wrap">
-                      {preset.segments.map((s, j) => (
-                        <span key={j} className="text-[9px] px-1.5 py-0.5 bg-secondary rounded-full text-muted-foreground">
-                          {s.type === 'narration' ? '口播' : s.type === 'product' ? '产品' : s.type === 'scene' ? '场景' : s.type === 'transition' ? '转场' : '结尾'} {s.duration_sec}s
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {showRenderReview && (
         <RenderReviewDialog
@@ -974,8 +994,6 @@ function ToolLauncher({
   activeTool,
   setActiveTool,
   addObject,
-  selectedDhId,
-  onSelectDh,
   onEdited,
   onApplyScript,
   onApplyVoice,
@@ -984,15 +1002,12 @@ function ToolLauncher({
   activeTool: ToolKey | null;
   setActiveTool: (tool: ToolKey | null) => void;
   addObject: (type: EditorObject['type'], patch?: Partial<EditorObject>) => void;
-  selectedDhId: string;
-  onSelectDh: (id: string) => void;
   onEdited?: () => void;
   onApplyScript: (item: LibraryItem) => void;
   onApplyVoice: (item: LibraryItem) => void;
 }) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
   const tools: Array<{ key: ToolKey; label: string; icon: ReactNode }> = [
-    { key: 'avatar', label: '数字人', icon: <IconUser size={17} /> },
     { key: 'text', label: '文字', icon: <IconType size={17} /> },
     { key: 'media', label: '素材', icon: <IconImage size={17} /> },
   ];
@@ -1030,9 +1045,6 @@ function ToolLauncher({
             }`}
           >
             {tool.icon}
-            {tool.key === 'avatar' && selectedDhId && (
-              <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-brand-green ring-1 ring-card" />
-            )}
           </button>
         );
       })}
@@ -1041,8 +1053,6 @@ function ToolLauncher({
           editorId={editorId}
           tool={activeTool}
           addObject={addObject}
-          selectedDhId={selectedDhId}
-          onSelectDh={onSelectDh}
           onEdited={onEdited}
           onApplyScript={onApplyScript}
           onApplyVoice={onApplyVoice}
@@ -1056,8 +1066,6 @@ function ToolPopover({
   editorId,
   tool,
   addObject,
-  selectedDhId,
-  onSelectDh,
   onEdited,
   onApplyScript,
   onApplyVoice,
@@ -1065,8 +1073,6 @@ function ToolPopover({
   editorId: string;
   tool: ToolKey;
   addObject: (type: EditorObject['type'], patch?: Partial<EditorObject>) => void;
-  selectedDhId: string;
-  onSelectDh: (id: string) => void;
   onEdited?: () => void;
   onApplyScript: (item: LibraryItem) => void;
   onApplyVoice: (item: LibraryItem) => void;
@@ -1079,61 +1085,28 @@ function ToolPopover({
   const [loadingLib, setLoadingLib] = useState(false);
 
   useEffect(() => {
-    if (tool !== 'text' && tool !== 'avatar') return;
+    if (tool !== 'text') return;
     const controller = new AbortController();
     setLoadingLib(true);
-    const category = tool === 'text' ? 'script' : 'voice';
-    fetchLibraryItems({ category, limit: 40, signal: controller.signal })
-      .then((items) => {
-        if (tool === 'text') setScripts(items);
-        else setVoices(libraryTtsItems(items));
-      })
+    fetchLibraryItems({ category: 'script', limit: 40, signal: controller.signal })
+      .then((items) => setScripts(items))
       .catch((err) => {
         if (err instanceof DOMException && err.name === 'AbortError') return;
-        if (tool === 'text') setScripts([]);
-        else setVoices([]);
+        setScripts([]);
       })
       .finally(() => setLoadingLib(false));
     return () => controller.abort();
   }, [tool, refreshTick]);
 
-  const hubTab = tool === 'avatar'
-    ? 'digital_human'
-    : tool === 'text'
-      ? 'script'
-      : mediaTab === 'sound'
-        ? 'voice'
-        : 'media';
+  const hubTab = tool === 'text'
+    ? 'script'
+    : mediaTab === 'sound'
+      ? 'voice'
+      : 'media';
   const hubHref = assetHubHref(editorId, hubTab);
 
   return (
     <div className="absolute left-0 top-full mt-1 z-50 w-[340px] rounded-lg border border-border bg-card shadow-2xl p-3 flex flex-col max-h-[min(480px,70vh)]">
-      {tool === 'avatar' && (
-        <div className="space-y-3 flex flex-col min-h-0 overflow-hidden" style={{ maxHeight: 420 }}>
-          <div className="text-xs font-semibold shrink-0">数字人</div>
-          <div className="flex-1 min-h-0 -mx-1 overflow-y-auto">
-            <AssetLibrary tab="dh" editorId={editorId} selectedDhId={selectedDhId} onSelectDh={onSelectDh} onEdited={onEdited} showSearch={false} />
-          </div>
-          <div className="shrink-0 border-t border-border pt-2">
-            <div className="flex items-center justify-between mb-1.5">
-              <span className="text-[11px] font-medium text-muted-foreground">配音音色</span>
-              <Link to={assetHubHref(editorId, 'voice')} className="text-[10px] text-brand-blue hover:underline">管理</Link>
-            </div>
-            <LibraryQuickList
-              loading={loadingLib}
-              emptyHint="暂无音色"
-              hubHref={assetHubHref(editorId, 'voice')}
-              items={voices}
-              renderIcon={() => <IconMic size={14} className="text-muted-foreground" />}
-              renderPreview={(item) => String(item.payload?.voice_id || '')}
-              onPick={onApplyVoice}
-              pickLabel="应用"
-              maxItems={5}
-            />
-          </div>
-        </div>
-      )}
-
       {tool === 'text' && (
         <div className="space-y-2 flex flex-col min-h-0 overflow-hidden" style={{ maxHeight: 420 }}>
           <div className="flex gap-1 shrink-0">
@@ -2406,7 +2379,6 @@ type RenderControlProps = {
   setVariableValues: (values: Record<string, string>) => void;
   onRender: () => void;
   diagnostics: ConfigDiagnostics | null;
-  onOpenPresets?: () => void;
   onPickScript?: () => void;
 };
 
@@ -2427,7 +2399,6 @@ function GeneratePanel({
   setVariableValues,
   onRender,
   diagnostics,
-  onOpenPresets,
   onPickScript,
 }: RenderControlProps) {
   const pipeline = pipelines.find(p => p.key === pipelineKey);
@@ -2557,11 +2528,12 @@ function GeneratePanel({
               从资产库选脚本
             </button>
           )}
-          {onOpenPresets && (
-            <button type="button" onClick={onOpenPresets} className="text-[11px] text-brand-blue hover:underline">
-              预置模板
-            </button>
-          )}
+          <Link
+            to="/"
+            className="text-[11px] text-brand-blue hover:underline no-underline"
+          >
+            模板中心
+          </Link>
           <Link
             to={editorId ? `/assets?from=${encodeURIComponent(`/editor/${editorId}`)}` : '/assets'}
             className="text-[11px] text-brand-blue hover:underline no-underline"

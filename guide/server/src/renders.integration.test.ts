@@ -662,4 +662,42 @@ describe('render API integration', () => {
     assert.equal(existsSync(digitalArtifact.workDir), false);
     assert.equal((await request('GET', `/api/renders/${digitalId}`)).status, 404);
   });
+
+  it('lists render jobs with pagination and template_name', async () => {
+    const template = await createTemplate();
+    for (let i = 0; i < 3; i += 1) {
+      const created = await request('POST', '/api/renders', {
+        template_id: template.id,
+        pipeline_key: 'standard',
+        input_mode: 'template',
+        variables: {},
+      });
+      assert.equal(created.status, 201);
+      const id = (created.json as { id: string }).id;
+      const done = await request('PATCH', `/api/renders/${id}`, {
+        status: 'completed',
+        stage: 'completed',
+        progress: 100,
+      });
+      assert.equal(done.status, 200);
+    }
+
+    const page1 = await request('GET', '/api/renders?limit=2&offset=0');
+    assert.equal(page1.status, 200);
+    const payload = page1.json as {
+      items: Array<{ template_name?: string }>;
+      total: number;
+      limit: number;
+      offset: number;
+    };
+    assert.equal(payload.limit, 2);
+    assert.equal(payload.offset, 0);
+    assert.ok(payload.total >= 3);
+    assert.equal(payload.items.length, 2);
+    assert.ok(payload.items.every((job) => job.template_name === 'Integration Template'));
+
+    const page2 = await request('GET', '/api/renders?limit=2&offset=2');
+    assert.equal(page2.status, 200);
+    assert.ok((page2.json as { items: unknown[] }).items.length >= 1);
+  });
 });

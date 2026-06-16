@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { IconCheck, IconFilm, IconTrash } from '../components/Icons';
+import { IconCheck, IconFilm, IconSearch, IconTrash } from '../components/Icons';
 import ConfirmDialog from '../components/ConfirmDialog';
 import TextInputDialog from '../components/TextInputDialog';
 import { parseApiErrorResponse, formatApiErrorMessage } from '../utils/apiError';
 import { showApiToast } from '../components/ApiToast';
+import OnboardingWizard from '../components/OnboardingWizard';
 
 interface Template {
   id: string;
@@ -21,30 +22,61 @@ interface Template {
 
 type TemplateStatus = 'draft' | 'pending' | 'published' | 'offline';
 
+const STATUS_FILTERS: { id: TemplateStatus | ''; label: string }[] = [
+  { id: '', label: '全部' },
+  { id: 'draft', label: '草稿' },
+  { id: 'pending', label: '待发布' },
+  { id: 'published', label: '已发布' },
+  { id: 'offline', label: '已下线' },
+];
+
 export default function TemplateListPage() {
   const [templates, setTemplates] = useState<Template[]>([]);
+  const [e2eCount, setE2eCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Template | null>(null);
   const [statusTarget, setStatusTarget] = useState<{ template: Template; status: TemplateStatus; label: string } | null>(null);
   const [brandCount, setBrandCount] = useState<number | null>(null);
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<TemplateStatus | ''>('');
+  const [showE2e, setShowE2e] = useState(false);
   const navigate = useNavigate();
 
-  const fetchTemplates = async () => {
+  const fetchTemplates = useCallback(async () => {
+    setLoading(true);
     try {
-      const res = await fetch('/api/templates');
+      const params = new URLSearchParams({ with_meta: '1' });
+      if (showE2e) {
+        params.set('include_e2e', '1');
+      } else {
+        params.set('exclude_e2e', '1');
+      }
+      if (search.trim()) params.set('q', search.trim());
+      if (statusFilter) params.set('status', statusFilter);
+
+      const res = await fetch(`/api/templates?${params}`);
       const data = await res.json();
-      setTemplates(data);
+      if (Array.isArray(data)) {
+        setTemplates(data);
+        setE2eCount(0);
+      } else {
+        setTemplates(data.items || []);
+        setE2eCount(Number(data.meta?.e2e_count ?? 0));
+      }
     } catch (e) {
       console.error('Failed to fetch templates', e);
       showApiToast(e instanceof Error ? e.message : '加载模板列表失败', { destructive: true });
     } finally {
       setLoading(false);
     }
-  };
+  }, [search, statusFilter, showE2e]);
 
   useEffect(() => {
     fetchTemplates();
+  }, [fetchTemplates]);
+
+  useEffect(() => {
     fetch('/api/library?category=brand&limit=1')
       .then((r) => r.json())
       .then((d) => setBrandCount(Number(d.total ?? d.items?.length ?? 0)))
@@ -127,6 +159,7 @@ export default function TemplateListPage() {
 
   return (
     <div className="max-w-6xl mx-auto p-6">
+      <OnboardingWizard />
       {brandCount === 0 && (
         <div className="mb-4 rounded-lg border border-brand-amber/30 bg-brand-amber/10 px-4 py-3 text-sm text-muted-foreground flex items-center justify-between gap-3">
           <span>首次使用请先在资产库初始化品牌包并选择，再创建模板。</span>
@@ -141,11 +174,21 @@ export default function TemplateListPage() {
           <li><strong className="text-foreground">模板中心</strong>：选择或创建视频模板，自定义分镜或 AI 生成脚本</li>
           <li><strong className="text-foreground">自动渲染</strong>：KIE 场景分镜 → MOSI 分镜配音 → WaveSpeed InfiniteTalk 口型 → FFmpeg 模板组装</li>
         </ol>
-        <button type="button" onClick={() => navigate('/digital-humans')} className="mt-3 text-sm px-3 py-1.5 rounded-md bg-brand-blue text-white">
-          先去创建数字人
-        </button>
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setShowCreateDialog(true)}
+            className="text-sm px-4 py-1.5 rounded-md bg-primary text-primary-foreground hover:opacity-90"
+          >
+            + 新建模板
+          </button>
+          <Link to="/assets?tab=digital_human" className="text-sm text-brand-blue hover:underline">
+            先去创建数字人
+          </Link>
+        </div>
       </section>
-      <div className="flex items-center justify-between mb-6">
+
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
         <h1 className="text-2xl font-bold text-foreground">模板中心</h1>
         <button
           onClick={() => setShowCreateDialog(true)}
@@ -155,12 +198,43 @@ export default function TemplateListPage() {
         </button>
       </div>
 
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <IconSearch size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="搜索模板名称、类型…"
+            className="w-full h-9 pl-9 pr-3 text-sm rounded-md border border-border bg-background"
+          />
+        </div>
+        <div className="flex flex-wrap gap-1">
+          {STATUS_FILTERS.map((f) => (
+            <button
+              key={f.id || 'all'}
+              type="button"
+              onClick={() => setStatusFilter(f.id)}
+              className={`px-2.5 py-1 text-xs rounded-full transition-colors ${
+                statusFilter === f.id
+                  ? 'bg-accent text-accent-foreground font-medium'
+                  : 'bg-secondary text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
       {loading ? (
         <div className="text-center py-20 text-muted-foreground">加载中...</div>
       ) : templates.length === 0 ? (
         <div className="text-center py-20">
           <div className="text-muted-foreground mb-4"><IconFilm size={48} /></div>
-          <p className="text-muted-foreground mb-4">还没有模板，点击「新建模板」开始创建</p>
+          <p className="text-muted-foreground mb-4">
+            {showE2e ? '没有匹配的模板' : '还没有运营模板，点击「新建模板」开始创建'}
+          </p>
           <button onClick={() => setShowCreateDialog(true)} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90">
             创建第一个模板
           </button>
@@ -168,12 +242,12 @@ export default function TemplateListPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {templates.map((t) => (
-            <div key={t.id} className="border border-border rounded-xl overflow-hidden hover:shadow-lg transition bg-card">
-              <div className="h-40 bg-gradient-to-br from-purple-100 to-blue-100 flex items-center justify-center">
+            <div key={t.id} data-testid="template-card" className="border border-border rounded-xl overflow-hidden hover:shadow-lg transition bg-card">
+              <div className="h-40 bg-secondary flex items-center justify-center">
                 {t.cover_url ? (
                   <img src={t.cover_url} alt="" className="w-full h-full object-cover" />
                 ) : (
-                  <span className="text-5xl text-muted-foreground"><IconFilm size={48} /></span>
+                  <span className="text-muted-foreground"><IconFilm size={48} /></span>
                 )}
               </div>
               <div className="p-4">
@@ -219,6 +293,23 @@ export default function TemplateListPage() {
           ))}
         </div>
       )}
+
+      {e2eCount > 0 && (
+        <p className="mt-6 text-center text-xs text-muted-foreground">
+          {showE2e ? (
+            <button type="button" onClick={() => setShowE2e(false)} className="text-brand-blue hover:underline">
+              隐藏测试模板
+            </button>
+          ) : (
+            <button type="button" onClick={() => setShowE2e(true)} className="text-brand-blue hover:underline">
+              显示测试模板 ({e2eCount})
+            </button>
+          )}
+          <span className="mx-2">·</span>
+          <Link to="/debug" className="text-brand-blue hover:underline">开发者 · 集成 Playground</Link>
+        </p>
+      )}
+
       <TextInputDialog
         open={showCreateDialog}
         title="新建模板"
