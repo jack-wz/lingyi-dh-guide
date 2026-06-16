@@ -14,6 +14,10 @@ export default defineConfig({
     },
   },
   server: {
+    // Bind IPv4 so http://127.0.0.1:5173 works (not only localhost/::1)
+    host: '127.0.0.1',
+    port: 5173,
+    strictPort: false,
     proxy: {
       '/api': apiTarget,
       '/uploads': apiTarget,

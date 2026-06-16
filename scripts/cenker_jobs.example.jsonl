@@ -1,0 +1,4 @@
+{"workflow": "full", "prompt": "电商直播间，明亮整洁，竖屏 9:16", "text": "大家好，今天给大家推荐这款超值好物，限时特惠不要错过。", "scene_image": "/path/to/scene_ref.jpg", "human_face": "/path/to/digital_human_face.jpg", "voice_sample": "/path/to/voice_sample.wav"}
+{"workflow": "scene", "prompt": "商场专柜导购场景，自然光", "scene_image": "/path/to/scene_ref.jpg", "human_face": "/path/to/digital_human_face.jpg"}
+{"workflow": "tts", "text": "欢迎来到我们的直播间。", "voice_sample": "/path/to/voice_sample.wav"}
+{"workflow": "avatar", "face_image": "/path/to/scene_or_face.png", "speech_audio": "/path/to/tts_output.wav"}

@@ -1,0 +1,45 @@
+{
+  "20": {
+    "inputs": {
+      "audio": "$voice_sample",
+      "audioUI": ""
+    },
+    "class_type": "LoadAudio",
+    "_meta": {
+      "title": "声音样本, $~voice_sample!"
+    }
+  },
+  "21": {
+    "inputs": {
+      "value": "欢迎来到我们的直播间，今天给大家带来超值好物。"
+    },
+    "class_type": "PrimitiveStringMultiline",
+    "_meta": {
+      "title": "口播文案, $text.value!"
+    }
+  },
+  "22": {
+    "inputs": {
+      "text": ["21", 0],
+      "voice_sample": ["20", 0],
+      "voice_name": "cenker_batch",
+      "log": true
+    },
+    "class_type": "Cenker_YunTTS_CloneAndSynthesize",
+    "_meta": {
+      "title": "Cenker YunTTS 克隆+合成"
+    }
+  },
+  "23": {
+    "inputs": {
+      "filename_prefix": "cenker/tts",
+      "quality": "V0",
+      "audioUI": "",
+      "audio": ["22", 0]
+    },
+    "class_type": "SaveAudioMP3",
+    "_meta": {
+      "title": "Save Audio (MP3)"
+    }
+  }
+}

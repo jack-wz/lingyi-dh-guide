@@ -14,10 +14,15 @@ echo "==> Pixelle API :8000 (guide API proxied at /api/templates|renders|digital
 API_PID=$!
 
 sleep 2
-echo "==> Guide Web UI (Vite)"
+echo "==> Guide Web UI (Vite on http://127.0.0.1:5173)"
 export VITE_API_TARGET="$PIXELLE_PUBLIC_URL"
 ./start_guide_web.sh &
 WEB_PID=$!
 
 trap 'kill $API_PID $WEB_PID 2>/dev/null' INT TERM
+echo ""
+echo "Ready:"
+echo "  API:    $PIXELLE_PUBLIC_URL"
+echo "  Guide:  $PIXELLE_PUBLIC_URL/api/guide/health"
+echo "  Web UI: http://127.0.0.1:5173"
 wait

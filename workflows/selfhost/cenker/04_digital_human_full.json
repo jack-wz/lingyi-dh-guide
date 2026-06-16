@@ -1,0 +1,111 @@
+{
+  "1": {
+    "inputs": {
+      "image": "$scene_image"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "场景参考, $~scene_image!"
+    }
+  },
+  "2": {
+    "inputs": {
+      "image": "$human_face"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "数字人人脸, $~human_face!"
+    }
+  },
+  "3": {
+    "inputs": {
+      "value": "电商导购场景，真实自然，竖屏短视频"
+    },
+    "class_type": "PrimitiveStringMultiline",
+    "_meta": {
+      "title": "场景提示词, $prompt.text!"
+    }
+  },
+  "4": {
+    "inputs": {
+      "reference_image": ["1", 0],
+      "human_image": ["2", 0],
+      "prompt": ["3", 0],
+      "aspect_ratio": "3:4",
+      "quality": "medium",
+      "timeout_s": 180,
+      "log": true
+    },
+    "class_type": "Cenker_KIE_SceneImage",
+    "_meta": {
+      "title": "① KIE 场景图"
+    }
+  },
+  "5": {
+    "inputs": {
+      "audio": "$voice_sample",
+      "audioUI": ""
+    },
+    "class_type": "LoadAudio",
+    "_meta": {
+      "title": "声音样本, $~voice_sample!"
+    }
+  },
+  "6": {
+    "inputs": {
+      "value": "欢迎来到直播间，今天推荐这款超值好物。"
+    },
+    "class_type": "PrimitiveStringMultiline",
+    "_meta": {
+      "title": "口播文案, $text.value!"
+    }
+  },
+  "7": {
+    "inputs": {
+      "text": ["6", 0],
+      "voice_sample": ["5", 0],
+      "voice_name": "cenker_full",
+      "log": true
+    },
+    "class_type": "Cenker_YunTTS_CloneAndSynthesize",
+    "_meta": {
+      "title": "② YunTTS 配音"
+    }
+  },
+  "8": {
+    "inputs": {
+      "image": ["4", 0],
+      "audio": ["7", 0],
+      "resolution": "480p",
+      "seed": -1,
+      "timeout_s": 600,
+      "log": true
+    },
+    "class_type": "Cenker_WaveSpeed_InfiniteTalk",
+    "_meta": {
+      "title": "③ WaveSpeed 口型"
+    }
+  },
+  "9": {
+    "inputs": {
+      "filename_prefix": "cenker/full",
+      "format": "mp4",
+      "codec": "h264",
+      "video": ["8", 0]
+    },
+    "class_type": "SaveVideo",
+    "_meta": {
+      "title": "Save Video"
+    }
+  },
+  "10": {
+    "inputs": {
+      "filename_prefix": "cenker/full_scene",
+      "images": ["4", 0]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "Save Scene Image"
+    }
+  }
+}

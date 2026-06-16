@@ -23,6 +23,22 @@ from web.utils.streamlit_helpers import check_and_warn_selfhost_workflow
 from pixelle_video.config import config_manager
 from pixelle_video.utils.os_util import create_task_output_dir
 
+CENKER_WORKFLOW_DIR = Path("workflows/selfhost/cenker")
+
+
+def get_cenker_workflows() -> dict[str, str] | None:
+    """Return cenker three-piece workflow paths when all stage files exist."""
+    stages = {
+        "scene": CENKER_WORKFLOW_DIR / "01_scene_kie.json",
+        "tts": CENKER_WORKFLOW_DIR / "02_tts_yuntts.json",
+        "avatar": CENKER_WORKFLOW_DIR / "03_avatar_infinitetalk.json",
+        "full": CENKER_WORKFLOW_DIR / "04_digital_human_full.json",
+    }
+    if all(stages[k].exists() for k in ("scene", "tts", "avatar", "full")):
+        return {k: str(v) for k, v in stages.items()}
+    return None
+
+
 class DigitalHumanPipelineUI(PipelineUI):
     """
     UI for the Digital_Human Video Generation Pipeline.
@@ -152,6 +168,58 @@ class DigitalHumanPipelineUI(PipelineUI):
                 "second_workflow_path": "workflows/runninghub/digital_combination.json",
                 "third_workflow_path": "workflows/runninghub/digital_customize.json",
             }
+
+            cenker_workflows = get_cenker_workflows()
+            if cenker_workflows and has_selfhost:
+                zh = get_language() == "zh_CN"
+                st.markdown(
+                    "**cenker 三件套（KIE → YunTTS → WaveSpeed）**"
+                    if zh
+                    else "**cenker stack (KIE → YunTTS → WaveSpeed)**"
+                )
+                s1, s2, s3 = st.columns(3)
+                with s1:
+                    st.success(
+                        "① 场景图\n`01_scene_kie.json`" if zh else "① Scene\n`01_scene_kie.json`"
+                    )
+                with s2:
+                    st.success(
+                        "② 配音\n`02_tts_yuntts.json`" if zh else "② TTS\n`02_tts_yuntts.json`"
+                    )
+                with s3:
+                    st.success(
+                        "③ 口型\n`03_avatar_infinitetalk.json`"
+                        if zh
+                        else "③ Lip-sync\n`03_avatar_infinitetalk.json`"
+                    )
+                st.caption(
+                    "全流程：`04_digital_human_full.json`（在 ComfyUI 可视化编排）"
+                    if zh
+                    else "Full pipeline: `04_digital_human_full.json` (edit in ComfyUI)"
+                )
+                workflow_config.update(
+                    {
+                        "use_cenker": True,
+                        "cenker_scene_path": cenker_workflows["scene"],
+                        "cenker_tts_path": cenker_workflows["tts"],
+                        "cenker_avatar_path": cenker_workflows["avatar"],
+                        "cenker_full_path": cenker_workflows["full"],
+                    }
+                )
+                st.info(
+                    "左侧 TTS 请选择 **ComfyUI 模式** 并上传声音样本；场景参考图用「商品图」，人脸用「角色图」。"
+                    if zh
+                    else "Set TTS to **ComfyUI mode** and upload a voice sample on the left; use product image as scene ref and character image as face."
+                )
+                check_and_warn_selfhost_workflow("selfhost/cenker/04_digital_human_full.json")
+                return workflow_config
+
+            if cenker_workflows and not has_selfhost:
+                st.warning(
+                    "已检测到 cenker 工作流，但 config.yaml 中 comfyui_url 未配置。"
+                    if get_language() == "zh_CN"
+                    else "cenker workflows found, but comfyui_url is not set in config.yaml."
+                )
 
             def digital_image_workflows(source_name: str) -> list[dict]:
                 first_path = Path("workflows") / source_name / "digital_image.json"
@@ -600,6 +668,88 @@ class DigitalHumanPipelineUI(PipelineUI):
                                     max_tokens=300,
                                 )
                             return await generate_api_digital_human(generated_text)
+
+                        if workflow_path.get("use_cenker"):
+                            import json
+
+                            if mode == "customize":
+                                generated_text = goods_text
+                            elif goods_text and goods_text.strip():
+                                generated_text = goods_text
+                            else:
+                                generated_text = await pixelle_video.llm(
+                                    prompt=(
+                                        f"请为商品“{goods_title}”写一段适合数字人口播短视频的中文推广文案。"
+                                        "要求自然、有吸引力，控制在80字以内，只输出文案正文。"
+                                    ),
+                                    temperature=0.7,
+                                    max_tokens=300,
+                                )
+
+                            ref_audio = video_params.get("ref_audio")
+                            if not ref_audio or not Path(ref_audio).exists():
+                                raise Exception(
+                                    "cenker 需要声音样本：左侧 TTS 选 ComfyUI 模式并上传参考音频。"
+                                    if get_language() == "zh_CN"
+                                    else "cenker requires a voice sample: enable ComfyUI TTS mode and upload reference audio."
+                                )
+
+                            scene_image = goods_assets[0] if mode == "digital" and goods_assets else character_assets[0]
+                            human_face = character_assets[0]
+                            prompt_prefix = config_manager.get_comfyui_config().get("image", {}).get(
+                                "prompt_prefix", ""
+                            )
+                            scene_prompt = f"{prompt_prefix}{goods_title or generated_text[:40]}"
+
+                            cenker_full_path = Path(workflow_path["cenker_full_path"])
+                            with open(cenker_full_path, encoding="utf-8") as handle:
+                                cenker_workflow = json.load(handle)
+
+                            cenker_params = {
+                                "scene_image": scene_image,
+                                "human_face": human_face,
+                                "prompt": scene_prompt,
+                                "voice_sample": ref_audio,
+                                "text": generated_text,
+                            }
+
+                            status_text.text(
+                                "cenker 三件套生成中（KIE→YunTTS→WaveSpeed）…"
+                                if get_language() == "zh_CN"
+                                else "Running cenker pipeline (KIE→YunTTS→WaveSpeed)…"
+                            )
+                            progress_bar.progress(20)
+                            kit = await pixelle_video._get_or_create_comfykit()
+                            result = await kit.execute(json.dumps(cenker_workflow), cenker_params)
+                            progress_bar.progress(85)
+
+                            generated_video_url = None
+                            if getattr(result, "videos", None):
+                                generated_video_url = result.videos[0]
+                            elif getattr(result, "outputs", None):
+                                for node_output in result.outputs.values():
+                                    if isinstance(node_output, dict) and node_output.get("videos"):
+                                        generated_video_url = node_output["videos"][0]
+                                        break
+
+                            if not generated_video_url:
+                                raise Exception(
+                                    "cenker 工作流未返回视频，请先在 ComfyUI 单独跑通 04_digital_human_full.json"
+                                    if get_language() == "zh_CN"
+                                    else "cenker workflow returned no video; verify 04_digital_human_full.json in ComfyUI first."
+                                )
+
+                            final_video_path = os.path.join(task_dir, "final.mp4")
+                            timeout = httpx.Timeout(600.0)
+                            async with httpx.AsyncClient(timeout=timeout) as client:
+                                response = await client.get(generated_video_url)
+                                response.raise_for_status()
+                                with open(final_video_path, "wb") as handle:
+                                    handle.write(response.content)
+
+                            progress_bar.progress(100)
+                            status_text.text(tr("status.success"))
+                            return final_video_path
 
                         kit = await pixelle_video._get_or_create_comfykit()
 

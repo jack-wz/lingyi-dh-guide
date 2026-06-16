@@ -1,0 +1,47 @@
+{
+  "30": {
+    "inputs": {
+      "image": "$face_image"
+    },
+    "class_type": "LoadImage",
+    "_meta": {
+      "title": "口型人脸图, $~face_image!"
+    }
+  },
+  "31": {
+    "inputs": {
+      "audio": "$speech_audio",
+      "audioUI": ""
+    },
+    "class_type": "LoadAudio",
+    "_meta": {
+      "title": "口播音频, $~speech_audio!"
+    }
+  },
+  "32": {
+    "inputs": {
+      "image": ["30", 0],
+      "audio": ["31", 0],
+      "resolution": "480p",
+      "seed": -1,
+      "timeout_s": 600,
+      "log": true
+    },
+    "class_type": "Cenker_WaveSpeed_InfiniteTalk",
+    "_meta": {
+      "title": "Cenker WaveSpeed 口型视频"
+    }
+  },
+  "33": {
+    "inputs": {
+      "filename_prefix": "cenker/avatar",
+      "format": "mp4",
+      "codec": "h264",
+      "video": ["32", 0]
+    },
+    "class_type": "SaveVideo",
+    "_meta": {
+      "title": "Save Video"
+    }
+  }
+}
