@@ -68,23 +68,27 @@ def generate_segment_videos(
         print(f"[Stage3] Segment {i+1}: scene={scene_path}, human_face={human_face_path}")
         print(f"[Stage3] Segment {i+1}: voice_clone_id={voice_clone_id}")
 
-        # Step 1: Generate TTS audio if there's narration text
-        if text and voice_clone_id:
+        # Step 1: Generate TTS audio when narration text is present (smoke / template-only jobs
+        # may omit digital_human voice_clone_id — still synthesize via Edge/fallback TTS).
+        if text:
             print(f"[Stage3] Segment {i+1}: Generating TTS audio...")
             audio_path = os.path.join(work_dir, f"tts_{i}.wav")
-            tts_path = tts.synthesize(text, voice_clone_id, audio_path)
+            if voice_clone_id:
+                tts_path = tts.synthesize(text, voice_clone_id, audio_path)
 
-            if not tts_path:
-                print(f"[Stage3] Segment {i+1}: TTS failed with stored voice_id, trying to re-clone...")
-                # Try to re-clone voice from sample
-                voice_sample_path = _resolve_voice_sample(voice_sample_url, server_base_url, work_dir)
-                if voice_sample_path and os.path.exists(voice_sample_path):
-                    tts_path = tts.clone_and_synthesize(
-                        text, voice_sample_path, audio_path, voice_name=f"vh_{i}"
-                    )
-                else:
-                    print(f"[Stage3] Segment {i+1}: No voice sample available, trying fallback TTS...")
-                    tts_path = tts.synthesize_fallback(text, audio_path)
+                if not tts_path:
+                    print(f"[Stage3] Segment {i+1}: TTS failed with stored voice_id, trying to re-clone...")
+                    voice_sample_path = _resolve_voice_sample(voice_sample_url, server_base_url, work_dir)
+                    if voice_sample_path and os.path.exists(voice_sample_path):
+                        tts_path = tts.clone_and_synthesize(
+                            text, voice_sample_path, audio_path, voice_name=f"vh_{i}"
+                        )
+                    else:
+                        print(f"[Stage3] Segment {i+1}: No voice sample available, trying fallback TTS...")
+                        tts_path = tts.synthesize_fallback(text, audio_path)
+            else:
+                print(f"[Stage3] Segment {i+1}: No voice_clone_id, using fallback TTS...")
+                tts_path = tts.synthesize_fallback(text, audio_path)
 
             if tts_path and os.path.exists(tts_path):
                 try:

@@ -42,6 +42,15 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r guide/worker/requirements.txt
 
+      - name: Install system tools (ffmpeg, node for preflight)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg curl
+          node --version || (curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash - && sudo apt-get install -y nodejs)
+
+      - name: Integrator preflight + smoke script CI gate
+        run: make smoke-integrator-ci
+
       - name: Timeline QA gate (subtitle/TTS alignment unit tests)
         run: make validate-renders-ci
 

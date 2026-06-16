@@ -1,11 +1,21 @@
 import { useState, useEffect, useCallback } from 'react';
 import { IconZap, IconPlay, IconSettings, IconMic, IconImage, IconFilm, IconType, IconSave, IconChevronRight } from '../components/Icons';
+import IntegratorPlayground from '../components/IntegratorPlayground';
 
 const API_BASE = '/api';
 
-type Tab = 'api' | 'pipeline' | 'prompts' | 'models' | 'ops';
+type Tab = 'playground' | 'api' | 'pipeline' | 'prompts' | 'models' | 'ops';
 
 interface LogEntry { time: string; level: 'info' | 'success' | 'error' | 'warn'; msg: string }
+
+interface LlmRuntime {
+  configured: boolean;
+  source: 'env' | 'config' | 'none';
+  base_url: string;
+  model: string;
+  api_key_masked: string;
+  used_for: string[];
+}
 
 interface Config {
   models: {
@@ -13,7 +23,9 @@ interface Config {
     yuntts: { base_url: string; api_key: string; default_voice: string; max_audio_duration: number };
     wavespeed: { base_url: string; api_key: string; resolution: string };
     ffmpeg: { codec: string; preset: string; crf: number; audio_bitrate: string };
+    llm: { base_url: string; api_key: string; model: string };
   };
+  llm_runtime?: LlmRuntime;
   prompts: {
     scene_image_default: string;
     human_model: string;
@@ -32,7 +44,7 @@ interface Config {
 }
 
 export default function DebugPage() {
-  const [tab, setTab] = useState<Tab>('api');
+  const [tab, setTab] = useState<Tab>('playground');
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -54,6 +66,7 @@ export default function DebugPage() {
   };
 
   const tabs: { id: Tab; label: string; icon: typeof IconZap }[] = [
+    { id: 'playground', label: '集成 Playground', icon: IconFilm },
     { id: 'api', label: '接口调试', icon: IconZap },
     { id: 'pipeline', label: '流水线', icon: IconFilm },
     { id: 'prompts', label: '提示词', icon: IconType },
@@ -82,6 +95,7 @@ export default function DebugPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 space-y-4">
+            {tab === 'playground' && <IntegratorPlayground />}
             {tab === 'api' && <APIPanel apiCall={apiCall} loading={loading} />}
             {tab === 'pipeline' && <PipelinePanel apiCall={apiCall} loading={loading} />}
             {tab === 'prompts' && <PromptsPanel log={log} />}
@@ -138,7 +152,8 @@ function APIPanel({ apiCall, loading }: { apiCall: (m: string, p: string, b?: an
       { method: 'GET' as const, path: `/renders/${renderId || ':id'}`, label: '获取渲染详情', needId: true, idVal: renderId, idSetter: setRenderId, idPh: '渲染 ID' },
     ]},
     { group: '配置管理', items: [
-      { method: 'GET' as const, path: '/config', label: '获取当前配置' },
+      { method: 'GET' as const, path: '/config', label: '获取当前配置（含 LLM 运行时）' },
+      { method: 'GET' as const, path: '/config/diagnostics', label: '供应商诊断（含 LLM）' },
     ]},
   ];
 
@@ -370,7 +385,15 @@ function ModelsPanel({ log }: { log: (l: LogEntry['level'], m: string) => void }
 
   if (!config) return <div className="text-muted-foreground py-8 text-center">加载中...</div>;
 
+  const llmRuntime = config.llm_runtime;
+  const llmModel = config.models.llm || { base_url: '', api_key: '', model: 'gpt-4o-mini' };
+
   const sections = [
+    { key: 'llm', label: 'LLM 文本润色', icon: IconType, fields: [
+      { key: 'base_url', label: '基础 URL' },
+      { key: 'api_key', label: 'API 密钥', sensitive: true },
+      { key: 'model', label: '模型名' },
+    ]},
     { key: 'kie', label: 'KIE.ai 图生图', icon: IconImage, fields: [
       { key: 'base_url', label: '基础 URL' },
       { key: 'api_key', label: 'API 密钥', sensitive: true },
@@ -400,6 +423,25 @@ function ModelsPanel({ log }: { log: (l: LogEntry['level'], m: string) => void }
 
   return (
     <div className="space-y-4">
+      <div className="bg-card border border-border rounded-lg p-4">
+        <h3 className="text-[14px] font-medium mb-2">LLM 运行时状态</h3>
+        <div className="grid grid-cols-2 gap-2 text-[12px]">
+          <div className="text-muted-foreground">生效来源</div>
+          <div className="font-mono">{llmRuntime?.source === 'env' ? '环境变量 (LLM_* / OPENAI_*)' : llmRuntime?.source === 'config' ? 'config.json' : '未配置'}</div>
+          <div className="text-muted-foreground">当前模型</div>
+          <div className="font-mono">{llmRuntime?.model || llmModel.model || '—'}</div>
+          <div className="text-muted-foreground">Base URL</div>
+          <div className="font-mono truncate">{llmRuntime?.base_url || llmModel.base_url || '—'}</div>
+          <div className="text-muted-foreground">密钥</div>
+          <div className="font-mono">{llmRuntime?.api_key_masked || (llmModel.api_key ? `${llmModel.api_key.slice(0, 6)}***` : '未设置')}</div>
+          <div className="text-muted-foreground">用途</div>
+          <div>{(llmRuntime?.used_for || ['润色口播']).join('、')}</div>
+        </div>
+        <p className="mt-3 text-[11px] text-muted-foreground">
+          环境变量优先于下方 config.json 配置。未配置时「润色本段」回退规则模板。
+        </p>
+      </div>
+
       <div className="flex justify-end">
         <button onClick={save} disabled={saving}
           className="h-9 px-4 text-[14px] bg-primary text-primary-foreground rounded-md hover:opacity-90 disabled:opacity-50 flex items-center gap-1.5 font-medium">

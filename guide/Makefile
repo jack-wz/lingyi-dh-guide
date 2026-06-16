@@ -13,14 +13,19 @@ RUN_PYTEST := "$(SCRIPTS)/run_pytest.sh"
 TEMPLATE_ID ?= 517a1920-6376-47ef-871b-9badbaa16b53
 MIN_SEGMENTS ?= 4
 
-.PHONY: help setup-worker-venv test-guide test-guide-fast test-guide-timeline lint-guide \
+.PHONY: help setup-worker-venv test-guide test-guide-fast test-guide-timeline smoke-brand-render smoke-integrator smoke-integrator-ci verify-playground lint-guide \
 	validate-renders validate-renders-strict validate-renders-ci validate-render-job \
-	batch-reassemble batch-reassemble-dry
+	batch-reassemble batch-reassemble-dry preflight
 
 help:
 	@echo "Guide Makefile targets:"
 	@echo "  test-guide              Run all worker unit tests"
 	@echo "  test-guide-fast         Timeline / ASS / audit unit tests only"
+	@echo "  smoke-brand-render      E2E: brand TTF → ASS → FFmpeg MP4 (needs ffmpeg-full)"
+	@echo "  smoke-integrator        Integrator smoke: health → POST render → poll (SUBMIT_ONLY=1 to skip poll)"
+	@echo "  preflight               Check node/uv/ffmpeg and guide/.env"
+	@echo "  smoke-integrator-ci     CI gate: preflight + compile smoke script (no live API)"
+	@echo "  verify-playground       Preflight + /debug reachable + smoke submit-only"
 	@echo "  validate-renders        Audit all jobs under data/renders (fail on errors)"
 	@echo "  validate-renders-strict Also fail on warnings"
 	@echo "  validate-renders-ci     CI gate: timeline/ASS/audit unit tests only"
@@ -45,6 +50,23 @@ test-guide-timeline:
 		-q
 
 test-guide-fast: test-guide-timeline
+
+smoke-brand-render: setup-worker-venv
+	PATH="/opt/homebrew/opt/ffmpeg-full/bin:$$PATH" $(RUN_PYTEST) guide/worker/tests/test_brand_render_smoke.py -q
+
+preflight:
+	@"$(SCRIPTS)/preflight.sh"
+
+smoke-integrator:
+	@"$(SCRIPTS)/smoke_integrator.sh"
+
+smoke-integrator-ci: preflight
+	@$(RUN_PY) -m py_compile "$(SCRIPTS)/smoke_integrator.py"
+	@echo "smoke-integrator-ci: preflight + py_compile passed"
+
+verify-playground:
+	@chmod +x "$(SCRIPTS)/verify_playground.sh" 2>/dev/null || true
+	@"$(SCRIPTS)/verify_playground.sh"
 
 lint-guide:
 	@command -v ruff >/dev/null 2>&1 || { echo "ruff not installed; skip lint-guide"; exit 0; }

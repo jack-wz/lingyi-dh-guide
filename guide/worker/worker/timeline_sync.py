@@ -8,7 +8,7 @@ import re
 from glob import glob
 from typing import Any
 
-from worker.utils import get_duration
+from worker.utils import get_duration, has_audio_stream
 
 _DURATION_TOLERANCE_SEC = 0.35
 _ASS_DIALOGUE_RE = re.compile(
@@ -124,9 +124,16 @@ def validate_segments_for_assembly(
                 or seg.get("tts_path")
                 or os.path.join(work_dir, f"tts_{i}.wav")
             )
-            if not tts_path or not os.path.exists(tts_path):
+            has_tts_wav = bool(tts_path and os.path.exists(tts_path))
+            has_muxed_audio = (
+                clip_path
+                and os.path.exists(clip_path)
+                and has_audio_stream(clip_path)
+                and get_duration(clip_path, codec_type="audio") > 0
+            )
+            if not has_tts_wav and not has_muxed_audio:
                 issues.append(f"segment[{i}]: narration present but TTS missing")
-            else:
+            if has_tts_wav:
                 tts_dur = get_duration(tts_path)
                 if tts_dur > 0 and abs(tts_dur - clip_dur) > _DURATION_TOLERANCE_SEC:
                     issues.append(

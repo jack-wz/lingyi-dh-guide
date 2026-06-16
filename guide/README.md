@@ -2,6 +2,9 @@
 
 从 `cenker-creation-demo` 迁入的独立导购模块，由 **Pixelle-Video FastAPI (`:8000`)** 作为统一后端入口。
 
+**集成方首选：** [docs/INTEGRATOR_QUICKSTART.md](docs/INTEGRATOR_QUICKSTART.md)（预检 → 配 Key → 启动 → smoke 渲染）  
+**从 SaaS 迁移：** [docs/MIGRATION_FROM_SAAS.md](docs/MIGRATION_FROM_SAAS.md) · [CHANGELOG.md](CHANGELOG.md)
+
 ## 目录结构
 
 | 目录 | 说明 |
@@ -18,12 +21,18 @@
 
 ```bash
 cd Pixelle-Video
+guide/scripts/preflight.sh
+cp guide/.env.example guide/.env   # 填写 Key 后：
+uv run python guide/scripts/verify_providers.py
 chmod +x start_platform.sh start_guide_web.sh start_api.sh
 ./start_platform.sh
 ```
 
+集成验证：`make smoke-integrator`（详见 [INTEGRATOR_QUICKSTART.md](docs/INTEGRATOR_QUICKSTART.md)）
+
 - **后端 API**：http://127.0.0.1:8000
 - **导购前端**：http://127.0.0.1:5173（代理到 `:8000`）
+- **集成 Playground**：http://127.0.0.1:5173/debug（浏览器内 smoke 渲染）
 - **导购健康检查**：http://127.0.0.1:8000/api/guide/health
 
 ### 仅导购子模块（开发调试）

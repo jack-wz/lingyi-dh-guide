@@ -11,6 +11,11 @@ import configRouter from './routes/config.js';
 import assetsRouter from './routes/assets.js';
 import tasksRouter from './routes/tasks.js';
 import opsRouter from './routes/ops.js';
+import libraryRouter from './routes/library.js';
+import aiRouter from './routes/ai.js';
+
+import { getBrandFontsStaticDir } from './brand-fonts.js';
+import { ErrorCodes, apiError, listErrorCatalog } from './apiErrors.js';
 
 export function createApp() {
   const app = express();
@@ -21,6 +26,7 @@ export function createApp() {
 
   app.use('/uploads', express.static(join(dataDir, 'uploads')));
   app.use('/renders', express.static(join(dataDir, 'renders')));
+  app.use('/brand-fonts', express.static(getBrandFontsStaticDir(dataDir)));
 
   getDb();
 
@@ -37,6 +43,16 @@ export function createApp() {
   app.use('/api/assets', assetsRouter);
   app.use('/api/tasks', tasksRouter);
   app.use('/api/ops', opsRouter);
+  app.use('/api/library', libraryRouter);
+  app.use('/api/ai', aiRouter);
+
+  app.get('/api/error-catalog', (_req, res) => {
+    res.json({ errors: listErrorCatalog() });
+  });
+
+  app.use('/api', (_req, res) => {
+    apiError(res, ErrorCodes.NOT_FOUND, 'API route not found', 404);
+  });
 
   return app;
 }

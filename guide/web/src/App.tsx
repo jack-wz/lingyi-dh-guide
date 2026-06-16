@@ -10,6 +10,8 @@ import DigitalHumanDetailPage from './pages/DigitalHumanDetailPage'
 import RenderResultPage from './pages/RenderResultPage'
 import PersonalCenterPage from './pages/PersonalCenterPage'
 import DebugPage from './pages/DebugPage'
+import AssetHubPage from './pages/AssetHubPage'
+import ApiToastHost from './components/ApiToast'
 
 function NavBar() {
   const location = useLocation()
@@ -29,9 +31,9 @@ function NavBar() {
         <span>数字人导购</span>
       </Link>
       <Link to="/" className={linkCls('/') && (!isActive('/editor') && !isActive('/render') ? linkCls('/') : linkCls('/').replace('font-medium', ''))}>模板中心</Link>
-      <Link to="/digital-humans" className={linkCls('/digital-humans')}>数字人管理</Link>
+      <Link to="/assets" className={linkCls('/assets')}>资产库</Link>
       <Link to="/my-videos" className={linkCls('/my-videos')}>个人中心</Link>
-      <Link to="/debug" className={linkCls('/debug')}>调试</Link>
+      <Link to="/debug" className={linkCls('/debug')}>Playground</Link>
       <div className="flex-1" />
       <ThemeToggle />
     </nav>
@@ -48,6 +50,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<TemplateListPage />} />
           <Route path="/editor/:id" element={<EditorPage />} />
+          <Route path="/assets" element={<AssetHubPage />} />
           <Route path="/digital-humans" element={<DigitalHumanListPage />} />
           <Route path="/digital-humans/:id" element={<DigitalHumanDetailPage />} />
           <Route path="/render/:id" element={<RenderResultPage />} />
@@ -55,6 +58,7 @@ export default function App() {
           <Route path="/debug" element={<DebugPage />} />
         </Routes>
       </ErrorBoundary>
+      <ApiToastHost />
     </div>
   )
 }
