@@ -213,6 +213,15 @@ def _segment_timeline(segments: list[dict]) -> list[tuple[dict, float, float]]:
     return timeline
 
 
+def _resolve_ass_font(global_config: dict) -> str:
+    """Use brand pack default font when present; ASS Fontname is a single family."""
+    raw = global_config.get("default_font_family") or ""
+    if not raw:
+        return "PingFang SC"
+    first = str(raw).split(",")[0].strip().strip("'\"")
+    return first or "PingFang SC"
+
+
 def generate_ass(
     segments: list[dict],
     global_config: dict,
@@ -223,9 +232,10 @@ def generate_ass(
     """Generate ASS subtitle file with phrase-level timing and entrance animations."""
     canvas_w = global_config.get("canvas_width", 1080)
     canvas_h = global_config.get("canvas_height", 1920)
+    ass_font = _resolve_ass_font(global_config)
 
     default_style = {
-        "font": "PingFang SC",
+        "font": ass_font,
         "size": 48,
         "color": "#FFFFFF",
         "highlight_color": "#FFD700",

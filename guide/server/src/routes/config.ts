@@ -3,6 +3,7 @@ import { join } from 'path';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { spawnSync } from 'child_process';
 import { getDataDir } from '../db/database.js';
+import { getLlmDisplayInfo } from '../llmClient.js';
 
 const router = Router();
 function getConfigPath() {
@@ -15,6 +16,7 @@ interface Config {
     yuntts: { base_url: string; api_key: string; default_voice: string; max_audio_duration: number };
     wavespeed: { base_url: string; api_key: string; resolution: string };
     ffmpeg: { codec: string; preset: string; crf: number; audio_bitrate: string };
+    llm: { base_url: string; api_key: string; model: string };
   };
   prompts: {
     scene_image_default: string;
@@ -39,6 +41,7 @@ const DEFAULT_CONFIG: Config = {
     yuntts: { base_url: 'https://www.yuntts.com/api/v1', api_key: 'sk-', default_voice: 'zh-CN-XiaoxiaoNeural', max_audio_duration: 28 },
     wavespeed: { base_url: 'https://api.wavespeed.ai', api_key: '', resolution: '480p' },
     ffmpeg: { codec: 'libx264', preset: 'veryfast', crf: 18, audio_bitrate: '192k' },
+    llm: { base_url: 'https://api.openai.com/v1', api_key: '', model: 'gpt-4o-mini' },
   },
   prompts: {
     scene_image_default: '将这张场景参考图与人物融合，生成一个真实自然的导购场景图',
@@ -63,7 +66,13 @@ function loadConfig(): Config {
     if (existsSync(configPath)) {
       const raw = readFileSync(configPath, 'utf-8');
       const saved = JSON.parse(raw);
-      return { ...DEFAULT_CONFIG, ...saved, models: { ...DEFAULT_CONFIG.models, ...saved.models }, prompts: { ...DEFAULT_CONFIG.prompts, ...saved.prompts }, pipeline: { ...DEFAULT_CONFIG.pipeline, ...saved.pipeline } };
+      return {
+        ...DEFAULT_CONFIG,
+        ...saved,
+        models: { ...DEFAULT_CONFIG.models, ...saved.models, llm: { ...DEFAULT_CONFIG.models.llm, ...saved.models?.llm } },
+        prompts: { ...DEFAULT_CONFIG.prompts, ...saved.prompts },
+        pipeline: { ...DEFAULT_CONFIG.pipeline, ...saved.pipeline },
+      };
     }
   } catch {}
   return DEFAULT_CONFIG;
@@ -117,6 +126,19 @@ function buildDiagnostics(config: Config) {
       used_for: ['standard', 'digital_human'],
       fallback: '必需依赖，缺失会导致渲染失败。',
     },
+    llm: (() => {
+      const llm = getLlmDisplayInfo();
+      return {
+        key: 'llm',
+        name: 'LLM 文本润色',
+        configured: llm.configured,
+        base_url: llm.base_url,
+        model: llm.model,
+        source: llm.source,
+        used_for: llm.used_for,
+        fallback: '未配置时润色口播回退为规则模板。',
+      };
+    })(),
   };
 
   const providerList = Object.values(providers);
@@ -155,7 +177,12 @@ router.get('/', (_req, res) => {
   if (masked.models.kie.api_key) masked.models.kie.api_key = masked.models.kie.api_key.slice(0, 6) + '***';
   if (masked.models.yuntts.api_key) masked.models.yuntts.api_key = masked.models.yuntts.api_key.slice(0, 6) + '***';
   if (masked.models.wavespeed.api_key) masked.models.wavespeed.api_key = masked.models.wavespeed.api_key.slice(0, 6) + '***';
-  res.json(masked);
+  if (masked.models.llm?.api_key) masked.models.llm.api_key = masked.models.llm.api_key.slice(0, 6) + '***';
+  const llmRuntime = getLlmDisplayInfo();
+  res.json({
+    ...masked,
+    llm_runtime: llmRuntime,
+  });
 });
 
 // GET /api/config/diagnostics — provider readiness without exposing secrets
@@ -176,6 +203,7 @@ router.put('/', (req, res) => {
         yuntts: { ...current.models.yuntts, ...incoming.models?.yuntts },
         wavespeed: { ...current.models.wavespeed, ...incoming.models?.wavespeed },
         ffmpeg: { ...current.models.ffmpeg, ...incoming.models?.ffmpeg },
+        llm: { ...current.models.llm, ...incoming.models?.llm },
       },
       prompts: { ...current.prompts, ...incoming.prompts },
       pipeline: { ...current.pipeline, ...incoming.pipeline },
@@ -193,6 +221,10 @@ router.put('/', (req, res) => {
     if (incoming.models?.wavespeed?.api_key && !incoming.models.wavespeed.api_key.includes('***')) {
       merged.models.wavespeed.api_key = incoming.models.wavespeed.api_key;
     } else { merged.models.wavespeed.api_key = current.models.wavespeed.api_key; }
+
+    if (incoming.models?.llm?.api_key && !incoming.models.llm.api_key.includes('***')) {
+      merged.models.llm.api_key = incoming.models.llm.api_key;
+    } else { merged.models.llm.api_key = current.models.llm.api_key; }
 
     saveConfig(merged);
     res.json({ success: true });

@@ -17,6 +17,7 @@ interface RenderJob {
   output_url: string;
   output_exists: boolean;
   error_message: string;
+  error_code?: string | null;
   progress: number;
   stage: string;
   created_at: string;
@@ -279,6 +280,9 @@ export default function RenderResultPage() {
       {(job.status === 'failed' || job.status === 'cancelled') && (
         <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-6">
           <h2 className="text-lg font-semibold text-destructive mb-2">{job.status === 'cancelled' ? '任务已取消' : '生成失败'}</h2>
+          {job.error_code ? (
+            <p className="text-[11px] font-mono text-muted-foreground mb-2 select-all">错误码：{job.error_code}</p>
+          ) : null}
           <p className="text-destructive text-sm">{job.error_message || '未知错误'}</p>
         </div>
       )}

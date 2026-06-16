@@ -9,12 +9,6 @@ import {
 } from '../utils/layerCatalog';
 import { IconEye, IconEyeOff, IconImage, IconLayout, IconMic, IconPlus, IconType, IconUser } from './Icons';
 
-const OVERLAY_ANIMATIONS = [
-  { id: 'none', label: '无' },
-  { id: 'fadeIn', label: '淡入' },
-  { id: 'scaleIn', label: '缩放' },
-] as const;
-
 function layerIcon(kind: LayerDescriptor['kind']) {
   if (kind === 'scene') return <IconImage size={14} />;
   if (kind === 'digital_human') return <IconUser size={14} />;
@@ -28,13 +22,11 @@ export default function LayersPanel({
   currentSegIndex,
   selectedElement,
   updateDsl,
-  onOpenObjectTab,
 }: {
   dsl: DSL;
   currentSegIndex: number;
   selectedElement: CanvasElement;
   updateDsl: (updater: (dsl: DSL) => DSL) => void;
-  onOpenObjectTab?: () => void;
 }) {
   const seg = dsl.segments[currentSegIndex];
   const setSelectedElement = useEditorStore(s => s.setSelectedElement);
@@ -123,24 +115,10 @@ export default function LayersPanel({
     }
   };
 
-  const selectedOverlay = selectedElement.type === 'overlay'
-    ? seg.overlays[selectedElement.overlayIndex]
-    : undefined;
-
-  const updateOverlay = (partial: Partial<NonNullable<typeof selectedOverlay>>) => {
-    if (!selectedOverlay || selectedElement.type !== 'overlay') return;
-    const overlays = [...seg.overlays];
-    overlays[selectedElement.overlayIndex] = { ...selectedOverlay, ...partial };
-    updateSeg({ overlays });
-  };
-
   return (
     <div className="flex flex-col h-full min-h-0">
-      <div className="p-3 border-b border-border flex items-center justify-between gap-2">
-        <div>
-          <h3 className="text-sm font-semibold">图层</h3>
-          <p className="text-[10px] text-muted-foreground">场景 {currentSegIndex + 1} · {layers.length} 层</p>
-        </div>
+      <div className="px-3 py-2 border-b border-border flex items-center justify-between gap-2 shrink-0">
+        <p className="text-[10px] text-muted-foreground">{layers.length} 个图层 · 点击选择后在「对象」面板编辑</p>
         <button
           type="button"
           onClick={addOverlay}
@@ -204,57 +182,6 @@ export default function LayersPanel({
           );
         })}
       </div>
-
-      {selectedOverlay && (
-        <div className="border-t border-border p-3 space-y-2 bg-secondary/20 shrink-0">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-semibold">贴片动画</span>
-            {onOpenObjectTab && (
-              <button type="button" onClick={onOpenObjectTab} className="text-[10px] text-brand-blue hover:underline">
-                更多属性
-              </button>
-            )}
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <label className="text-[10px] text-muted-foreground">
-              开始 (s)
-              <input
-                type="number"
-                min={0}
-                max={seg.duration_sec}
-                step={0.1}
-                value={selectedOverlay.seg_start_time}
-                onChange={(e) => updateOverlay({ seg_start_time: Number(e.target.value) })}
-                className="mt-0.5 w-full h-8 rounded-md border border-border bg-background px-2 text-[12px]"
-              />
-            </label>
-            <label className="text-[10px] text-muted-foreground">
-              时长 (s)
-              <input
-                type="number"
-                min={0.1}
-                max={seg.duration_sec}
-                step={0.1}
-                value={selectedOverlay.duration}
-                onChange={(e) => updateOverlay({ duration: Number(e.target.value) })}
-                className="mt-0.5 w-full h-8 rounded-md border border-border bg-background px-2 text-[12px]"
-              />
-            </label>
-          </div>
-          <label className="text-[10px] text-muted-foreground block">
-            入场动画
-            <select
-              value={selectedOverlay.animation}
-              onChange={(e) => updateOverlay({ animation: e.target.value as typeof selectedOverlay.animation })}
-              className="mt-0.5 w-full h-8 rounded-md border border-border bg-background px-2 text-[12px]"
-            >
-              {OVERLAY_ANIMATIONS.map((item) => (
-                <option key={item.id} value={item.id}>{item.label}</option>
-              ))}
-            </select>
-          </label>
-        </div>
-      )}
     </div>
   );
 }

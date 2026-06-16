@@ -289,7 +289,7 @@ export function createDefaultSegment(index = 0, input: { id?: string } = {}): Se
       animation: 'fadeIn',
     },
     transition: { type: 'none', duration: 0.5 },
-    digital_human: { enabled: false, position: { x: 50, y: 80 }, scale: 100 },
+    digital_human: { enabled: false, position: { x: 50, y: 72 }, scale: 100 },
     overlays: [],
     thumbnail_url: '',
     diagnostics: [],

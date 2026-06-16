@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { IconCheck, IconFilm, IconTrash } from '../components/Icons';
 import ConfirmDialog from '../components/ConfirmDialog';
 import TextInputDialog from '../components/TextInputDialog';
+import { parseApiErrorResponse, formatApiErrorMessage } from '../utils/apiError';
+import { showApiToast } from '../components/ApiToast';
 
 interface Template {
   id: string;
@@ -25,6 +27,7 @@ export default function TemplateListPage() {
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Template | null>(null);
   const [statusTarget, setStatusTarget] = useState<{ template: Template; status: TemplateStatus; label: string } | null>(null);
+  const [brandCount, setBrandCount] = useState<number | null>(null);
   const navigate = useNavigate();
 
   const fetchTemplates = async () => {
@@ -34,12 +37,19 @@ export default function TemplateListPage() {
       setTemplates(data);
     } catch (e) {
       console.error('Failed to fetch templates', e);
+      showApiToast(e instanceof Error ? e.message : '加载模板列表失败', { destructive: true });
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { fetchTemplates(); }, []);
+  useEffect(() => {
+    fetchTemplates();
+    fetch('/api/library?category=brand&limit=1')
+      .then((r) => r.json())
+      .then((d) => setBrandCount(Number(d.total ?? d.items?.length ?? 0)))
+      .catch(() => setBrandCount(null));
+  }, []);
 
   const createTemplate = async (name: string) => {
     try {
@@ -48,11 +58,16 @@ export default function TemplateListPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name, type: '新品发布' }),
       });
+      if (!res.ok) {
+        const body = await parseApiErrorResponse(res);
+        throw new Error(formatApiErrorMessage(body, '创建模板失败'));
+      }
       const t = await res.json();
       setShowCreateDialog(false);
       navigate(`/editor/${t.id}`);
     } catch (e) {
       console.error('Failed to create template', e);
+      showApiToast(e instanceof Error ? e.message : '创建模板失败', { destructive: true });
     }
   };
 
@@ -112,6 +127,13 @@ export default function TemplateListPage() {
 
   return (
     <div className="max-w-6xl mx-auto p-6">
+      {brandCount === 0 && (
+        <div className="mb-4 rounded-lg border border-brand-amber/30 bg-brand-amber/10 px-4 py-3 text-sm text-muted-foreground flex items-center justify-between gap-3">
+          <span>首次使用请先在资产库初始化品牌包并选择，再创建模板。</span>
+          <Link to="/assets?tab=brand" className="text-brand-blue hover:underline shrink-0">去资产库</Link>
+        </div>
+      )}
+
       <section className="mb-6 rounded-xl border border-border bg-card p-4">
         <h2 className="text-base font-semibold mb-2">导购视频生产流程</h2>
         <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">

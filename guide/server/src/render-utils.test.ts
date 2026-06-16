@@ -96,6 +96,8 @@ describe('render-utils', () => {
     };
     assert.deepEqual(enrichJob(job, dataDir), {
       ...job,
+      error_message: '',
+      error_code: null,
       provider_config_snapshot: JSON.stringify({ models: { kie: { api_key: 'kie-se***' } } }),
       output_exists: true,
     });

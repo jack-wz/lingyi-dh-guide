@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import type { DigitalHumanCatalog } from '@shared/digitalHumanStyle';
 
 export interface Segment {
   id: string;
@@ -9,6 +10,7 @@ export interface Segment {
   scene_description: string;
   camera_shot: string;
   segment_bgm_url: string;
+  segment_bgm_duration_sec?: number;
   subtitle: { enabled: boolean; style_id: string; position: 'top' | 'center' | 'bottom'; animation: 'none' | 'fadeIn' | 'typewriter' };
   transition: { type: string; duration: number };
   digital_human: { enabled: boolean; position: { x: number; y: number }; scale: number };
@@ -52,10 +54,19 @@ export interface EditorObject {
     provider?: string;
     shape_type?: string;
   };
+  seg_start_time?: number;
+  duration?: number;
+  animation?: 'none' | 'fadeIn' | 'scaleIn';
   style?: {
     fill?: string;
     textColor?: string;
     variant?: string;
+    fontSize?: number;
+    fontFamily?: string;
+    fontWeight?: number;
+    outline?: string;
+    background?: string;
+    borderRadius?: number;
   };
   position: { x: number; y: number };
   scale: number;
@@ -86,9 +97,13 @@ export interface GlobalConfig {
   transition_enabled?: boolean;
   brand_logo_url?: string;
   brand_color?: string;
+  brand_pack_id?: string;
+  brand_pack?: Record<string, unknown>;
+  default_font_family?: string;
   output_resolution?: string;
   aspect_ratio?: '9:16' | '16:9' | '1:1';
   asset_map?: Record<string, string>;
+  digital_human_catalog?: DigitalHumanCatalog;
 }
 
 export interface DSL {
@@ -105,6 +120,8 @@ export interface DSL {
     script_text?: string;
     digital_human_id?: string;
     asset_map?: Record<string, string>;
+    brand_pack_id?: string;
+    frame_template_id?: string;
   };
   globalConfig: GlobalConfig;
   segments: Segment[];
@@ -119,7 +136,7 @@ export type CanvasElement =
   | { type: 'subtitle'; segIndex: number }
   | { type: 'none' };
 
-export type TrackId = 'video' | 'audio' | 'subtitle' | 'overlay';
+export type TrackId = 'video' | 'audio' | 'subtitle' | 'overlay' | 'object';
 export type AssetTab = 'scene' | 'subtitle' | 'sound' | 'anim' | 'dh' | 'sticker';
 
 export interface EditorState {
@@ -134,8 +151,10 @@ export interface EditorState {
   mutedTracks: Set<TrackId>;
   historyPast: DSL[];
   historyFuture: DSL[];
+  previewVariables: Record<string, string>;
 
   setDsl: (dsl: DSL | null) => void;
+  setPreviewVariables: (variables: Record<string, string>) => void;
   updateDsl: (updater: (dsl: DSL) => DSL) => void;
   undo: () => void;
   redo: () => void;
@@ -170,8 +189,10 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   mutedTracks: new Set<TrackId>(),
   historyPast: [],
   historyFuture: [],
+  previewVariables: {},
 
   setDsl: (dsl) => set({ dsl, historyPast: [], historyFuture: [] }),
+  setPreviewVariables: (variables) => set({ previewVariables: variables }),
   updateDsl: (updater) => {
     const { dsl } = get();
     if (!dsl) return;

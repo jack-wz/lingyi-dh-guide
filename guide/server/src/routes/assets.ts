@@ -78,6 +78,25 @@ router.post('/', (req: Request, res: Response) => {
   res.status(201).json(serializeAsset(row));
 });
 
+router.put('/:id', (req: Request, res: Response) => {
+  const db = getDb();
+  const existing = db.prepare('SELECT * FROM assets WHERE id = ?').get(req.params.id) as Record<string, unknown> | undefined;
+  if (!existing) return res.status(404).json({ error: 'Asset not found' });
+
+  const name = req.body?.name != null ? String(req.body.name).trim() : String(existing.name);
+  const type = req.body?.type != null ? String(req.body.type) : String(existing.type);
+  const fileUrl = req.body?.file_url != null ? String(req.body.file_url) : String(existing.file_url);
+  const metadata = req.body?.metadata != null
+    ? JSON.stringify(req.body.metadata && typeof req.body.metadata === 'object' ? req.body.metadata : {})
+    : String(existing.metadata || '{}');
+
+  db.prepare('UPDATE assets SET name = ?, type = ?, file_url = ?, metadata = ? WHERE id = ?')
+    .run(name, type, fileUrl, metadata, req.params.id);
+
+  const row = db.prepare('SELECT * FROM assets WHERE id = ?').get(req.params.id) as Record<string, unknown>;
+  res.json(serializeAsset(row));
+});
+
 router.delete('/:id', (req: Request, res: Response) => {
   const db = getDb();
   const result = db.prepare('DELETE FROM assets WHERE id = ?').run(req.params.id);

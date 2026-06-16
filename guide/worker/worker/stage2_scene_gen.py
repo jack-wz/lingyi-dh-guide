@@ -3,6 +3,7 @@
 import json
 import os
 from worker.ai_clients.kie_client import KieClient
+from worker.kie_input_resolver import resolve_kie_input_url
 from worker.utils import download_file, ensure_dir
 from worker.config import UPLOADS_DIR
 
@@ -76,21 +77,14 @@ def generate_scene_images(
         dh_config = seg.get("digital_human", {})
         use_digital_human = dh_config.get("enabled", False) or human_face_path
 
-        # Skip KIE for local files (external APIs can't access localhost)
-        # Only try KIE if both URLs are externally accessible (http/https)
-        can_use_kie = (
-            scene_url and 
-            human_face_url and 
-            (scene_url.startswith("http") or "uploads" not in scene_url) and
-            (human_face_url.startswith("http") or "uploads" not in human_face_url)
-        )
-        
-        if can_use_kie:
-            # Try to generate via KIE (AI scene with human face)
+        ref_kie = resolve_kie_input_url(scene_url, kie, server_base_url) if scene_url else ""
+        human_kie = resolve_kie_input_url(human_face_url, kie, server_base_url) if human_face_url else ""
+
+        if ref_kie:
             print(f"[Stage2] Segment {i+1}: generating scene image via KIE...")
             generated_url = kie.generate_scene_image(
-                reference_image_url=_resolve(scene_url, server_base_url),
-                human_image_url=_resolve(human_face_url, server_base_url),
+                reference_image_url=ref_kie,
+                human_image_url=human_kie,
                 prompt=seg.get("narration_text", ""),
             )
             if generated_url:

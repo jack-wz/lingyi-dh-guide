@@ -2,6 +2,7 @@ import unittest
 
 from worker.ass_generator import (
     _ass_to_sec,
+    _resolve_ass_font,
     _sec_to_ass,
     allocate_phrase_timings,
     generate_ass,
@@ -43,6 +44,17 @@ class TestAssGenerator(unittest.TestCase):
     def test_time_roundtrip(self):
         self.assertEqual(_sec_to_ass(65.5), "0:01:05.50")
         self.assertAlmostEqual(_ass_to_sec("0:01:05.50"), 65.5, places=2)
+
+    def test_resolve_ass_font_from_brand_pack(self):
+        self.assertEqual(_resolve_ass_font({}), "PingFang SC")
+        self.assertEqual(
+            _resolve_ass_font({"default_font_family": "BiaoXiaoZhiBiaoTiHei"}),
+            "BiaoXiaoZhiBiaoTiHei",
+        )
+        self.assertEqual(
+            _resolve_ass_font({"default_font_family": "'PingFang SC', sans-serif"}),
+            "PingFang SC",
+        )
 
 
 if __name__ == "__main__":

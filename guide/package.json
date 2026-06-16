@@ -16,5 +16,8 @@
     "test:worker": "make -C .. test-guide",
     "validate:renders": "make -C .. validate-renders",
     "validate:renders:ci": "make -C .. validate-renders-ci"
+  },
+  "dependencies": {
+    "js-yaml": "^4.2.0"
   }
 }

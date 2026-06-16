@@ -1,20 +1,39 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { ReactNode, CSSProperties } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import EditorLeftPanel from '../components/EditorLeftPanel';
+import { getSegmentIssues } from '../utils/segmentIssues';
 import { useEditorStore } from '../store/editorStore';
 import type { CanvasElement, DSL, EditorObject, Segment } from '../store/editorStore';
 import VideoCanvas from '../components/VideoCanvas';
-import Timeline from '../components/Timeline';
+import EditorBottomPanel from '../components/EditorBottomPanel';
+import AssetPickerModal, { type PickerCategory } from '../components/AssetPickerModal';
+import type { LibraryItem } from '../types/library';
 import AssetLibrary from '../components/AssetLibrary';
-import LeftEditorPanel from '../components/LeftEditorPanel';
 import LayersPanel from '../components/LayersPanel';
 import { usePlaybackLoop } from '../hooks/usePlaybackLoop';
+import { usePageVisibleRefresh } from '../hooks/usePageVisibleRefresh';
+import LibraryQuickList from '../components/LibraryQuickList';
+import { assetHubHref, fetchLibraryItem, fetchLibraryItems, libraryBgmItems, libraryTtsItems } from '../utils/libraryApi';
 import FileUploader from '../components/FileUploader';
-import { IconAlertCircle, IconArrowRight, IconCheck, IconChevronLeft, IconClock, IconCopy, IconEye, IconEyeOff, IconFilm, IconGrid, IconImage, IconLayers, IconLayout, IconMic, IconMousePointer, IconMusic, IconPalette, IconPlus, IconSave, IconSettings2, IconSparkles, IconTrash, IconType, IconUpload, IconUser, IconVideo, IconZap } from '../components/Icons';
+import { IconAlertCircle, IconArrowRight, IconCheck, IconChevronLeft, IconChevronRight, IconClock, IconCopy, IconEye, IconEyeOff, IconFilm, IconGrid, IconImage, IconLayers, IconLayout, IconMic, IconMusic, IconPalette, IconPlus, IconSave, IconSettings2, IconTrash, IconType, IconUpload, IconUser, IconZap } from '../components/Icons';
 
 import { PRESET_TEMPLATES } from '../data/presetTemplates';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { applyVariableSubstitution, buildVariableDefaults } from '../utils/dslNormalize';
+import { normalizeSegmentObjects, resolveElementTiming } from '../utils/elementTiming';
+import { SUBTITLE_STYLES } from '../data/subtitleStyles';
+import { libraryPayloadToBrandPack } from '@shared/brandPack';
+import EditorCoachmark from '../components/EditorCoachmark';
+
+import BrandAssetSelector from '../components/BrandAssetSelector';
+import { applyBrandLibraryItemToDsl } from '../utils/applyBrandPack';
+import { createEditorObject, getObjectLabel } from '../utils/editorObjects';
+import {
+  applyDigitalHumanCatalogToDsl,
+  fetchDigitalHumanRecord,
+  opentalkingDigitalHumanDefaults,
+} from '../utils/digitalHumanCatalog';
 
 interface PipelineOption {
   key: string;
@@ -51,59 +70,8 @@ function getCanvasSelectionKey(selection: CanvasElement) {
   return `object:${selection.segIndex}:${selection.objectIndex}`;
 }
 
-type ToolKey = 'avatar' | 'text' | 'shape' | 'motion' | 'media' | 'captions' | 'interactivity' | 'record';
-
-type BrandKit = {
-  id: string;
-  name: string;
-  description: string;
-  brandColor: string;
-  backgroundColor: string;
-  textColor: string;
-  subtitleStyle: Segment['subtitle']['style_id'];
-  subtitlePosition: Segment['subtitle']['position'];
-  logoLabel: string;
-  titleText: string;
-};
-
-const BRAND_KITS: BrandKit[] = [
-  {
-    id: 'enterprise-blue',
-    name: '企业蓝',
-    description: '适合培训、SaaS、企业介绍',
-    brandColor: '#1d4ed8',
-    backgroundColor: '#f6f8fb',
-    textColor: '#ffffff',
-    subtitleStyle: 'default',
-    subtitlePosition: 'bottom',
-    logoLabel: '品牌',
-    titleText: '关键信息',
-  },
-  {
-    id: 'growth-green',
-    name: '增长绿',
-    description: '适合可持续、健康、教育内容',
-    brandColor: '#15803d',
-    backgroundColor: '#f4fbf6',
-    textColor: '#ffffff',
-    subtitleStyle: 'brand-elegant',
-    subtitlePosition: 'bottom',
-    logoLabel: '增长',
-    titleText: '可持续发展',
-  },
-  {
-    id: 'retail-coral',
-    name: '零售珊瑚',
-    description: '适合导购、促销、社媒短视频',
-    brandColor: '#e11d48',
-    backgroundColor: '#fff7f7',
-    textColor: '#ffffff',
-    subtitleStyle: 'subtitle-card',
-    subtitlePosition: 'bottom',
-    logoLabel: '店铺',
-    titleText: '限时优惠',
-  },
-];
+type ToolKey = 'avatar' | 'text' | 'media' | 'generate';
+type InspectorTab = 'design' | 'layers' | 'object';
 
 export default function EditorPage() {
   usePlaybackLoop();
@@ -122,6 +90,9 @@ export default function EditorPage() {
   const showPresets = useEditorStore(s => s.showPresets);
   const setShowPresets = useEditorStore(s => s.setShowPresets);
   const setCurrentSegIndex = useEditorStore(s => s.setCurrentSegIndex);
+  const seekToTime = useEditorStore(s => s.seekToTime);
+  const getSegmentStartTime = useEditorStore(s => s.getSegmentStartTime);
+  const setPreviewVariables = useEditorStore(s => s.setPreviewVariables);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -138,12 +109,23 @@ export default function EditorPage() {
   const [showRenderReview, setShowRenderReview] = useState(false);
   const [messageDialog, setMessageDialog] = useState<{ title: string; message: string; destructive?: boolean } | null>(null);
   const [showExitDialog, setShowExitDialog] = useState(false);
-  const [inspectorTab, setInspectorTab] = useState<'design' | 'scene' | 'layers' | 'object' | 'generate'>('design');
-  const [sceneSearch, setSceneSearch] = useState('');
+  const [inspectorTab, setInspectorTab] = useState<InspectorTab>('layers');
   const [activeTool, setActiveTool] = useState<ToolKey | null>(null);
-  const [leftPanelWidth, setLeftPanelWidth] = useState(220);
+  const [leftPanelWidth, setLeftPanelWidth] = useState(176);
   const [rightPanelWidth, setRightPanelWidth] = useState(288);
+  const [assetPicker, setAssetPicker] = useState<{
+    open: boolean;
+    category: PickerCategory;
+    voiceSubType?: 'tts' | 'bgm';
+    scriptMode?: 'full' | 'segment';
+  }>({ open: false, category: 'digital_human' });
+  const generateSettingsRef = useRef<HTMLDivElement | null>(null);
   const previousSelectionKey = useRef('');
+  const pageRefreshTick = usePageVisibleRefresh();
+
+  useEffect(() => {
+    setPreviewVariables(variableValues);
+  }, [variableValues, setPreviewVariables]);
 
   const fetchTemplate = useCallback(async () => {
     try {
@@ -175,7 +157,7 @@ export default function EditorPage() {
           camera_shot: seg.camera_shot || '', segment_bgm_url: seg.segment_bgm_url || '',
           subtitle: { enabled: seg.subtitle?.enabled ?? true, style_id: seg.subtitle?.style_id || 'default', position: seg.subtitle?.position || 'bottom', animation: seg.subtitle?.animation || 'fadeIn' },
           transition: seg.transition || { type: 'none', duration: 0.5 },
-          digital_human: seg.digital_human || { enabled: false, position: { x: 50, y: 80 }, scale: 100 },
+          digital_human: seg.digital_human || opentalkingDigitalHumanDefaults(false),
           overlays: Array.isArray(seg.overlays) ? seg.overlays : [],
           thumbnail_url: seg.thumbnail_url || seg.scene_image_url || '',
           diagnostics: Array.isArray(seg.diagnostics) ? seg.diagnostics : [],
@@ -186,6 +168,16 @@ export default function EditorPage() {
         }));
       }
       setDsl(raw);
+      const initialDhId = raw.meta?.digital_human_id || raw.segments?.find((s: Segment) => s.avatar_id)?.avatar_id || '';
+      if (initialDhId) {
+        fetchDigitalHumanRecord(initialDhId)
+          .then((dh) => {
+            if (!dh?.id) return;
+            const current = useEditorStore.getState().dsl;
+            if (current) setDsl(applyDigitalHumanCatalogToDsl(current, dh));
+          })
+          .catch(() => {});
+      }
       setPipelineKey(raw.meta?.pipeline_key || 'digital_human');
       setInputMode(raw.meta?.input_mode || 'template');
       setTopic(raw.meta?.topic || '');
@@ -222,6 +214,27 @@ export default function EditorPage() {
     updateDsl(updater);
     setSavingState('dirty');
   }, [updateDsl]);
+
+  useEffect(() => {
+    if (!pageRefreshTick || !dsl?.globalConfig.brand_pack_id) return;
+    const brandId = dsl.globalConfig.brand_pack_id;
+    const controller = new AbortController();
+    fetchLibraryItem(brandId, controller.signal)
+      .then((item) => {
+        if (!item?.id) return;
+        applyBrandLibraryItemToDsl(updateEditorDsl, item, { currentSegIndex });
+      })
+      .catch(() => {});
+    return () => controller.abort();
+  }, [pageRefreshTick, dsl?.globalConfig.brand_pack_id, currentSegIndex, updateEditorDsl]);
+
+  const updateSegmentAt = useCallback((index: number, patch: Partial<Segment>) => {
+    updateEditorDsl((draft) => {
+      const segments = [...draft.segments];
+      segments[index] = { ...segments[index], ...patch };
+      return { ...draft, segments };
+    });
+  }, [updateEditorDsl]);
 
   const saveTemplate = useCallback(async () => {
     if (!dsl) return;
@@ -308,37 +321,161 @@ export default function EditorPage() {
     previousSelectionKey.current = selectionKey;
 
     if (selectedElement.type === 'scene') {
-      setInspectorTab('scene');
-    } else if (
-      selectedElement.type === 'overlay'
-    ) {
       setInspectorTab('layers');
     } else if (
       selectedElement.type === 'object' ||
+      selectedElement.type === 'overlay' ||
       selectedElement.type === 'digital_human' ||
       selectedElement.type === 'subtitle'
     ) {
-      setInspectorTab(selectedElement.type === 'object' ? 'object' : 'layers');
-    } else if (inspectorTab === 'object' || inspectorTab === 'layers') {
-      setInspectorTab('scene');
+      setInspectorTab('object');
+    } else if (inspectorTab === 'object') {
+      setInspectorTab('layers');
     }
   }, [inspectorTab, selectedElement]);
+
+  useEffect(() => {
+    if (activeTool !== 'generate') return;
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!generateSettingsRef.current?.contains(event.target as Node)) setActiveTool(null);
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setActiveTool(null);
+    };
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [activeTool]);
+
+  const applyScriptFromLibrary = (item: LibraryItem) => {
+    const content = String(item.payload?.content || '');
+    if (!content) return;
+    setScriptText(content);
+    setInputMode('script');
+    if (dsl?.segments.length) {
+      updateDsl((draft) => {
+        const segments = [...draft.segments];
+        segments[0] = { ...segments[0], narration_text: content.split('\n')[0] || segments[0].narration_text };
+        return { ...draft, segments };
+      });
+    }
+    setSavingState('dirty');
+  };
+
+  const applyLibraryScriptToSegment = (item: LibraryItem) => {
+    const content = String(item.payload?.content || '');
+    if (!content) return;
+    const line = content.split('\n').map((s) => s.trim()).find(Boolean) || content;
+    updateSegmentAt(currentSegIndex, { narration_text: line });
+    setSavingState('dirty');
+  };
+
+  const applyLibraryMediaToSegment = (item: LibraryItem) => {
+    if (!item.file_url) return;
+    updateSegmentAt(currentSegIndex, {
+      scene_image_url: item.file_url,
+      thumbnail_url: item.file_url,
+    });
+    setSavingState('dirty');
+  };
+
+  const applyLibraryVoiceToSegment = (item: LibraryItem) => {
+    const isBgm = String(item.payload?.kind) === 'bgm';
+    if (isBgm && item.file_url) {
+      updateSegmentAt(currentSegIndex, { segment_bgm_url: item.file_url });
+    } else if (item.payload?.voice_id) {
+      updateSegmentAt(currentSegIndex, { voice_id: String(item.payload.voice_id) });
+    }
+    setSavingState('dirty');
+  };
+
+  const applyLibraryBgmToProject = (item: LibraryItem) => {
+    if (!item.file_url) return;
+    updateEditorDsl((draft) => ({
+      ...draft,
+      globalConfig: { ...draft.globalConfig, bgm_url: item.file_url, bgm_enabled: true },
+    }));
+    setSavingState('dirty');
+  };
+
+  const openAssetPicker = (
+    category: PickerCategory,
+    voiceSubType?: 'tts' | 'bgm',
+    scriptMode?: 'full' | 'segment',
+  ) => {
+    setAssetPicker({ open: true, category, voiceSubType, scriptMode });
+  };
+
+  const insertFrameShot = useCallback((frameId: string) => {
+    if (!dsl) return;
+    const pack = dsl.globalConfig.brand_pack
+      ? libraryPayloadToBrandPack({
+          id: dsl.globalConfig.brand_pack_id || 'inline',
+          name: 'brand',
+          payload: dsl.globalConfig.brand_pack as Record<string, unknown>,
+        })
+      : null;
+    const frame = pack?.frames.find((f) => f.id === frameId);
+    if (!frame) return;
+    const defaultScript = String(frame.defaultData?.scriptText || frame.name);
+    updateEditorDsl((draft) => {
+      const newSeg: Segment = {
+        id: `seg_${Date.now()}`,
+        type: frame.shotType === 'product_showcase' ? 'product' : frame.shotType === 'closing' ? 'ending' : 'narration',
+        narration_text: defaultScript,
+        duration_sec: frame.duration,
+        scene_image_url: '',
+        scene_description: frame.description || frame.name,
+        camera_shot: frame.shotType,
+        segment_bgm_url: '',
+        subtitle: { enabled: true, style_id: (pack?.subtitleStyle || 'default') as Segment['subtitle']['style_id'], position: 'bottom', animation: 'fadeIn' },
+        transition: { type: 'fade', duration: 0.5 },
+        digital_human: frame.shotType === 'avatar_talking'
+          ? opentalkingDigitalHumanDefaults(true)
+          : opentalkingDigitalHumanDefaults(false),
+        overlays: [],
+        layout: frame.shotType === 'product_showcase' ? 'media-grid' : 'avatar-center',
+        objects: [],
+      };
+      const segments = [...draft.segments];
+      segments.splice(currentSegIndex + 1, 0, newSeg);
+      return {
+        ...draft,
+        segments,
+        meta: { ...draft.meta, frame_template_id: frame.id },
+      };
+    });
+    setCurrentSegIndex(currentSegIndex + 1);
+  }, [dsl, currentSegIndex, updateEditorDsl, setCurrentSegIndex]);
 
   const bindDigitalHuman = (dhId: string) => {
     setSelectedDhId(dhId);
     if (!dsl) return;
+    const talkingDefaults = opentalkingDigitalHumanDefaults(true);
     updateDsl((draft) => ({
       ...draft,
       meta: { ...draft.meta, digital_human_id: dhId },
       segments: draft.segments.map((seg) => ({
         ...seg,
         avatar_id: dhId,
+        layout: seg.layout || 'avatar-center',
         digital_human: {
+          ...talkingDefaults,
           ...seg.digital_human,
           enabled: seg.type === 'narration' ? true : seg.digital_human.enabled,
         },
       })),
     }));
+    fetchDigitalHumanRecord(dhId)
+      .then((dh) => {
+        if (!dh?.id) return;
+        const current = useEditorStore.getState().dsl;
+        if (current) setDsl(applyDigitalHumanCatalogToDsl(current, dh));
+      })
+      .catch(() => {});
     setSavingState('dirty');
   };
 
@@ -375,7 +512,12 @@ export default function EditorPage() {
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      setMessageDialog({ title: '生成失败', message: err.error || '无法提交生成任务，请检查任务参数后重试。', destructive: true });
+      const code = err.error_code ? `[${err.error_code}] ` : '';
+      setMessageDialog({
+        title: '生成失败',
+        message: `${code}${err.error || '无法提交生成任务，请检查任务参数后重试。'}`,
+        destructive: true,
+      });
       return;
     }
     const job = await res.json();
@@ -389,17 +531,19 @@ export default function EditorPage() {
     if (issue.includes('文案') || issue.includes('脚本')) {
       const index = dsl.segments.findIndex((seg) => !seg.narration_text.trim());
       setCurrentSegIndex(index >= 0 ? index : currentSegIndex);
-      setInspectorTab('scene');
+      setInspectorTab('layers');
     } else if (issue.includes('场景')) {
       const index = dsl.segments.findIndex((seg) => !seg.scene_image_url && !seg.scene_description.trim());
       setCurrentSegIndex(index >= 0 ? index : currentSegIndex);
-      setInspectorTab('scene');
+      setInspectorTab('layers');
       setActiveTool('media');
     } else if (issue.includes('数字人')) {
       setActiveTool('avatar');
-      setInspectorTab('scene');
+      setInspectorTab('layers');
     } else if (issue.includes('品牌') || issue.includes('Logo')) {
       setInspectorTab('design');
+    } else if (issue.includes('流水线') || issue.includes('供应商') || issue.includes('主题') || issue.includes('变量')) {
+      setActiveTool('generate');
     }
     setShowRenderReview(false);
   };
@@ -439,7 +583,7 @@ export default function EditorPage() {
     segment_bgm_url: '',
     subtitle: { enabled: true, style_id: 'default', position: 'bottom', animation: 'fadeIn' },
     transition: { type: 'none', duration: 0.5 },
-    digital_human: { enabled: false, position: { x: 50, y: 80 }, scale: 100 },
+    digital_human: opentalkingDigitalHumanDefaults(false),
     overlays: [],
     thumbnail_url: '',
     diagnostics: [],
@@ -485,11 +629,13 @@ export default function EditorPage() {
 
   const addObject = (type: EditorObject['type'], patch: Partial<EditorObject> = {}) => {
     if (!dsl) return;
-    const object = createEditorObject(type, patch.label || patch.text || patch.asset_url
+    const segDur = Number(dsl.segments[currentSegIndex]?.duration_sec || 5);
+    const objectPatch = patch.label || patch.text || patch.asset_url
       ? patch
       : type === 'text'
         ? { label: '文字', text: '新文本' }
-        : { label: type === 'logo' ? 'Logo' : '贴片' });
+        : { label: type === 'logo' ? 'Logo' : '贴片' };
+    const object = createEditorObject(type, objectPatch, segDur);
     updateEditorDsl((draft) => {
       const segments = [...draft.segments];
       const seg = segments[currentSegIndex];
@@ -502,30 +648,20 @@ export default function EditorPage() {
     setActiveTool(null);
   };
 
-  const showFeatureNote = (title: string, message: string) => {
-    setMessageDialog({ title, message });
-    setActiveTool(null);
-  };
-
   if (loading) return <div className="h-screen flex items-center justify-center bg-background text-muted-foreground">加载中...</div>;
   if (!dsl) return <div className="h-screen flex items-center justify-center bg-background text-muted-foreground">模板不存在</div>;
   const totalDuration = dsl.segments.reduce((sum, seg) => sum + Number(seg.duration_sec || 0), 0);
   const selectedPipeline = pipelines.find(p => p.key === pipelineKey);
   const renderIssues = getRenderIssues(dsl, selectedPipeline, selectedDhId, inputMode, topic, scriptText, configDiagnostics, variableValues);
+  const renderWarnings = getRenderWarnings(dsl);
   const readyToRender = renderIssues.length === 0;
-  const filteredSegments = dsl.segments
-    .map((seg, index) => ({ seg, index }))
-    .filter(({ seg, index }) => {
-      const query = sceneSearch.trim().toLowerCase();
-      if (!query) return true;
-      return `${index + 1} ${seg.narration_text} ${seg.scene_description} ${seg.type}`.toLowerCase().includes(query);
-    });
+  const segmentItems = dsl.segments.map((seg, index) => ({ seg, index }));
 
   return (
     <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden">
       {/* 顶部栏 */}
-      <div className="flex items-center justify-between px-4 bg-card border-b border-border shrink-0 h-11">
-        <div className="flex items-center gap-2">
+      <div className="relative z-30 flex items-center justify-between gap-2 px-4 bg-card border-b border-border shrink-0 h-11 min-w-0">
+        <div className="flex items-center gap-2 min-w-0 shrink">
           <button onClick={handleBack} className="w-9 h-9 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition-colors">
             <IconChevronLeft size={18} />
           </button>
@@ -545,7 +681,7 @@ export default function EditorPage() {
             {savingState === 'dirty' ? '未保存' : savingState === 'saving' ? '保存中' : '已保存'}
           </span>
         </div>
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5 shrink-0 min-w-0">
           <button onClick={undo} className="w-9 h-9 rounded-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-accent transition-colors" title="撤销">
             <IconArrowRight size={16} className="rotate-180" />
           </button>
@@ -553,21 +689,39 @@ export default function EditorPage() {
             <IconArrowRight size={16} />
           </button>
           <ToolLauncher
+            editorId={id || ''}
             activeTool={activeTool}
             setActiveTool={setActiveTool}
             addObject={addObject}
-            showFeatureNote={showFeatureNote}
             selectedDhId={selectedDhId}
             onSelectDh={bindDigitalHuman}
+            onEdited={() => setSavingState('dirty')}
+            onApplyScript={applyLibraryScriptToSegment}
+            onApplyVoice={applyLibraryVoiceToSegment}
           />
-          <button onClick={() => setShowPresets(true)}
-            className="h-9 px-3 text-[12px] flex items-center gap-1.5 text-muted-foreground hover:text-foreground hover:bg-accent rounded-md transition-colors"
-            title="预置模板">
+          <div className="w-px h-4 bg-border mx-0.5" />
+          <BrandAssetSelector
+            variant="toolbar"
+            editorId={id}
+            selectedId={dsl.globalConfig.brand_pack_id}
+            onSelect={(item) => {
+              applyBrandLibraryItemToDsl(updateEditorDsl, item, { currentSegIndex });
+              setSavingState('dirty');
+            }}
+          />
+          <Link
+            to={`/assets?from=${encodeURIComponent(`/editor/${id}`)}`}
+            className="w-8 h-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent flex items-center justify-center shrink-0"
+            title="资产库"
+          >
             <IconGrid size={16} />
-            预置
-          </button>
-          <button onClick={() => setShowProps(!showProps)}
-            className={`w-9 h-9 rounded-md flex items-center justify-center transition-colors ${showProps ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-accent'}`}>
+          </Link>
+          <button
+            onClick={() => setShowProps(!showProps)}
+            className={`w-9 h-9 rounded-md flex items-center justify-center transition-colors ${showProps ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-accent'}`}
+            title="属性面板"
+            aria-label="属性面板"
+          >
             <IconLayout size={18} />
           </button>
           <button onClick={() => {
@@ -588,6 +742,40 @@ export default function EditorPage() {
             <IconSave size={16} />
             {saving ? '...' : '保存'}
           </button>
+          <div ref={generateSettingsRef} className="relative">
+            <button
+              onClick={() => setActiveTool(activeTool === 'generate' ? null : 'generate')}
+              className={`w-9 h-9 rounded-md flex items-center justify-center transition-colors ${activeTool === 'generate' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-accent'}`}
+              title="生成设置"
+              aria-label="生成设置"
+            >
+              <IconSettings2 size={18} />
+            </button>
+            {activeTool === 'generate' && (
+              <div className="absolute right-0 top-full mt-1 z-50 w-[360px] max-h-[70vh] overflow-y-auto rounded-lg border border-border bg-card shadow-2xl">
+                <GeneratePanel
+                  dsl={dsl}
+                  pipelines={pipelines}
+                  pipelineKey={pipelineKey}
+                  setPipelineKey={setPipelineKey}
+                  inputMode={inputMode}
+                  setInputMode={setInputMode}
+                  topic={topic}
+                  setTopic={setTopic}
+                  scriptText={scriptText}
+                  setScriptText={setScriptText}
+                  selectedDhId={selectedDhId}
+                  variableValues={variableValues}
+                  setVariableValues={setVariableValues}
+                  onRender={openRenderReview}
+                  diagnostics={configDiagnostics}
+                  onOpenPresets={() => { setShowPresets(true); setActiveTool(null); }}
+                  editorId={id || ''}
+                  onPickScript={() => { openAssetPicker('script', undefined, 'full'); setActiveTool(null); }}
+                />
+              </div>
+            )}
+          </div>
           <button onClick={openRenderReview}
             className="h-9 px-4 text-[14px] flex items-center gap-1.5 bg-primary text-primary-foreground hover:opacity-90 rounded-md transition-opacity font-medium">
             <IconZap size={16} />
@@ -596,45 +784,54 @@ export default function EditorPage() {
         </div>
       </div>
 
+      {!dsl.globalConfig.brand_pack_id && (
+        <div className="px-4 py-2 bg-brand-amber/10 border-b border-brand-amber/20 text-xs text-muted-foreground shrink-0 flex items-center justify-between gap-3">
+          <span>建议先在顶栏选择品牌包，字幕样式与成片字体将与预览保持一致。</span>
+          <Link
+            to={`/assets?tab=brand&from=${encodeURIComponent(`/editor/${id}`)}`}
+            className="text-brand-blue hover:underline shrink-0"
+          >
+            前往资产库选品牌
+          </Link>
+        </div>
+      )}
+
       {/* 主体 */}
       <div className="flex-1 flex overflow-hidden">
-        <LeftEditorPanel
+        <EditorLeftPanel
+          editorId={id || ''}
           style={{ width: leftPanelWidth }}
-          selectedDhId={selectedDhId}
-          onSelectDh={bindDigitalHuman}
-          onEdited={() => setSavingState('dirty')}
-          sceneList={(
-            <SceneNavigator
-              embedded
-              items={filteredSegments}
-              search={sceneSearch}
-              setSearch={setSceneSearch}
-              totalCount={dsl.segments.length}
-              currentSegIndex={currentSegIndex}
-              onSelect={setCurrentSegIndex}
-              onAdd={addSegment}
-              onDuplicate={duplicateSegment}
-              onDelete={deleteSegment}
-              onMoveUp={(index) => moveSegment(index, index - 1)}
-              onMoveDown={(index) => moveSegment(index, index + 1)}
-              onReorder={(fromIndex, toIndex) => moveSegment(fromIndex, toIndex)}
-            />
-          )}
+          dsl={dsl}
+          currentSegIndex={currentSegIndex}
+          segmentItems={segmentItems}
+          totalCount={dsl.segments.length}
+          onSelectSegment={setCurrentSegIndex}
+          onAddSegment={addSegment}
+          onDuplicateSegment={duplicateSegment}
+          onDeleteSegment={deleteSegment}
+          onMoveUp={(index) => moveSegment(index, index - 1)}
+          onMoveDown={(index) => moveSegment(index, index + 1)}
+          onReorder={(fromIndex, toIndex) => moveSegment(fromIndex, toIndex)}
         />
         <PanelResizer onResize={(delta) => setLeftPanelWidth(w => Math.max(160, Math.min(320, w + delta)))} />
 
-        {/* 中间画布 */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <VideoCanvas />
-          <ScriptWorkspace
+        {/* 中间：画布 + 底部脚本/时间轴面板（参考 opentalking） */}
+        <div className="flex-1 flex flex-col overflow-hidden min-h-0 min-w-0">
+          <div className="flex-1 min-h-[180px] overflow-hidden">
+            <VideoCanvas />
+          </div>
+          <EditorBottomPanel
             dsl={dsl}
             currentSegIndex={currentSegIndex}
-            updateDsl={updateEditorDsl}
-            selectedDhId={selectedDhId}
             variableValues={variableValues}
-            setVariableValues={setVariableValues}
+            editorId={id}
+            onSelectScene={(index) => {
+              setCurrentSegIndex(index);
+              seekToTime(getSegmentStartTime(index), { syncSegment: true, clearSelection: false, stopPlayback: true });
+            }}
+            onUpdateSegment={updateSegmentAt}
+            onPickScript={() => openAssetPicker('script', undefined, 'segment')}
           />
-          <Timeline />
         </div>
 
         {/* 右侧属性 */}
@@ -645,26 +842,13 @@ export default function EditorPage() {
               tab={inspectorTab}
               setTab={setInspectorTab}
               dsl={dsl}
+              editorId={id || ''}
               currentSegIndex={currentSegIndex}
               selectedElement={selectedElement}
               updateDsl={updateEditorDsl}
-              renderControlProps={{
-                dsl,
-                pipelines,
-                pipelineKey,
-                setPipelineKey,
-                inputMode,
-                setInputMode,
-                topic,
-                setTopic,
-                scriptText,
-                setScriptText,
-                selectedDhId,
-                variableValues,
-                setVariableValues,
-                onRender: openRenderReview,
-                diagnostics: configDiagnostics,
-              }}
+              onInsertFrameShot={insertFrameShot}
+              onOpenAssetPicker={openAssetPicker}
+              onApplyBgm={applyLibraryBgmToProject}
               style={{ width: rightPanelWidth }}
             />
           </>
@@ -716,6 +900,7 @@ export default function EditorPage() {
           scriptText={scriptText}
           selectedDhId={selectedDhId}
           issues={renderIssues}
+          warnings={renderWarnings}
           ready={readyToRender}
           diagnostics={configDiagnostics}
           onCancel={() => setShowRenderReview(false)}
@@ -723,6 +908,46 @@ export default function EditorPage() {
           onIssueClick={jumpToRenderIssue}
         />
       )}
+      <EditorCoachmark />
+      <AssetPickerModal
+        open={assetPicker.open}
+        category={assetPicker.category}
+        voiceSubType={assetPicker.voiceSubType}
+        returnTo={id ? `/editor/${id}` : undefined}
+        title={
+          assetPicker.category === 'digital_human' ? '选择数字人'
+            : assetPicker.category === 'brand' ? '选择品牌套件'
+            : assetPicker.category === 'script' ? '选择脚本'
+            : assetPicker.category === 'media' ? '选择媒体素材'
+            : assetPicker.category === 'voice' ? '选择声音'
+            : '选择资产'
+        }
+        selectedId={
+          assetPicker.category === 'digital_human'
+            ? selectedDhId
+            : assetPicker.category === 'brand'
+              ? dsl.globalConfig.brand_pack_id
+              : undefined
+        }
+        onClose={() => setAssetPicker((p) => ({ ...p, open: false }))}
+        onSelect={(item) => {
+          if (assetPicker.category === 'digital_human') bindDigitalHuman(item.id);
+          else if (assetPicker.category === 'script') {
+            if (assetPicker.scriptMode === 'segment') applyLibraryScriptToSegment(item);
+            else applyScriptFromLibrary(item);
+          }
+          else if (assetPicker.category === 'brand') {
+            applyBrandLibraryItemToDsl(updateEditorDsl, item, { currentSegIndex });
+            setSavingState('dirty');
+          }
+          else if (assetPicker.category === 'media') applyLibraryMediaToSegment(item);
+          else if (assetPicker.category === 'voice') {
+            if (assetPicker.voiceSubType === 'bgm') applyLibraryBgmToProject(item);
+            else applyLibraryVoiceToSegment(item);
+          }
+        }}
+      />
+
       <ConfirmDialog
         open={Boolean(messageDialog)}
         title={messageDialog?.title || ''}
@@ -745,34 +970,35 @@ export default function EditorPage() {
 }
 
 function ToolLauncher({
+  editorId,
   activeTool,
   setActiveTool,
   addObject,
-  showFeatureNote,
   selectedDhId,
   onSelectDh,
+  onEdited,
+  onApplyScript,
+  onApplyVoice,
 }: {
+  editorId: string;
   activeTool: ToolKey | null;
   setActiveTool: (tool: ToolKey | null) => void;
   addObject: (type: EditorObject['type'], patch?: Partial<EditorObject>) => void;
-  showFeatureNote: (title: string, message: string) => void;
   selectedDhId: string;
   onSelectDh: (id: string) => void;
+  onEdited?: () => void;
+  onApplyScript: (item: LibraryItem) => void;
+  onApplyVoice: (item: LibraryItem) => void;
 }) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
-  const tools: Array<{ key: ToolKey; label: string; icon: ReactNode; badge?: string }> = [
-    { key: 'avatar', label: '数字人', icon: <IconUser size={15} /> },
-    { key: 'text', label: '文字', icon: <IconType size={15} /> },
-    { key: 'shape', label: '形状', icon: <IconGrid size={15} /> },
-    { key: 'motion', label: '动作', icon: <IconSparkles size={15} />, badge: '新功能' },
-    { key: 'media', label: '媒体', icon: <IconImage size={15} /> },
-    { key: 'captions', label: '字幕', icon: <IconLayers size={15} /> },
-    { key: 'interactivity', label: '互动', icon: <IconMousePointer size={15} /> },
-    { key: 'record', label: '录制', icon: <IconVideo size={15} /> },
+  const tools: Array<{ key: ToolKey; label: string; icon: ReactNode }> = [
+    { key: 'avatar', label: '数字人', icon: <IconUser size={17} /> },
+    { key: 'text', label: '文字', icon: <IconType size={17} /> },
+    { key: 'media', label: '素材', icon: <IconImage size={17} /> },
   ];
 
   useEffect(() => {
-    if (!activeTool) return;
+    if (!activeTool || activeTool === 'generate') return;
     const handlePointerDown = (event: PointerEvent) => {
       if (!wrapperRef.current?.contains(event.target as Node)) setActiveTool(null);
     };
@@ -788,31 +1014,38 @@ function ToolLauncher({
   }, [activeTool, setActiveTool]);
 
   return (
-    <div ref={wrapperRef} className="relative flex items-center gap-0.5 border-l border-r border-border px-2 mx-1">
-      {tools.map((tool) => (
-        <button
-          key={tool.key}
-          type="button"
-          aria-label={`tool-${tool.key}`}
-          data-tool={tool.key}
-          onClick={() => setActiveTool(activeTool === tool.key ? null : tool.key)}
-          className={`relative h-9 px-2.5 rounded-md text-[11px] leading-none flex flex-col items-center justify-center gap-0.5 transition-colors ${
-            activeTool === tool.key ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-accent'
-          }`}
-        >
-          {tool.icon}
-          <span>{tool.label}</span>
-          {tool.badge && <span className="absolute -top-1 right-0 text-[7px] px-1 rounded bg-brand-blue text-white">{tool.badge}</span>}
-        </button>
-      ))}
-      {activeTool && (
+    <div ref={wrapperRef} className="relative z-50 flex items-center gap-0.5 border-l border-border pl-1.5 ml-1 shrink-0">
+      {tools.map((tool) => {
+        const pressed = activeTool === tool.key;
+        return (
+          <button
+            key={tool.key}
+            type="button"
+            aria-label={tool.label}
+            title={tool.label}
+            data-tool={tool.key}
+            onClick={() => setActiveTool(activeTool === tool.key ? null : tool.key)}
+            className={`relative w-8 h-8 rounded-md flex items-center justify-center shrink-0 transition-colors ${
+              pressed ? 'bg-accent text-foreground' : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+            }`}
+          >
+            {tool.icon}
+            {tool.key === 'avatar' && selectedDhId && (
+              <span className="absolute top-0.5 right-0.5 w-1.5 h-1.5 rounded-full bg-brand-green ring-1 ring-card" />
+            )}
+          </button>
+        );
+      })}
+      {activeTool && activeTool !== 'generate' && (
         <ToolPopover
+          editorId={editorId}
           tool={activeTool}
           addObject={addObject}
-          close={() => setActiveTool(null)}
-          showFeatureNote={showFeatureNote}
           selectedDhId={selectedDhId}
           onSelectDh={onSelectDh}
+          onEdited={onEdited}
+          onApplyScript={onApplyScript}
+          onApplyVoice={onApplyVoice}
         />
       )}
     </div>
@@ -820,188 +1053,222 @@ function ToolLauncher({
 }
 
 function ToolPopover({
+  editorId,
   tool,
   addObject,
-  close,
-  showFeatureNote,
   selectedDhId,
   onSelectDh,
+  onEdited,
+  onApplyScript,
+  onApplyVoice,
 }: {
+  editorId: string;
   tool: ToolKey;
   addObject: (type: EditorObject['type'], patch?: Partial<EditorObject>) => void;
-  close: () => void;
-  showFeatureNote: (title: string, message: string) => void;
   selectedDhId: string;
   onSelectDh: (id: string) => void;
+  onEdited?: () => void;
+  onApplyScript: (item: LibraryItem) => void;
+  onApplyVoice: (item: LibraryItem) => void;
 }) {
-  const [mediaTab, setMediaTab] = useState<'scene' | 'sound'>('scene');
+  const [mediaTab, setMediaTab] = useState<'scene' | 'sound' | 'sticker'>('scene');
+  const [textTab, setTextTab] = useState<'script' | 'design' | 'subtitle'>('script');
+  const refreshTick = usePageVisibleRefresh();
+  const [scripts, setScripts] = useState<LibraryItem[]>([]);
+  const [voices, setVoices] = useState<LibraryItem[]>([]);
+  const [loadingLib, setLoadingLib] = useState(false);
+
+  useEffect(() => {
+    if (tool !== 'text' && tool !== 'avatar') return;
+    const controller = new AbortController();
+    setLoadingLib(true);
+    const category = tool === 'text' ? 'script' : 'voice';
+    fetchLibraryItems({ category, limit: 40, signal: controller.signal })
+      .then((items) => {
+        if (tool === 'text') setScripts(items);
+        else setVoices(libraryTtsItems(items));
+      })
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        if (tool === 'text') setScripts([]);
+        else setVoices([]);
+      })
+      .finally(() => setLoadingLib(false));
+    return () => controller.abort();
+  }, [tool, refreshTick]);
+
+  const hubTab = tool === 'avatar'
+    ? 'digital_human'
+    : tool === 'text'
+      ? 'script'
+      : mediaTab === 'sound'
+        ? 'voice'
+        : 'media';
+  const hubHref = assetHubHref(editorId, hubTab);
 
   return (
-    <div className="absolute left-2 top-10 z-40 w-[360px] rounded-lg border border-border bg-card shadow-2xl p-3">
+    <div className="absolute left-0 top-full mt-1 z-50 w-[340px] rounded-lg border border-border bg-card shadow-2xl p-3 flex flex-col max-h-[min(480px,70vh)]">
       {tool === 'avatar' && (
-        <div className="space-y-3 flex flex-col" style={{ maxHeight: 420 }}>
-          <div className="flex items-center justify-between shrink-0">
-            <div className="text-sm font-semibold">数字人素材库</div>
-            <button type="button" onClick={() => showFeatureNote('创建形象', '当前版本保留数字人训练与服装创建的入口语义，但不接 Synthesia 私有能力；请在数字人管理中维护可用资产。')} className="h-8 px-3 rounded-md bg-primary text-primary-foreground text-xs">创建形象</button>
+        <div className="space-y-3 flex flex-col min-h-0 overflow-hidden" style={{ maxHeight: 420 }}>
+          <div className="text-xs font-semibold shrink-0">数字人</div>
+          <div className="flex-1 min-h-0 -mx-1 overflow-y-auto">
+            <AssetLibrary tab="dh" editorId={editorId} selectedDhId={selectedDhId} onSelectDh={onSelectDh} onEdited={onEdited} showSearch={false} />
           </div>
-          <div className="flex-1 min-h-0 -mx-1">
-            <AssetLibrary tab="dh" selectedDhId={selectedDhId} onSelectDh={onSelectDh} showSearch={false} />
+          <div className="shrink-0 border-t border-border pt-2">
+            <div className="flex items-center justify-between mb-1.5">
+              <span className="text-[11px] font-medium text-muted-foreground">配音音色</span>
+              <Link to={assetHubHref(editorId, 'voice')} className="text-[10px] text-brand-blue hover:underline">管理</Link>
+            </div>
+            <LibraryQuickList
+              loading={loadingLib}
+              emptyHint="暂无音色"
+              hubHref={assetHubHref(editorId, 'voice')}
+              items={voices}
+              renderIcon={() => <IconMic size={14} className="text-muted-foreground" />}
+              renderPreview={(item) => String(item.payload?.voice_id || '')}
+              onPick={onApplyVoice}
+              pickLabel="应用"
+              maxItems={5}
+            />
           </div>
         </div>
       )}
 
       {tool === 'text' && (
-        <div className="grid grid-cols-2 gap-2">
-          {[
-            { label: '标题 1', text: '标题 1', scale: 140, y: 24 },
-            { label: '标题 2', text: '标题 2', scale: 120, y: 32 },
-            { label: '副标题', text: '副标题文本', scale: 100, y: 70 },
-            { label: '正文', text: '正文内容', scale: 90, y: 50 },
-            { label: '说明文字', text: '说明文字', scale: 80, y: 84 },
-          ].map((item) => (
-            <button
-              key={item.label}
-              type="button"
-              onClick={() => addObject('text', { label: item.label, text: item.text, scale: item.scale, position: { x: 50, y: item.y } })}
-              className="h-16 rounded-md border border-border hover:border-foreground/40 hover:bg-accent text-left px-3"
-            >
-              <div className="text-sm font-medium">{item.label}</div>
-              <div className="text-[10px] text-muted-foreground">添加到当前场景</div>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {tool === 'shape' && (
-        <div className="grid grid-cols-4 gap-2">
-          {[
-            { label: '线条', shape: 'Line' },
-            { label: '箭头', shape: 'Arrow' },
-            { label: '矩形', shape: 'Square' },
-            { label: '圆形', shape: 'Circle' },
-            { label: '三角形', shape: 'Triangle' },
-            { label: '星形', shape: 'Star' },
-            { label: '边框', shape: 'Frame' },
-            { label: '标签', shape: 'Label' },
-          ].map((item) => (
-            <button
-              key={item.shape}
-              type="button"
-              onClick={() => addObject('sticker', { label: item.label, text: item.label, scale: 90, metadata: { source: 'shape', shape_type: item.shape } })}
-              className="h-16 rounded-md border border-border hover:border-foreground/40 hover:bg-accent flex flex-col items-center justify-center gap-1 text-xs"
-            >
-              <IconGrid size={18} />
-              {item.label}
-            </button>
-          ))}
-        </div>
-      )}
-
-      {tool === 'motion' && (
-        <div className="space-y-3 flex flex-col" style={{ maxHeight: 420 }}>
-          <div className="flex items-center justify-between shrink-0">
-            <div>
-              <div className="text-sm font-semibold">动作素材库</div>
-              <div className="text-[11px] text-muted-foreground">基于脚本添加动画提示与素材</div>
+        <div className="space-y-2 flex flex-col min-h-0 overflow-hidden" style={{ maxHeight: 420 }}>
+          <div className="flex gap-1 shrink-0">
+            {([
+              { id: 'script' as const, label: '脚本' },
+              { id: 'design' as const, label: '文字' },
+              { id: 'subtitle' as const, label: '字幕' },
+            ]).map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setTextTab(tab.id)}
+                className={`flex-1 h-7 rounded-md text-[11px] ${textTab === tab.id ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent'}`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+          {textTab === 'script' && (
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <LibraryQuickList
+                loading={loadingLib}
+                emptyHint="暂无脚本"
+                hubHref={assetHubHref(editorId, 'script')}
+                items={scripts}
+                renderIcon={() => <IconType size={14} className="text-muted-foreground" />}
+                renderPreview={(item) => String(item.payload?.content || '').slice(0, 60)}
+                onPick={(item) => { onApplyScript(item); onEdited?.(); }}
+                pickLabel="填入"
+                maxItems={10}
+              />
             </div>
-            <span className="rounded bg-brand-blue/10 text-brand-blue px-2 py-1 text-[10px]">测试版</span>
-          </div>
-          <div className="flex-1 min-h-0 -mx-1">
-            <AssetLibrary tab="anim" showSearch={false} />
-          </div>
+          )}
+          {textTab === 'design' && (
+            <div className="overflow-y-auto max-h-[320px] space-y-3">
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { label: '标题 1', text: '标题 1', scale: 140, y: 24 },
+                  { label: '标题 2', text: '标题 2', scale: 120, y: 32 },
+                  { label: '副标题', text: '副标题文本', scale: 100, y: 70 },
+                  { label: '正文', text: '正文内容', scale: 90, y: 50 },
+                ].map((item) => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    onClick={() => addObject('text', { label: item.label, text: item.text, scale: item.scale, position: { x: 50, y: item.y } })}
+                    className="h-14 rounded-md border border-border hover:border-foreground/40 hover:bg-accent text-left px-2.5"
+                  >
+                    <div className="text-xs font-medium">{item.label}</div>
+                  </button>
+                ))}
+              </div>
+              <div className="grid grid-cols-4 gap-1.5">
+                {[
+                  { label: '线条', shape: 'Line' },
+                  { label: '箭头', shape: 'Arrow' },
+                  { label: '矩形', shape: 'Square' },
+                  { label: '圆形', shape: 'Circle' },
+                  { label: '三角', shape: 'Triangle' },
+                  { label: '星形', shape: 'Star' },
+                  { label: '边框', shape: 'Frame' },
+                  { label: '标签', shape: 'Label' },
+                ].map((item) => (
+                  <button
+                    key={item.shape}
+                    type="button"
+                    onClick={() => addObject('sticker', { label: item.label, text: item.label, scale: 90, metadata: { source: 'shape', shape_type: item.shape } })}
+                    className="h-11 rounded-md border border-border hover:border-foreground/40 hover:bg-accent flex flex-col items-center justify-center text-[10px]"
+                  >
+                    <IconGrid size={14} />
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {textTab === 'subtitle' && (
+            <div className="flex-1 min-h-0 -mx-1 overflow-y-auto">
+              <AssetLibrary tab="subtitle" editorId={editorId} onEdited={onEdited} showSearch={false} />
+            </div>
+          )}
         </div>
       )}
 
       {tool === 'media' && (
-        <div className="space-y-2 flex flex-col" style={{ maxHeight: 420 }}>
+        <div className="space-y-2 flex flex-col min-h-0 overflow-hidden" style={{ maxHeight: 420 }}>
           <div className="flex items-center gap-1 shrink-0">
-            <button type="button" onClick={() => setMediaTab('scene')} className={`flex-1 h-8 rounded-md text-xs ${mediaTab === 'scene' ? 'bg-accent' : 'hover:bg-accent'}`}>场景图</button>
-            <button type="button" onClick={() => setMediaTab('sound')} className={`flex-1 h-8 rounded-md text-xs ${mediaTab === 'sound' ? 'bg-accent' : 'hover:bg-accent'}`}>音效</button>
-          </div>
-          <div className="flex-1 min-h-0 -mx-1">
-            <AssetLibrary tab={mediaTab} showSearch />
-          </div>
-          <div className="grid grid-cols-2 gap-2 shrink-0 pt-1 border-t border-border">
-            <button type="button" onClick={() => addObject('image', { label: '媒体素材', scale: 100, metadata: { source: 'media' } })} className="h-9 rounded-md border border-border hover:bg-accent text-xs flex items-center justify-center gap-1">
-              <IconImage size={14} /> 图片/视频
-            </button>
-            <button type="button" onClick={() => addObject('logo', { label: 'Logo', scale: 80, position: { x: 12, y: 10 }, metadata: { source: 'media' } })} className="h-9 rounded-md border border-border hover:bg-accent text-xs flex items-center justify-center gap-1">
-              <IconUpload size={14} /> Logo
-            </button>
-          </div>
-        </div>
-      )}
-
-      {tool === 'captions' && (
-        <div className="space-y-3 flex flex-col" style={{ maxHeight: 420 }}>
-          <div className="text-sm font-semibold shrink-0">字幕样式库</div>
-          <div className="flex-1 min-h-0 -mx-1">
-            <AssetLibrary tab="subtitle" showSearch={false} />
-          </div>
-        </div>
-      )}
-
-      {tool === 'interactivity' && (
-        <div className="space-y-3">
-          <div className="rounded-lg bg-secondary p-4">
-            <div className="text-[10px] text-brand-blue font-semibold">升级功能</div>
-            <div className="mt-1 text-sm font-semibold">互动问题</div>
-            <p className="mt-1 text-xs text-muted-foreground">添加互动占位对象，便于设计阶段排版和后续播放器扩展；当前渲染流水线会把它作为普通画布层处理。</p>
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            {[
-              { label: '按钮', text: '点击这里', kind: 'cta_button' as const, y: 70 },
-              { label: '分支菜单', text: '选择路径', kind: 'branch_menu' as const, y: 58 },
-              { label: '单选', text: '问题', kind: 'single_answer' as const, y: 50 },
-              { label: '多选', text: '全选', kind: 'multiple_answers' as const, y: 50 },
-              { label: '计分卡', text: '得分', kind: 'score_card' as const, y: 55 },
-            ].map((item) => (
+            {([
+              { id: 'scene' as const, label: '场景' },
+              { id: 'sound' as const, label: '声音' },
+              { id: 'sticker' as const, label: '贴纸' },
+            ]).map((tab) => (
               <button
-                key={item.kind}
+                key={tab.id}
                 type="button"
-                onClick={() => addObject('sticker', {
-                  label: item.label,
-                  text: item.text,
-                  position: { x: 50, y: item.y },
-                  scale: 100,
-                  metadata: { source: 'interactivity', note: '播放交互能力后续在播放器 runtime 中实现。' },
-                  interaction: { kind: item.kind, target_url: '', options: item.kind === 'cta_button' || item.kind === 'score_card' ? [] : ['选项 A', '选项 B'] },
-                  style: { fill: item.kind === 'cta_button' ? '#4f46e5' : '#ffffff', textColor: item.kind === 'cta_button' ? '#ffffff' : '#111827', variant: item.kind },
-                })}
-                className="h-20 rounded-md border border-border hover:border-foreground/40 hover:bg-accent p-2 text-left"
+                onClick={() => setMediaTab(tab.id)}
+                className={`flex-1 h-7 rounded-md text-[11px] ${mediaTab === tab.id ? 'bg-accent text-foreground' : 'text-muted-foreground hover:bg-accent'}`}
               >
-                <div className="text-xs font-medium">{item.label}</div>
-                <div className="mt-2 h-8 rounded bg-secondary flex items-center justify-center text-[10px] text-muted-foreground">{item.text}</div>
+                {tab.label}
               </button>
             ))}
           </div>
-          <button type="button" onClick={() => showFeatureNote('互动运行时缺口', '互动对象已可排版、保存和复制；真正点击跳转、分支菜单和成绩结果需要播放器 runtime，当前不影响视频生成闭环。')} className="w-full h-9 rounded-md bg-secondary hover:bg-accent text-sm">查看运行时缺口</button>
+          <div className="flex-1 min-h-0 -mx-1 overflow-y-auto">
+            <AssetLibrary tab={mediaTab} editorId={editorId} onEdited={onEdited} showSearch={mediaTab !== 'sticker'} />
+          </div>
+          {mediaTab === 'scene' && (
+            <div className="grid grid-cols-2 gap-1.5 shrink-0 pt-1 border-t border-border">
+              <button
+                type="button"
+                onClick={() => addObject('image', { label: '媒体素材', scale: 100, metadata: { source: 'media' } })}
+                className="h-8 rounded-md border border-border hover:bg-accent text-[11px] flex items-center justify-center gap-1"
+              >
+                <IconImage size={13} /> 空图层
+              </button>
+              <button
+                type="button"
+                onClick={() => addObject('logo', { label: 'Logo', scale: 80, position: { x: 12, y: 10 }, metadata: { source: 'media' } })}
+                className="h-8 rounded-md border border-border hover:bg-accent text-[11px] flex items-center justify-center gap-1"
+              >
+                <IconUpload size={13} /> Logo
+              </button>
+            </div>
+          )}
+          {mediaTab === 'sticker' && (
+            <div className="shrink-0 pt-1 border-t border-border max-h-24 overflow-y-auto -mx-1">
+              <AssetLibrary tab="anim" editorId={editorId} onEdited={onEdited} showSearch={false} />
+            </div>
+          )}
         </div>
       )}
-
-      {tool === 'record' && (
-        <div className="space-y-2">
-          <button
-            type="button"
-            onClick={() => addObject('image', {
-              label: '屏幕录制',
-              text: '屏幕录制',
-              position: { x: 50, y: 54 },
-              scale: 120,
-              metadata: { source: 'record', note: '录屏权限流程尚未实现；请在对象面板绑定上传的 MP4。', duration_sec: 8 },
-              style: { fill: '#111827', textColor: '#ffffff', variant: 'screen-recording' },
-            })}
-            className="w-full rounded-md border border-border hover:bg-accent p-3 text-left"
-          >
-            <div className="text-sm font-medium">屏幕录制</div>
-            <div className="text-xs text-muted-foreground">添加录屏占位层，可在对象面板绑定 MP4</div>
-          </button>
-          <button type="button" onClick={() => addObject('image', { label: '录屏素材', scale: 100, metadata: { source: 'record' } })} className="w-full rounded-md border border-border hover:bg-accent p-3 text-left">
-            <div className="text-sm font-medium">上传录屏</div>
-            <div className="text-xs text-muted-foreground">把 MP4 作为当前视频素材管理</div>
-          </button>
-        </div>
-      )}
+      <div className="mt-2 pt-2 border-t border-border shrink-0 flex justify-end">
+        <Link to={hubHref} className="text-[10px] text-brand-blue hover:underline">
+          在资产库管理 →
+        </Link>
+      </div>
     </div>
   );
 }
@@ -1040,207 +1307,109 @@ function UnsavedExitDialog({
   );
 }
 
-function SceneNavigator({
-  items,
-  search,
-  setSearch,
-  totalCount,
+function InspectorPanel({
+  tab,
+  setTab,
+  dsl,
+  editorId,
   currentSegIndex,
-  onSelect,
-  onAdd,
-  onDuplicate,
-  onDelete,
-  onMoveUp,
-  onMoveDown,
-  onReorder,
-  embedded = false,
+  selectedElement,
+  updateDsl,
+  onInsertFrameShot,
+  onOpenAssetPicker,
+  onApplyBgm,
   style,
 }: {
-  items: Array<{ seg: Segment; index: number }>;
-  search: string;
-  setSearch: (value: string) => void;
-  totalCount: number;
+  tab: InspectorTab;
+  setTab: (tab: InspectorTab) => void;
+  dsl: DSL;
+  editorId: string;
   currentSegIndex: number;
-  onSelect: (index: number) => void;
-  onAdd: () => void;
-  onDuplicate: (index: number) => void;
-  onDelete: (index: number) => void;
-  onMoveUp: (index: number) => void;
-  onMoveDown: (index: number) => void;
-  onReorder: (fromIndex: number, toIndex: number) => void;
-  embedded?: boolean;
+  selectedElement: CanvasElement;
+  updateDsl: (updater: (dsl: DSL) => DSL) => void;
+  onInsertFrameShot: (frameId: string) => void;
+  onOpenAssetPicker: (category: PickerCategory, voiceSubType?: 'tts' | 'bgm') => void;
+  onApplyBgm: (item: LibraryItem) => void;
   style?: CSSProperties;
 }) {
-  const content = (
-    <>
-      <div className="p-2 border-b border-border">
+  const hasObjectSelection = selectedElement.type === 'object' || selectedElement.type === 'digital_human' || selectedElement.type === 'subtitle' || selectedElement.type === 'overlay';
+  return (
+    <aside className="bg-card border-l border-border shrink-0 flex flex-col min-h-0" style={style}>
+      <div className="h-11 border-b border-border flex shrink-0">
         <button
-          onClick={onAdd}
-          className="w-full h-9 rounded-md flex items-center justify-center gap-1.5 bg-secondary text-secondary-foreground hover:bg-accent text-sm font-medium"
-          title="新增场景"
+          onClick={() => setTab('design')}
+          className={`flex-1 text-sm font-medium ${tab === 'design' ? 'text-foreground border-b-2 border-foreground' : 'text-muted-foreground hover:text-foreground'}`}
         >
-          <IconPlus size={15} />
-          添加场景
+          设计
+        </button>
+        <button
+          onClick={() => setTab('layers')}
+          className={`flex-1 text-sm font-medium flex items-center justify-center gap-1 ${tab === 'layers' ? 'text-foreground border-b-2 border-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+        >
+          <IconLayers size={14} />
+          图层
+        </button>
+        <button
+          onClick={() => setTab('object')}
+          className={`flex-1 text-sm font-medium ${tab === 'object' ? 'text-foreground border-b-2 border-foreground' : hasObjectSelection ? 'text-muted-foreground hover:text-foreground' : 'text-muted-foreground/50'}`}
+        >
+          对象
         </button>
       </div>
-      <div className="p-2 border-b border-border">
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="搜索场景"
-          className="h-8 w-full rounded-md border border-border bg-background px-2 text-[12px] outline-none focus:ring-2 focus:ring-ring"
-        />
-      </div>
-      <div className="flex-1 overflow-y-auto p-2 space-y-2">
-        {items.length === 0 && (
-          <div className="rounded-md border border-dashed border-border p-3 text-center text-[11px] text-muted-foreground">
-            未找到场景
+      {tab === 'layers' ? (
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          <SceneQuickPanel
+            dsl={dsl}
+            editorId={editorId}
+            currentSegIndex={currentSegIndex}
+            updateDsl={updateDsl}
+            onPickMedia={() => onOpenAssetPicker('media')}
+          />
+          <div className="flex-1 min-h-0 overflow-hidden border-t border-border">
+            <LayersPanel
+              dsl={dsl}
+              currentSegIndex={currentSegIndex}
+              selectedElement={selectedElement}
+              updateDsl={updateDsl}
+            />
           </div>
-        )}
-        {items.map(({ seg, index }) => {
-          const active = index === currentSegIndex;
-          const issues = getSegmentIssues(seg);
-          return (
-            <div
-              key={seg.id}
-              role="button"
-              tabIndex={0}
-              draggable
-              onDragStart={(e) => {
-                e.dataTransfer.setData('text/plain', String(index));
-                e.dataTransfer.effectAllowed = 'move';
-              }}
-              onDragOver={(e) => {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = 'move';
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                const fromIndex = Number(e.dataTransfer.getData('text/plain'));
-                if (Number.isFinite(fromIndex)) onReorder(fromIndex, index);
-              }}
-              onClick={() => onSelect(index)}
-              onKeyDown={(e) => { if (e.key === 'Enter') onSelect(index); }}
-              className={`w-full text-left rounded-md border p-2 transition-colors ${
-                active ? 'border-foreground bg-accent' : 'border-border hover:border-foreground/30 hover:bg-accent/40'
-              }`}
-            >
-              <div className="flex items-start gap-2">
-                <div className="w-10 h-14 rounded bg-secondary border border-border overflow-hidden flex items-center justify-center shrink-0">
-                  {seg.scene_image_url ? (
-                    <img src={seg.scene_image_url} alt="" className="w-full h-full object-cover" />
-                  ) : (
-                    <IconImage size={16} className="text-muted-foreground/50" />
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-1">
-                    <span className="text-[10px] font-medium text-foreground">场景 {index + 1}</span>
-                    <span className="text-[9px] text-muted-foreground">{seg.duration_sec}s</span>
-                    {issues.length > 0 && (
-                      <span className="ml-auto w-4 h-4 rounded-full bg-brand-amber/15 text-brand-amber flex items-center justify-center" title={issues.join('、')}>
-                        <IconAlertCircle size={11} />
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-[10px] text-muted-foreground line-clamp-2 mt-1">
-                    {seg.narration_text || seg.scene_description || '未填写内容'}
-                  </p>
-                </div>
-              </div>
-              <div className="mt-2 flex justify-end gap-1">
-                <span
-                  role="button"
-                  tabIndex={0}
-                  onClick={(e) => { e.stopPropagation(); onMoveUp(index); }}
-                  onKeyDown={(e) => { if (e.key === 'Enter') onMoveUp(index); }}
-                  className={`w-6 h-6 rounded flex items-center justify-center ${index === 0 ? 'text-muted-foreground/30' : 'text-muted-foreground hover:text-foreground hover:bg-background'}`}
-                  title="上移场景"
-                >
-                  <IconArrowRight size={12} className="-rotate-90" />
-                </span>
-                <span
-                  role="button"
-                  tabIndex={0}
-                  onClick={(e) => { e.stopPropagation(); onMoveDown(index); }}
-                  onKeyDown={(e) => { if (e.key === 'Enter') onMoveDown(index); }}
-                  className={`w-6 h-6 rounded flex items-center justify-center ${index >= totalCount - 1 ? 'text-muted-foreground/30' : 'text-muted-foreground hover:text-foreground hover:bg-background'}`}
-                  title="下移场景"
-                >
-                  <IconArrowRight size={12} className="rotate-90" />
-                </span>
-                <span
-                  role="button"
-                  tabIndex={0}
-                  onClick={(e) => { e.stopPropagation(); onDuplicate(index); }}
-                  onKeyDown={(e) => { if (e.key === 'Enter') onDuplicate(index); }}
-                  className="w-6 h-6 rounded flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-background"
-                  title="复制场景"
-                >
-                  <IconCopy size={13} />
-                </span>
-                <span
-                  role="button"
-                  tabIndex={0}
-                  onClick={(e) => { e.stopPropagation(); onDelete(index); }}
-                  onKeyDown={(e) => { if (e.key === 'Enter') onDelete(index); }}
-                  className={`w-6 h-6 rounded flex items-center justify-center ${
-                    totalCount <= 1 ? 'text-muted-foreground/30' : 'text-muted-foreground hover:text-destructive hover:bg-destructive/10'
-                  }`}
-                  title="删除场景"
-                >
-                  <IconTrash size={13} />
-                </span>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-      <div className="p-2 border-t border-border">
-        <button
-          type="button"
-          className="w-full h-9 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-accent flex items-center justify-center gap-1.5"
-          title="帮助"
-        >
-          <IconAlertCircle size={14} />
-          帮助
-        </button>
-      </div>
-    </>
+        </div>
+      ) : (
+        <div className="flex-1 overflow-y-auto min-h-0">
+          {tab === 'design' ? (
+            <DesignPanel
+              dsl={dsl}
+              editorId={editorId}
+              currentSegIndex={currentSegIndex}
+              updateDsl={updateDsl}
+              onInsertFrameShot={onInsertFrameShot}
+              onPickBgm={() => onOpenAssetPicker('voice', 'bgm')}
+              onApplyBgm={onApplyBgm}
+            />
+          ) : (
+            <ObjectPanel dsl={dsl} currentSegIndex={currentSegIndex} selectedElement={selectedElement} updateDsl={updateDsl} />
+          )}
+        </div>
+      )}
+    </aside>
   );
-  if (embedded) return <div className="flex flex-col flex-1 min-h-0">{content}</div>;
-  return <aside className="bg-card border-r border-border flex flex-col shrink-0" style={style}>{content}</aside>;
 }
 
-function getSegmentIssues(seg: Segment) {
-  const issues: string[] = [];
-  if (!seg.narration_text.trim()) issues.push('缺少脚本');
-  if (!seg.scene_image_url && !seg.scene_description.trim()) issues.push('缺少场景');
-  if (seg.duration_sec <= 0) issues.push('时长异常');
-  if (seg.digital_human.enabled && !seg.avatar_id) issues.push('未绑定数字人资产');
-  if (seg.objects?.some(obj => obj.locked && obj.visible === false)) issues.push('存在隐藏且锁定对象');
-  if (seg.diagnostics?.length) issues.push(...seg.diagnostics);
-  return issues;
-}
-
-function ScriptWorkspace({
+function SceneQuickPanel({
   dsl,
+  editorId,
   currentSegIndex,
   updateDsl,
-  selectedDhId,
-  variableValues,
-  setVariableValues,
+  onPickMedia,
 }: {
   dsl: DSL;
+  editorId: string;
   currentSegIndex: number;
   updateDsl: (updater: (dsl: DSL) => DSL) => void;
-  selectedDhId: string;
-  variableValues: Record<string, string>;
-  setVariableValues: (values: Record<string, string>) => void;
+  onPickMedia: () => void;
 }) {
   const seg = dsl.segments[currentSegIndex];
-  if (!seg) return null;
-  const narrationPreview = applyVariableSubstitution(seg.narration_text || '', variableValues);
+  const issues = getSegmentIssues(seg);
   const updateSeg = (partial: Partial<Segment>) => {
     updateDsl((draft) => {
       const segments = [...draft.segments];
@@ -1250,172 +1419,89 @@ function ScriptWorkspace({
   };
 
   return (
-    <section className="h-44 bg-card border-t border-border shrink-0 flex flex-col">
-      <div className="h-10 border-b border-border px-4 flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <IconMic size={16} />
-          场景脚本
-          <span className="text-[10px] text-muted-foreground">场景 {currentSegIndex + 1}</span>
+    <div className="shrink-0 p-3 space-y-2 border-b border-border bg-secondary/20 max-h-[42%] overflow-y-auto">
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <h3 className="text-xs font-semibold">场景 {currentSegIndex + 1}</h3>
+          <p className="text-[10px] text-muted-foreground">
+            {issues.length > 0 ? `${issues.length} 项待完善` : '可用于生成'}
+          </p>
         </div>
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <span className="px-2 py-1 bg-secondary rounded-md">{selectedDhId ? '数字人已选' : '未选数字人'}</span>
-          <span className="px-2 py-1 bg-secondary rounded-md">中文</span>
-          <span className="px-2 py-1 bg-secondary rounded-md">{seg.duration_sec}s</span>
-          <button
-            onClick={() => updateSeg({ digital_human: { ...seg.digital_human, enabled: !seg.digital_human.enabled } })}
-            className="px-2 py-1 bg-secondary hover:bg-accent rounded-md"
-          >
-            {seg.digital_human.enabled ? '隐藏数字人' : '显示数字人'}
-          </button>
-          <button
-            onClick={() => updateSeg({ subtitle: { ...seg.subtitle, enabled: !seg.subtitle.enabled } })}
-            className="px-2 py-1 bg-secondary hover:bg-accent rounded-md"
-          >
-            {seg.subtitle.enabled ? '关闭字幕' : '开启字幕'}
-          </button>
-        </div>
-      </div>
-      <div className="flex-1 grid grid-cols-[160px_1fr] gap-4 p-4 overflow-hidden">
-        <div className="rounded-lg bg-secondary border border-border p-3 flex flex-col justify-between">
-          <div>
-            <div className="w-10 h-10 rounded-full bg-background border border-border flex items-center justify-center mb-2">
-              <IconMic size={16} className="text-muted-foreground" />
-            </div>
-            <div className="text-xs font-medium">旁白轨道</div>
-            <div className="text-[10px] text-muted-foreground mt-1">用于 TTS 与口型同步</div>
-          </div>
-          <label className="text-[10px] text-muted-foreground">
-            时长
-            <input
-              type="range"
-              min={1}
-              max={30}
-              step={0.5}
-              value={seg.duration_sec}
-              onChange={(e) => updateSeg({ duration_sec: Number(e.target.value) })}
-              className="w-full mt-1"
-            />
-          </label>
-        </div>
-        <div className="flex flex-col gap-2 min-h-0 overflow-hidden">
-          <textarea
-            value={seg.narration_text}
-            onChange={(e) => updateSeg({ narration_text: e.target.value })}
-            placeholder="输入该场景的数字人口播脚本，可用 {变量名} 占位。"
-            className="flex-1 min-h-0 resize-none rounded-lg border border-border bg-background px-4 py-3 text-[16px] leading-7 outline-none focus:ring-2 focus:ring-ring"
+        <label className="text-[10px] text-muted-foreground shrink-0">
+          时长
+          <input
+            type="number"
+            min={1}
+            max={60}
+            value={Number(seg.duration_sec || 5)}
+            onChange={(e) => updateSeg(normalizeSegmentObjects({ ...seg, duration_sec: Number(e.target.value) }))}
+            className="mt-0.5 block w-14 h-8 rounded-md border border-border bg-background px-2 text-[12px] text-center"
           />
-          {narrationPreview !== (seg.narration_text || '') && (
-            <p className="text-[10px] text-muted-foreground shrink-0">预览：{narrationPreview}</p>
-          )}
-          {(dsl.variables?.length ?? 0) > 0 && (
-            <div className="grid grid-cols-2 gap-2 shrink-0">
-              {dsl.variables!.map((v) => (
-                <div key={v.name}>
-                  <label className="block text-[10px] text-muted-foreground mb-0.5">{v.label || v.name}</label>
-                  <input
-                    value={variableValues[v.name] ?? ''}
-                    onChange={(e) => setVariableValues({ ...variableValues, [v.name]: e.target.value })}
-                    className="w-full h-8 rounded-md border border-border bg-background px-2 text-[12px] outline-none"
-                    placeholder={v.example_value || v.description}
-                  />
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        </label>
       </div>
-    </section>
-  );
-}
-
-function InspectorPanel({
-  tab,
-  setTab,
-  dsl,
-  currentSegIndex,
-  selectedElement,
-  updateDsl,
-  renderControlProps,
-  style,
-}: {
-  tab: 'design' | 'scene' | 'layers' | 'object' | 'generate';
-  setTab: (tab: 'design' | 'scene' | 'layers' | 'object' | 'generate') => void;
-  dsl: DSL;
-  currentSegIndex: number;
-  selectedElement: CanvasElement;
-  updateDsl: (updater: (dsl: DSL) => DSL) => void;
-  renderControlProps: RenderControlProps;
-  style?: CSSProperties;
-}) {
-  const hasObjectSelection = selectedElement.type === 'object' || selectedElement.type === 'digital_human' || selectedElement.type === 'subtitle' || selectedElement.type === 'overlay';
-  return (
-    <aside className="bg-card border-l border-border shrink-0 flex flex-col" style={style}>
-      <div className="h-11 border-b border-border flex">
+      <select
+        value={seg.layout || 'avatar-center'}
+        onChange={(e) => updateSeg({ layout: e.target.value as Segment['layout'] })}
+        className="w-full h-8 rounded-md border border-border bg-background px-2 text-[12px]"
+        aria-label="场景布局"
+      >
+        <option value="avatar-left">数字人靠左</option>
+        <option value="avatar-center">数字人居中</option>
+        <option value="avatar-right">数字人靠右</option>
+        <option value="media-grid">媒体网格</option>
+        <option value="full-media">全屏媒体</option>
+      </select>
+      <div className="flex gap-1.5">
         <button
-          onClick={() => setTab('design')}
-          className={`flex-1 text-sm font-medium ${tab === 'design' ? 'text-foreground border-b-2 border-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+          type="button"
+          onClick={onPickMedia}
+          className="flex-1 h-8 rounded-md border border-border bg-background hover:bg-accent text-[11px] text-brand-blue"
         >
-          设计
+          从资产库选背景
         </button>
-        <button
-          onClick={() => setTab('scene')}
-          className={`flex-1 text-sm font-medium ${tab === 'scene' ? 'text-foreground border-b-2 border-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+        <Link
+          to={`/assets?tab=media&from=${encodeURIComponent(`/editor/${editorId}`)}`}
+          className="h-8 px-2 rounded-md border border-border text-[10px] text-muted-foreground hover:bg-accent flex items-center"
         >
-          分镜
-        </button>
-        <button
-          onClick={() => setTab('layers')}
-          className={`flex-1 text-sm font-medium ${tab === 'layers' ? 'text-foreground border-b-2 border-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-        >
-          图层
-        </button>
-        <button
-          onClick={() => setTab('object')}
-          className={`flex-1 text-sm font-medium ${tab === 'object' ? 'text-foreground border-b-2 border-foreground' : hasObjectSelection ? 'text-muted-foreground hover:text-foreground' : 'text-muted-foreground/50'}`}
-        >
-          属性
-        </button>
-        <button
-          onClick={() => setTab('generate')}
-          className={`flex-1 text-sm font-medium ${tab === 'generate' ? 'text-foreground border-b-2 border-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-        >
-          生成
-        </button>
+          管理
+        </Link>
       </div>
-      <div className="flex-1 overflow-y-auto">
-        {tab === 'design' ? (
-          <DesignPanel dsl={dsl} currentSegIndex={currentSegIndex} updateDsl={updateDsl} />
-        ) : tab === 'scene' ? (
-          <ScenePanel dsl={dsl} currentSegIndex={currentSegIndex} updateDsl={updateDsl} />
-        ) : tab === 'layers' ? (
-          <LayersPanel
-            dsl={dsl}
-            currentSegIndex={currentSegIndex}
-            selectedElement={selectedElement}
-            updateDsl={updateDsl}
-            onOpenObjectTab={() => setTab('object')}
-          />
-        ) : tab === 'object' ? (
-          <ObjectPanel dsl={dsl} currentSegIndex={currentSegIndex} selectedElement={selectedElement} updateDsl={updateDsl} />
-        ) : (
-          <GeneratePanel {...renderControlProps} />
-        )}
-      </div>
-    </aside>
+      <FileUploader
+        value={seg.scene_image_url}
+        onChange={(url) => updateSeg({ scene_image_url: url, thumbnail_url: url })}
+        accept="image/*,video/*"
+        placeholder="或粘贴背景图 URL"
+        previewType="image"
+      />
+    </div>
   );
 }
 
 function DesignPanel({
   dsl,
+  editorId,
   currentSegIndex,
   updateDsl,
+  onInsertFrameShot,
+  onPickBgm,
+  onApplyBgm,
 }: {
   dsl: DSL;
+  editorId: string;
   currentSegIndex: number;
   updateDsl: (updater: (dsl: DSL) => DSL) => void;
+  onInsertFrameShot: (frameId: string) => void;
+  onPickBgm: () => void;
+  onApplyBgm: (item: LibraryItem) => void;
 }) {
   const seg = dsl.segments[currentSegIndex];
   const cfg = dsl.globalConfig;
+  const [framePickerOpen, setFramePickerOpen] = useState(false);
+
+  const activeBrandPack = cfg.brand_pack
+    ? { id: cfg.brand_pack_id || 'inline', name: '已应用品牌包', payload: cfg.brand_pack } as LibraryItem
+    : null;
+  const activePackView = activeBrandPack ? libraryPayloadToBrandPack(activeBrandPack) : null;
   const updateGlobal = (partial: Partial<DSL['globalConfig']>) => {
     updateDsl((draft) => ({ ...draft, globalConfig: { ...draft.globalConfig, ...partial } }));
   };
@@ -1426,98 +1512,12 @@ function DesignPanel({
       return { ...draft, segments };
     });
   };
-  const applyBrandKit = (kit: BrandKit) => {
-    updateDsl((draft) => {
-      const brandLogoUrl = draft.globalConfig.brand_logo_url || '';
-      const segments = draft.segments.map((segment, index) => {
-        const objects = [...(segment.objects || [])];
-        if (index === currentSegIndex) {
-          const logoIndex = objects.findIndex((object) => object.type === 'logo' || object.metadata?.note === 'brand-kit-logo');
-          const logoPatch: Partial<EditorObject> = {
-            label: brandLogoUrl ? 'Logo' : kit.logoLabel,
-            asset_url: brandLogoUrl,
-            position: { x: 12, y: 10 },
-            scale: 72,
-            style: { fill: kit.brandColor, textColor: kit.textColor, variant: kit.id },
-            metadata: { source: 'media', note: 'brand-kit-logo' },
-          };
-          if (logoIndex >= 0) {
-            objects[logoIndex] = { ...objects[logoIndex], ...logoPatch };
-          } else {
-            objects.push(createEditorObject('logo', logoPatch));
-          }
-
-          const titleIndex = objects.findIndex((object) => object.metadata?.note === 'brand-kit-title');
-          const titlePatch: Partial<EditorObject> = {
-            label: '品牌标题',
-            text: kit.titleText,
-            position: { x: 29, y: 72 },
-            scale: 112,
-            style: { fill: kit.brandColor, textColor: kit.textColor, variant: kit.id },
-            metadata: { source: 'media', note: 'brand-kit-title' },
-          };
-          if (titleIndex >= 0) {
-            objects[titleIndex] = { ...objects[titleIndex], ...titlePatch };
-          } else {
-            objects.push(createEditorObject('text', titlePatch));
-          }
-        }
-
-        return {
-          ...segment,
-          subtitle: {
-            ...segment.subtitle,
-            enabled: true,
-            style_id: kit.subtitleStyle,
-            position: kit.subtitlePosition,
-          },
-          objects,
-        };
-      });
-
-      return {
-        ...draft,
-        globalConfig: {
-          ...draft.globalConfig,
-          brand_color: kit.brandColor,
-          background_color: kit.backgroundColor,
-        },
-        segments,
-      };
-    });
-  };
 
   return (
     <div className="p-4 space-y-4">
-      <div className="rounded-lg border border-border bg-secondary/40 p-3">
-        <div className="flex items-center justify-between gap-2">
-          <div>
-            <h3 className="text-sm font-semibold">场景布局</h3>
-            <p className="text-[11px] text-muted-foreground mt-0.5">
-              {seg.layout === 'avatar-left' ? '数字人靠左' : seg.layout === 'avatar-right' ? '数字人靠右' : seg.layout === 'media-grid' ? '媒体网格' : seg.layout === 'full-media' ? '全屏媒体' : '数字人居中'} · {cfg.aspect_ratio === '16:9' ? '16:9 横屏' : cfg.aspect_ratio === '1:1' ? '1:1 方形' : '9:16 竖屏'}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => updateSeg({ scene_image_url: '', thumbnail_url: '', scene_description: '' })}
-            className="h-8 px-3 rounded-md bg-background border border-border hover:bg-accent text-xs flex items-center gap-1.5"
-          >
-            <IconArrowRight size={13} className="rotate-180" />
-            替换
-          </button>
-        </div>
-        <select
-          value={seg.layout || 'avatar-center'}
-          onChange={(e) => updateSeg({ layout: e.target.value as Segment['layout'] })}
-          className="mt-3 w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
-        >
-          <option value="avatar-left">数字人靠左</option>
-          <option value="avatar-center">数字人居中</option>
-          <option value="avatar-right">数字人靠右</option>
-          <option value="media-grid">媒体网格</option>
-          <option value="full-media">全屏媒体</option>
-        </select>
-      </div>
+      <p className="text-[11px] text-muted-foreground -mt-1">
+        全局样式与输出规格；当前分镜布局与背景图请在「图层」面板调整。
+      </p>
       <PanelSection title="背景" icon={<IconPalette size={15} />}>
         <label className="block text-xs text-muted-foreground mb-1">背景色</label>
         <div className="flex items-center gap-2">
@@ -1554,13 +1554,25 @@ function DesignPanel({
             onChange={(e) => updateGlobal({ bgm_enabled: e.target.checked })}
           />
         </label>
+        <div className="mt-3 flex gap-1.5">
+          <button type="button" onClick={onPickBgm} className="flex-1 h-8 rounded-md border border-border bg-background hover:bg-accent text-[11px] text-brand-blue">
+            从资产库选 BGM
+          </button>
+          <Link
+            to={`/assets?tab=voice&from=${encodeURIComponent(`/editor/${editorId}`)}`}
+            className="h-8 px-2 rounded-md border border-border text-[10px] text-muted-foreground hover:bg-accent flex items-center"
+          >
+            管理
+          </Link>
+        </div>
+        <BgmQuickPicker onApply={onApplyBgm} />
         <FileUploader
           value={cfg.bgm_url || ''}
           onChange={(url) => updateGlobal({ bgm_url: url, bgm_enabled: Boolean(url) })}
           accept="audio/*"
-          placeholder="音乐文件 URL 或上传后的路径"
+          placeholder="或粘贴音乐 URL"
           previewType="audio"
-          className="mt-3"
+          className="mt-2"
         />
         <label className="mt-3 block text-xs text-muted-foreground">音量 {Math.round((cfg.bgm_volume ?? 0.3) * 100)}%</label>
         <input
@@ -1607,31 +1619,29 @@ function DesignPanel({
       </PanelSection>
 
       <PanelSection title="品牌与字幕" icon={<IconType size={15} />}>
-        <div className="mb-4">
-          <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="mb-4 space-y-2">
+          {activePackView && (
+            <p className="text-[10px] text-muted-foreground">
+              顶栏已选品牌包 · {activePackView.fontCount} 字体 · {activePackView.frameCount} 镜头
+            </p>
+          )}
+          {activePackView && activePackView.frameCount > 0 && (
             <div>
-              <div className="text-xs font-medium text-foreground">品牌套件</div>
-              <div className="text-[10px] text-muted-foreground">同步品牌色、背景、字幕和当前场景品牌对象</div>
-            </div>
-            <span className="text-[10px] text-muted-foreground">{BRAND_KITS.length} 个预设</span>
-          </div>
-          <div className="grid gap-2">
-            {BRAND_KITS.map((kit) => (
-              <button
-                key={kit.id}
-                type="button"
-                onClick={() => applyBrandKit(kit)}
-                className="w-full rounded-md border border-border bg-background px-2.5 py-2 text-left hover:border-foreground/30 hover:bg-accent transition-colors"
-              >
-                <div className="flex items-center gap-2">
-                  <span className="h-5 w-5 rounded border border-border" style={{ backgroundColor: kit.brandColor }} />
-                  <span className="text-xs font-medium text-foreground">应用 {kit.name}</span>
-                  <span className="ml-auto h-5 w-5 rounded border border-border" style={{ backgroundColor: kit.backgroundColor }} />
-                </div>
-                <div className="mt-1 text-[10px] text-muted-foreground">{kit.description}</div>
+              <button type="button" onClick={() => setFramePickerOpen((v) => !v)} className="text-[10px] text-brand-blue hover:underline">
+                从品牌包添加镜头
               </button>
-            ))}
-          </div>
+              {framePickerOpen && (
+                <div className="mt-2 max-h-36 overflow-y-auto space-y-1 border border-border rounded-md p-2">
+                  {activePackView.frames.map((f) => (
+                    <button key={f.id} type="button" onClick={() => { onInsertFrameShot(f.id); setFramePickerOpen(false); }}
+                      className="w-full text-left text-[10px] px-2 py-1.5 rounded hover:bg-accent">
+                      {f.name} <span className="text-muted-foreground">({f.duration}s)</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
         <label className="block text-xs text-muted-foreground mb-1">品牌色</label>
         <div className="flex items-center gap-2">
@@ -1661,10 +1671,9 @@ function DesignPanel({
           onChange={(e) => updateSeg({ subtitle: { ...seg.subtitle, style_id: e.target.value } })}
           className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
         >
-          <option value="default">默认白字底栏</option>
-          <option value="bold-yellow">醒目黄字</option>
-          <option value="subtitle-card">字幕卡片</option>
-          <option value="brand-elegant">品牌优雅</option>
+          {SUBTITLE_STYLES.map((style) => (
+            <option key={style.id} value={style.id}>{style.name}</option>
+          ))}
         </select>
       </PanelSection>
 
@@ -1693,178 +1702,6 @@ function DesignPanel({
           <option value="2K">2K</option>
         </select>
       </PanelSection>
-    </div>
-  );
-}
-
-function ScenePanel({
-  dsl,
-  currentSegIndex,
-  updateDsl,
-}: {
-  dsl: DSL;
-  currentSegIndex: number;
-  updateDsl: (updater: (dsl: DSL) => DSL) => void;
-}) {
-  const seg = dsl.segments[currentSegIndex];
-  const selectedElement = useEditorStore(s => s.selectedElement);
-  const setSelectedElement = useEditorStore(s => s.setSelectedElement);
-  const issues = getSegmentIssues(seg);
-  const updateSeg = (partial: Partial<Segment>) => {
-    updateDsl((draft) => {
-      const segments = [...draft.segments];
-      segments[currentSegIndex] = { ...segments[currentSegIndex], ...partial };
-      return { ...draft, segments };
-    });
-  };
-
-  const addOverlay = () => {
-    updateSeg({
-      overlays: [
-        ...seg.overlays,
-        {
-          id: `overlay-${Date.now()}`,
-          asset_url: '',
-          position: { x: 50, y: 50 },
-          scale: 100,
-          seg_start_time: 0,
-          duration: Math.max(1, Number(seg.duration_sec || 5)),
-          animation: 'fadeIn',
-        },
-      ],
-    });
-    setSelectedElement({ type: 'overlay', segIndex: currentSegIndex, overlayIndex: seg.overlays.length });
-  };
-
-  return (
-    <div className="p-4 space-y-4">
-      <PanelSection title="场景状态" icon={<IconAlertCircle size={15} />}>
-        {issues.length === 0 ? (
-          <div className="rounded-md bg-brand-green/10 text-brand-green px-3 py-2 text-xs flex items-center gap-1">
-            <IconCheck size={13} />
-            当前场景可用于生成
-          </div>
-        ) : (
-          <div className="space-y-1">
-            {issues.map((issue) => (
-              <div key={issue} className="rounded-md bg-brand-amber/10 text-brand-amber px-3 py-2 text-xs flex items-center gap-1">
-                <IconAlertCircle size={13} />
-                {issue}
-              </div>
-            ))}
-          </div>
-        )}
-      </PanelSection>
-
-      <PanelSection title="场景基础" icon={<IconLayout size={15} />}>
-        <label className="block text-xs text-muted-foreground mb-1">场景类型</label>
-        <select
-          value={seg.type}
-          onChange={(e) => updateSeg({ type: e.target.value as Segment['type'] })}
-          className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
-        >
-          <option value="narration">口播</option>
-          <option value="product">产品</option>
-          <option value="scene">场景</option>
-          <option value="transition">转场</option>
-          <option value="ending">结尾</option>
-        </select>
-        <label className="mt-3 block text-xs text-muted-foreground mb-1">布局</label>
-        <select
-          value={seg.layout || 'avatar-center'}
-          onChange={(e) => updateSeg({ layout: e.target.value as Segment['layout'] })}
-          className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
-        >
-          <option value="avatar-left">数字人靠左</option>
-          <option value="avatar-center">数字人居中</option>
-          <option value="avatar-right">数字人靠右</option>
-          <option value="media-grid">媒体网格</option>
-          <option value="full-media">全屏媒体</option>
-        </select>
-        <NumberField label="场景时长" value={Number(seg.duration_sec || 5)} min={1} max={60} onChange={(value) => updateSeg({ duration_sec: value })} />
-      </PanelSection>
-
-      <PanelSection title="画面素材" icon={<IconImage size={15} />}>
-        <FileUploader
-          label="参考图"
-          value={seg.scene_image_url}
-          onChange={(url) => updateSeg({ scene_image_url: url, thumbnail_url: url })}
-          accept="image/*,video/*"
-          placeholder="背景图或参考图 URL"
-          previewType="image"
-        />
-        <label className="mt-3 block text-xs text-muted-foreground mb-1">场景描述</label>
-        <textarea
-          value={seg.scene_description}
-          onChange={(e) => updateSeg({ scene_description: e.target.value })}
-          placeholder="用于后续视觉规划 / 图像生成的画面描述"
-          className="w-full h-24 resize-none rounded-md border border-border bg-background px-3 py-2 text-sm"
-        />
-        <label className="mt-3 block text-xs text-muted-foreground mb-1">镜头</label>
-        <input
-          value={seg.camera_shot}
-          onChange={(e) => updateSeg({ camera_shot: e.target.value })}
-          placeholder="例如中景 / 特写 / 广角"
-          className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
-        />
-      </PanelSection>
-
-      <PanelSection title="数字人与声音" icon={<IconMic size={15} />}>
-        <label className="flex items-center justify-between text-sm">
-          启用数字人
-          <input type="checkbox" checked={seg.digital_human.enabled} onChange={(e) => updateSeg({ digital_human: { ...seg.digital_human, enabled: e.target.checked } })} />
-        </label>
-        <label className="mt-3 block text-xs text-muted-foreground mb-1">数字人资产 ID</label>
-        <input
-          value={seg.avatar_id || ''}
-          onChange={(e) => updateSeg({ avatar_id: e.target.value })}
-          placeholder="数字人 ID"
-          className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
-        />
-        <label className="mt-3 block text-xs text-muted-foreground mb-1">声音 ID</label>
-        <input
-          value={seg.voice_id || ''}
-          onChange={(e) => updateSeg({ voice_id: e.target.value })}
-          placeholder="声音 ID"
-          className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
-        />
-      </PanelSection>
-
-      <PanelSection title="字幕与贴片" icon={<IconType size={15} />}>
-        <label className="flex items-center justify-between text-sm">
-          显示字幕
-          <input type="checkbox" checked={seg.subtitle.enabled} onChange={(e) => updateSeg({ subtitle: { ...seg.subtitle, enabled: e.target.checked } })} />
-        </label>
-        <label className="mt-3 block text-xs text-muted-foreground mb-1">字幕位置</label>
-        <select
-          value={seg.subtitle.position}
-          onChange={(e) => updateSeg({ subtitle: { ...seg.subtitle, position: e.target.value as Segment['subtitle']['position'] } })}
-          className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
-        >
-          <option value="top">顶部</option>
-          <option value="center">中间</option>
-          <option value="bottom">底部</option>
-        </select>
-        <label className="mt-3 block text-xs text-muted-foreground mb-1">字幕动画</label>
-        <select
-          value={seg.subtitle.animation}
-          onChange={(e) => updateSeg({ subtitle: { ...seg.subtitle, animation: e.target.value as Segment['subtitle']['animation'] } })}
-          className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
-        >
-          <option value="none">无</option>
-          <option value="fadeIn">淡入</option>
-          <option value="typewriter">打字机</option>
-        </select>
-        <button
-          type="button"
-          onClick={addOverlay}
-          className="mt-3 w-full h-9 rounded-md bg-secondary text-secondary-foreground hover:bg-accent text-sm flex items-center justify-center gap-1.5"
-        >
-          <IconPlus size={14} />
-          添加贴片层
-        </button>
-      </PanelSection>
-
     </div>
   );
 }
@@ -2018,10 +1855,18 @@ function ObjectPanel({
   if (selectedElement.type === 'object') {
     const object = seg.objects?.[selectedElement.objectIndex];
     if (!object) return <EmptyObjectState />;
+    const brandPackPayload = dsl.globalConfig.brand_pack as { tokens?: { typography?: { fonts?: Array<{ name: string; family: string }> } } } | undefined;
+    const brandFonts = brandPackPayload?.tokens?.typography?.fonts || [];
+    const defaultFont = dsl.globalConfig.default_font_family || 'sans-serif';
+    const segDur = Number(seg.duration_sec || 5);
+    const objectTiming = resolveElementTiming(object, segDur);
     const updateObject = (partial: Partial<EditorObject>) => {
       const objects = [...(seg.objects || [])];
       objects[selectedElement.objectIndex] = { ...object, ...partial };
       updateSeg({ objects });
+    };
+    const updateObjectStyle = (partial: NonNullable<EditorObject['style']>) => {
+      updateObject({ style: { ...object.style, ...partial } });
     };
     const duplicateObject = () => {
       const objects = [...(seg.objects || [])];
@@ -2072,8 +1917,93 @@ function ObjectPanel({
                 onChange={(e) => updateObject({ text: e.target.value })}
                 className="w-full h-20 resize-none rounded-md border border-border bg-background px-3 py-2 text-sm"
               />
+              <label className="mt-3 block text-xs text-muted-foreground mb-1">文字样式预设</label>
+              <select
+                value={object.style?.variant || 'custom'}
+                onChange={(e) => {
+                  const style = SUBTITLE_STYLES.find((item) => item.id === e.target.value);
+                  if (!style) return;
+                  updateObject({
+                    style: {
+                      ...object.style,
+                      variant: style.id,
+                      textColor: style.preview.color,
+                      background: style.preview.bg === 'transparent' ? 'transparent' : style.preview.bg,
+                      fill: style.preview.bg === 'transparent' ? undefined : style.preview.bg,
+                      outline: style.preview.outline,
+                      fontSize: style.preview.fontSize,
+                      fontWeight: style.preview.fontWeight,
+                      borderRadius: style.preview.borderRadius ?? 8,
+                    },
+                  });
+                }}
+                className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
+              >
+                <option value="custom">自定义</option>
+                {SUBTITLE_STYLES.map((style) => (
+                  <option key={style.id} value={style.id}>{style.name}</option>
+                ))}
+              </select>
+              <NumberField label="字号" value={object.style?.fontSize ?? 16} min={10} max={48} onChange={(value) => updateObjectStyle({ fontSize: value })} />
+              <NumberField label="字重" value={object.style?.fontWeight ?? 500} min={300} max={900} onChange={(value) => updateObjectStyle({ fontWeight: value })} />
+              <label className="mt-3 block text-xs text-muted-foreground mb-1">字体</label>
+              <select
+                value={object.style?.fontFamily || defaultFont}
+                onChange={(e) => updateObjectStyle({ fontFamily: e.target.value })}
+                className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
+              >
+                {brandFonts.length > 0 ? brandFonts.map((f) => (
+                  <option key={f.family} value={f.family}>{f.name}</option>
+                )) : (
+                  <>
+                    <option value={defaultFont}>品牌默认</option>
+                    <option value="sans-serif">无衬线</option>
+                    <option value="serif">衬线</option>
+                  </>
+                )}
+              </select>
+              <label className="mt-3 block text-xs text-muted-foreground mb-1">文字颜色</label>
+              <div className="flex items-center gap-2">
+                <input type="color" value={object.style?.textColor || '#111827'} onChange={(e) => updateObjectStyle({ textColor: e.target.value })} className="w-10 h-9 rounded border border-border bg-background" />
+                <input value={object.style?.textColor || '#111827'} onChange={(e) => updateObjectStyle({ textColor: e.target.value })} className="flex-1 h-9 rounded-md border border-border bg-background px-3 text-sm" />
+              </div>
+              <label className="mt-3 block text-xs text-muted-foreground mb-1">背景色</label>
+              <div className="flex items-center gap-2">
+                <input type="color" value={object.style?.background?.startsWith('#') ? object.style.background : '#ffffff'} onChange={(e) => updateObjectStyle({ background: e.target.value, fill: e.target.value })} className="w-10 h-9 rounded border border-border bg-background" />
+                <button type="button" onClick={() => updateObjectStyle({ background: 'transparent', fill: undefined })} className="h-9 px-3 rounded-md bg-secondary text-xs">透明</button>
+              </div>
             </>
           )}
+          <label className="mt-3 block text-xs text-muted-foreground mb-1">开始时间 (s)</label>
+          <input
+            type="number"
+            min={0}
+            max={segDur}
+            step={0.1}
+            value={objectTiming.start}
+            onChange={(e) => updateObject({ seg_start_time: Number(e.target.value) })}
+            className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
+          />
+          <label className="mt-3 block text-xs text-muted-foreground mb-1">持续时长 (s)</label>
+          <input
+            type="number"
+            min={0.1}
+            max={segDur}
+            step={0.1}
+            value={objectTiming.duration}
+            onChange={(e) => updateObject({ duration: Number(e.target.value) })}
+            className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
+          />
+          <label className="mt-3 block text-xs text-muted-foreground mb-1">入场动画</label>
+          <select
+            value={object.animation || 'none'}
+            onChange={(e) => updateObject({ animation: e.target.value as EditorObject['animation'] })}
+            className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
+          >
+            <option value="none">无</option>
+            <option value="fadeIn">淡入</option>
+            <option value="scaleIn">缩放</option>
+          </select>
           {object.type !== 'text' && (
             <>
               <label className="mt-3 block text-xs text-muted-foreground mb-1">素材 URL</label>
@@ -2193,6 +2123,7 @@ function RenderReviewDialog({
   scriptText,
   selectedDhId,
   issues,
+  warnings = [],
   ready,
   diagnostics,
   onCancel,
@@ -2206,6 +2137,7 @@ function RenderReviewDialog({
   scriptText: string;
   selectedDhId: string;
   issues: string[];
+  warnings?: string[];
   ready: boolean;
   diagnostics: ConfigDiagnostics | null;
   onCancel: () => void;
@@ -2215,7 +2147,7 @@ function RenderReviewDialog({
   const totalDuration = dsl.segments.reduce((sum, seg) => sum + Number(seg.duration_sec || 0), 0);
   const textCount = dsl.segments.filter(seg => seg.narration_text.trim()).length;
   const sceneCount = dsl.segments.filter(seg => seg.scene_image_url || seg.scene_description).length;
-  const brandReady = Boolean(dsl.globalConfig.brand_color || dsl.globalConfig.brand_logo_url);
+  const brandReady = Boolean(dsl.globalConfig.brand_pack_id || dsl.globalConfig.brand_color || dsl.globalConfig.brand_logo_url);
   const musicEnabled = Boolean(dsl.globalConfig.bgm_enabled || dsl.globalConfig.bgm_url);
   const transitionEnabled = Boolean(dsl.globalConfig.transition_enabled || dsl.segments.some(seg => seg.transition.type !== 'none'));
   const inputLabel = inputMode === 'template' ? '模板片段' : inputMode === 'topic' ? '主题生成' : '固定脚本';
@@ -2270,7 +2202,7 @@ function RenderReviewDialog({
           <div className="grid grid-cols-3 gap-2 text-xs">
             <StatusPill ok={textCount > 0} label={`${textCount}/${dsl.segments.length} 文案`} />
             <StatusPill ok={sceneCount > 0} label={`${sceneCount}/${dsl.segments.length} 场景`} />
-            <StatusPill ok={brandReady} label="品牌" />
+            <StatusPill ok={brandReady} label={dsl.globalConfig.brand_pack_id ? '品牌包' : '品牌'} />
             <StatusPill ok={musicEnabled} label="音乐" />
             <StatusPill ok={transitionEnabled} label="转场" />
             <StatusPill ok={ready} label={ready ? '可提交' : '有阻塞'} />
@@ -2300,6 +2232,14 @@ function RenderReviewDialog({
               <ul className="space-y-1 text-xs text-muted-foreground">
                 {pipelineBlockers.map((item) => <li key={item} className="text-destructive">{item}</li>)}
                 {pipelineWarnings.map((item) => <li key={item}>{item}</li>)}
+              </ul>
+            </div>
+          )}
+          {warnings && warnings.length > 0 && (
+            <div className="rounded-md border border-border bg-secondary/50 p-3">
+              <div className="text-xs font-medium text-muted-foreground mb-2">建议项（不阻塞提交）</div>
+              <ul className="space-y-1 text-xs text-muted-foreground">
+                {warnings.map((w) => <li key={w}>{w}</li>)}
               </ul>
             </div>
           )}
@@ -2360,41 +2300,18 @@ function StatusPill({ ok, label }: { ok: boolean; label: string }) {
   );
 }
 
-function createEditorObject(type: EditorObject['type'], patch: Partial<EditorObject> = {}): EditorObject {
-  return {
-    id: `obj-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-    type,
-    label: patch.label || getObjectLabel({ type } as EditorObject),
-    text: patch.text || '',
-    asset_url: patch.asset_url || '',
-    interaction: patch.interaction,
-    metadata: patch.metadata,
-    style: patch.style,
-    position: patch.position || { x: 50, y: 48 },
-    scale: patch.scale ?? 100,
-    rotation: patch.rotation || 0,
-    visible: patch.visible ?? true,
-    locked: patch.locked ?? false,
-  };
-}
-
-function getObjectLabel(object: Pick<EditorObject, 'type' | 'label'>) {
-  if (object.label) return object.label;
-  const labels: Record<EditorObject['type'], string> = {
-    text: '文字对象',
-    image: '图片对象',
-    logo: 'Logo 对象',
-    sticker: '贴片对象',
-    avatar: '数字人对象',
-    subtitle: '字幕对象',
-  };
-  return labels[object.type];
-}
-
 function getCanvasSizeForAspectRatio(aspectRatio: NonNullable<DSL['globalConfig']['aspect_ratio']>) {
   if (aspectRatio === '16:9') return { canvas_width: 1920, canvas_height: 1080 };
   if (aspectRatio === '1:1') return { canvas_width: 1080, canvas_height: 1080 };
   return { canvas_width: 1080, canvas_height: 1920 };
+}
+
+function getRenderWarnings(dsl: DSL): string[] {
+  const warnings: string[] = [];
+  if (!dsl.globalConfig.brand_pack_id) {
+    warnings.push('未选择品牌包（建议先选，确保字幕样式与成片字体一致）');
+  }
+  return warnings;
 }
 
 function getRenderIssues(
@@ -2474,6 +2391,7 @@ function estimateRenderCostRisk(
 
 type RenderControlProps = {
   dsl: DSL;
+  editorId?: string;
   pipelines: PipelineOption[];
   pipelineKey: string;
   setPipelineKey: (key: string) => void;
@@ -2488,10 +2406,13 @@ type RenderControlProps = {
   setVariableValues: (values: Record<string, string>) => void;
   onRender: () => void;
   diagnostics: ConfigDiagnostics | null;
+  onOpenPresets?: () => void;
+  onPickScript?: () => void;
 };
 
 function GeneratePanel({
   dsl,
+  editorId,
   pipelines,
   pipelineKey,
   setPipelineKey,
@@ -2506,6 +2427,8 @@ function GeneratePanel({
   setVariableValues,
   onRender,
   diagnostics,
+  onOpenPresets,
+  onPickScript,
 }: RenderControlProps) {
   const pipeline = pipelines.find(p => p.key === pipelineKey);
   const issues = getRenderIssues(dsl, pipeline, selectedDhId, inputMode, topic, scriptText, diagnostics, variableValues);
@@ -2628,15 +2551,57 @@ function GeneratePanel({
           </div>
         </div>
 
-        <button
-          onClick={onRender}
-          disabled={!ready}
-          className="w-full h-10 flex items-center justify-center gap-1.5 bg-primary text-primary-foreground rounded-md disabled:bg-muted disabled:text-muted-foreground disabled:cursor-not-allowed font-medium"
-        >
-          <IconZap size={15} />
-          开始生成
-        </button>
+        <div className="flex flex-wrap gap-2">
+          {onPickScript && (
+            <button type="button" onClick={onPickScript} className="text-[11px] text-brand-blue hover:underline">
+              从资产库选脚本
+            </button>
+          )}
+          {onOpenPresets && (
+            <button type="button" onClick={onOpenPresets} className="text-[11px] text-brand-blue hover:underline">
+              预置模板
+            </button>
+          )}
+          <Link
+            to={editorId ? `/assets?from=${encodeURIComponent(`/editor/${editorId}`)}` : '/assets'}
+            className="text-[11px] text-brand-blue hover:underline no-underline"
+          >
+            资产库
+          </Link>
+        </div>
+        <p className="text-[10px] text-muted-foreground leading-5 rounded-md border border-dashed border-border px-3 py-2">
+          配置完成后，点击「生成视频」进入复核并提交。
+        </p>
       </div>
+    </div>
+  );
+}
+
+function BgmQuickPicker({ onApply }: { onApply: (item: LibraryItem) => void }) {
+  const [items, setItems] = useState<LibraryItem[]>([]);
+  const refreshTick = usePageVisibleRefresh();
+
+  useEffect(() => {
+    fetchLibraryItems({ category: 'voice', limit: 40 })
+      .then((all) => setItems(libraryBgmItems(all).slice(0, 6)))
+      .catch(() => setItems([]));
+  }, [refreshTick]);
+
+  if (items.length === 0) return null;
+
+  return (
+    <div className="mt-2 flex flex-wrap gap-1.5">
+      {items.map((item) => (
+        <button
+          key={item.id}
+          type="button"
+          onClick={() => onApply(item)}
+          className="px-2 py-1 rounded border border-border text-[9px] truncate max-w-[130px] hover:bg-accent"
+          title={item.name}
+        >
+          {item.name}
+        </button>
+      ))}
     </div>
   );
 }

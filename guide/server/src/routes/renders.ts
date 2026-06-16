@@ -21,6 +21,8 @@ import {
   validateRenderLogLevel,
   validateRenderStatus,
 } from '../render-utils.js';
+import { ErrorCodes, apiError } from '../apiErrors.js';
+import { hydrateDslBrandPack } from '../brandHydration.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -129,39 +131,39 @@ router.post('/', (req: Request, res: Response) => {
   } = req.body;
 
   if (!template_id) {
-    return res.status(400).json({ error: 'template_id is required' });
+    return apiError(res, ErrorCodes.VALIDATION, 'template_id is required');
   }
   if (!validatePipeline(pipeline_key)) {
-    return res.status(400).json({ error: `Unknown pipeline_key: ${pipeline_key}` });
+    return apiError(res, ErrorCodes.PIPELINE_INVALID, `Unknown pipeline_key: ${pipeline_key}`);
   }
   if (!validateInputMode(input_mode)) {
-    return res.status(400).json({ error: `Unknown input_mode: ${input_mode}` });
+    return apiError(res, ErrorCodes.INPUT_INVALID, `Unknown input_mode: ${input_mode}`);
   }
   if (input_mode === 'topic' && !String(topic || '').trim()) {
-    return res.status(400).json({ error: 'topic is required for topic input_mode' });
+    return apiError(res, ErrorCodes.INPUT_INVALID, 'topic is required for topic input_mode');
   }
   if (input_mode === 'script' && !String(script_text || '').trim()) {
-    return res.status(400).json({ error: 'script_text is required for script input_mode' });
+    return apiError(res, ErrorCodes.INPUT_INVALID, 'script_text is required for script input_mode');
   }
 
   // Fetch template DSL
   const template = db.prepare('SELECT dsl_json FROM templates WHERE id = ?').get(template_id) as any;
   if (!template) {
-    return res.status(404).json({ error: 'Template not found' });
+    return apiError(res, ErrorCodes.TEMPLATE_NOT_FOUND, 'Template not found', 404);
   }
 
   const selectedPipeline = getPipeline(pipeline_key);
   if (selectedPipeline?.requires_digital_human && !digital_human_id) {
-    return res.status(400).json({ error: 'digital_human_id is required for digital_human pipeline' });
+    return apiError(res, ErrorCodes.VALIDATION, 'digital_human_id is required for digital_human pipeline');
   }
 
   if (digital_human_id) {
     const dh = db.prepare('SELECT id, status FROM digital_humans WHERE id = ?').get(digital_human_id) as any;
     if (!dh) {
-      return res.status(400).json({ error: `数字人不存在: ${digital_human_id}` });
+      return apiError(res, ErrorCodes.DH_NOT_FOUND, `数字人不存在: ${digital_human_id}`);
     }
     if (selectedPipeline?.requires_digital_human && dh.status !== 'ready') {
-      return res.status(400).json({ error: `数字人未就绪: ${digital_human_id}` });
+      return apiError(res, ErrorCodes.DH_NOT_READY, `数字人未就绪: ${digital_human_id}`);
     }
   }
 
@@ -207,10 +209,10 @@ router.post('/ai-generate', (req: Request, res: Response) => {
   } = req.body;
 
   if (!template_id) {
-    return res.status(400).json({ error: 'template_id is required' });
+    return apiError(res, ErrorCodes.VALIDATION, 'template_id is required');
   }
   if (!digital_human_id) {
-    return res.status(400).json({ error: 'digital_human_id is required for AI full-auto pipeline' });
+    return apiError(res, ErrorCodes.VALIDATION, 'digital_human_id is required for AI full-auto pipeline');
   }
 
   const input_mode = String(topic || '').trim() ? 'topic' : String(script_text || '').trim() ? 'script' : 'template';
@@ -218,15 +220,15 @@ router.post('/ai-generate', (req: Request, res: Response) => {
 
   const template = db.prepare('SELECT dsl_json FROM templates WHERE id = ?').get(template_id) as any;
   if (!template) {
-    return res.status(404).json({ error: 'Template not found' });
+    return apiError(res, ErrorCodes.TEMPLATE_NOT_FOUND, 'Template not found', 404);
   }
 
   const dh = db.prepare('SELECT id, status FROM digital_humans WHERE id = ?').get(digital_human_id) as any;
   if (!dh) {
-    return res.status(400).json({ error: `数字人不存在: ${digital_human_id}` });
+    return apiError(res, ErrorCodes.DH_NOT_FOUND, `数字人不存在: ${digital_human_id}`);
   }
   if (dh.status !== 'ready') {
-    return res.status(400).json({ error: `数字人未就绪: ${digital_human_id}` });
+    return apiError(res, ErrorCodes.DH_NOT_READY, `数字人未就绪: ${digital_human_id}`);
   }
 
   db.prepare(
@@ -259,15 +261,17 @@ router.post('/ai-generate', (req: Request, res: Response) => {
 const QUEUE_CLAIM_ATTEMPTS = 5;
 
 function materializeClaimedJob(job: any) {
+  const db = getDb();
   const templateDsl = typeof job.template_dsl === 'string'
     ? JSON.parse(job.template_dsl || '{}')
     : job.template_dsl || {};
-  job.template_dsl = materializeRenderDsl(
+  const materialized = materializeRenderDsl(
     templateDsl,
     validateInputMode(job.input_mode) ? job.input_mode : 'template',
     job.topic || '',
     job.script_text || '',
   );
+  job.template_dsl = hydrateDslBrandPack(materialized, db);
   return job;
 }
 
@@ -361,7 +365,7 @@ router.post('/maintenance/timeouts', (req: Request, res: Response) => {
 router.get('/:id', (req: Request, res: Response) => {
   const db = getDb();
   const job = db.prepare('SELECT * FROM render_jobs WHERE id = ?').get(req.params.id) as any;
-  if (!job) return res.status(404).json({ error: 'Render job not found' });
+  if (!job) return apiError(res, ErrorCodes.JOB_NOT_FOUND, 'Render job not found', 404);
   res.json(enrichJob(job, DATA_DIR));
 });
 
@@ -377,7 +381,7 @@ router.patch('/:id', (req: Request, res: Response) => {
   }
 
   const existing = db.prepare('SELECT * FROM render_jobs WHERE id = ?').get(req.params.id) as any;
-  if (!existing) return res.status(404).json({ error: 'Render job not found' });
+  if (!existing) return apiError(res, ErrorCodes.JOB_NOT_FOUND, 'Render job not found', 404);
   if (TERMINAL_STATUSES.includes(existing.status)) {
     if (status === undefined || status === existing.status) {
       return res.json(enrichJob(existing, DATA_DIR));
@@ -429,7 +433,7 @@ router.patch('/:id', (req: Request, res: Response) => {
 router.post('/:id/heartbeat', (req: Request, res: Response) => {
   const db = getDb();
   const job = db.prepare('SELECT id, status, cancel_requested FROM render_jobs WHERE id = ?').get(req.params.id) as any;
-  if (!job) return res.status(404).json({ error: 'Render job not found' });
+  if (!job) return apiError(res, ErrorCodes.JOB_NOT_FOUND, 'Render job not found', 404);
   db.prepare("UPDATE render_jobs SET heartbeat_at = datetime('now'), worker_id = COALESCE(?, worker_id), updated_at = datetime('now') WHERE id = ?")
     .run(req.body.worker_id || '', req.params.id);
   res.json({ cancel_requested: !!job.cancel_requested, status: job.status });
@@ -439,7 +443,7 @@ router.post('/:id/heartbeat', (req: Request, res: Response) => {
 router.post('/:id/cancel', (req: Request, res: Response) => {
   const db = getDb();
   const job = db.prepare('SELECT * FROM render_jobs WHERE id = ?').get(req.params.id) as any;
-  if (!job) return res.status(404).json({ error: 'Render job not found' });
+  if (!job) return apiError(res, ErrorCodes.JOB_NOT_FOUND, 'Render job not found', 404);
   if (TERMINAL_STATUSES.includes(job.status)) return res.json(job);
 
   const nextStatus = job.status === 'queued' ? 'cancelled' : 'cancelling';
@@ -459,7 +463,7 @@ router.post('/:id/cancel', (req: Request, res: Response) => {
 router.post('/:id/retry', (req: Request, res: Response) => {
   const db = getDb();
   const job = db.prepare('SELECT * FROM render_jobs WHERE id = ?').get(req.params.id) as any;
-  if (!job) return res.status(404).json({ error: 'Render job not found' });
+  if (!job) return apiError(res, ErrorCodes.JOB_NOT_FOUND, 'Render job not found', 404);
   if (!['failed', 'cancelled'].includes(job.status)) {
     return res.status(400).json({ error: 'Only failed or cancelled jobs can be retried' });
   }
@@ -498,7 +502,7 @@ router.post('/:id/retry', (req: Request, res: Response) => {
 router.post('/:id/duplicate', (req: Request, res: Response) => {
   const db = getDb();
   const job = db.prepare('SELECT * FROM render_jobs WHERE id = ?').get(req.params.id) as any;
-  if (!job) return res.status(404).json({ error: 'Render job not found' });
+  if (!job) return apiError(res, ErrorCodes.JOB_NOT_FOUND, 'Render job not found', 404);
 
   const newId = uuidv4();
   db.prepare(
@@ -543,7 +547,7 @@ function resolveWorkerPython() {
 router.post('/:id/reassemble', (req: Request, res: Response) => {
   const db = getDb();
   const job = db.prepare('SELECT * FROM render_jobs WHERE id = ?').get(req.params.id) as any;
-  if (!job) return res.status(404).json({ error: 'Render job not found' });
+  if (!job) return apiError(res, ErrorCodes.JOB_NOT_FOUND, 'Render job not found', 404);
 
   const templateId = String(req.body?.template_id || job.template_id || '');
   if (!templateId) return res.status(400).json({ error: 'template_id is required' });
@@ -631,7 +635,7 @@ router.delete('/:id', (req: Request, res: Response) => {
   const jobId = req.params.id;
 
   const job = db.prepare('SELECT * FROM render_jobs WHERE id = ?').get(jobId) as any;
-  if (!job) return res.status(404).json({ error: 'Render job not found' });
+  if (!job) return apiError(res, ErrorCodes.JOB_NOT_FOUND, 'Render job not found', 404);
 
   const tx = db.transaction(() => {
     db.prepare('DELETE FROM render_logs WHERE render_job_id = ?').run(jobId);

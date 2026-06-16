@@ -22,6 +22,7 @@ export default defineConfig({
       '/api': apiTarget,
       '/uploads': apiTarget,
       '/renders': apiTarget,
+      '/brand-fonts': apiTarget,
     },
   },
 })

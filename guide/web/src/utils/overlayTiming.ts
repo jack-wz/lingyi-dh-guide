@@ -1,4 +1,5 @@
 import type { Segment } from '../store/editorStore';
+import { getTimedElementPreviewStyle, isTimedElementVisibleAtLocalTime } from './elementTiming';
 
 export function getSegmentLocalTime(currentTime: number, segmentStart: number): number {
   return Math.max(0, currentTime - segmentStart);
@@ -7,7 +8,11 @@ export function getSegmentLocalTime(currentTime: number, segmentStart: number): 
 export function isOverlayVisibleAtLocalTime(
   overlay: Segment['overlays'][number],
   localTime: number,
+  segmentDuration?: number,
 ): boolean {
+  if (segmentDuration != null) {
+    return isTimedElementVisibleAtLocalTime(overlay, localTime, segmentDuration);
+  }
   const start = overlay.seg_start_time;
   const end = start + overlay.duration;
   return localTime >= start && localTime < end;
@@ -16,14 +21,10 @@ export function isOverlayVisibleAtLocalTime(
 export function getOverlayPreviewStyle(
   overlay: Segment['overlays'][number],
   localTime: number,
+  segmentDuration?: number,
 ): { opacity: number; scaleMultiplier: number } {
-  const elapsed = localTime - overlay.seg_start_time;
-  if (overlay.animation === 'fadeIn') {
-    return { opacity: Math.min(1, Math.max(0, elapsed / 0.5)), scaleMultiplier: 1 };
+  if (segmentDuration != null) {
+    return getTimedElementPreviewStyle(overlay, localTime, segmentDuration);
   }
-  if (overlay.animation === 'scaleIn') {
-    const progress = Math.min(1, Math.max(0, elapsed / 0.4));
-    return { opacity: 1, scaleMultiplier: 0.6 + progress * 0.4 };
-  }
-  return { opacity: 1, scaleMultiplier: 1 };
+  return getTimedElementPreviewStyle(overlay, localTime, overlay.seg_start_time + overlay.duration);
 }

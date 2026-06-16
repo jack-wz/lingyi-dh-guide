@@ -82,3 +82,20 @@ CREATE TABLE IF NOT EXISTS render_logs (
 );
 
 CREATE INDEX IF NOT EXISTS idx_render_logs_job ON render_logs(render_job_id);
+
+CREATE TABLE IF NOT EXISTS library_items (
+  id TEXT PRIMARY KEY,
+  category TEXT NOT NULL CHECK(category IN ('brand','voice','script','knowledge','knowledge_doc')),
+  name TEXT NOT NULL,
+  description TEXT DEFAULT '',
+  status TEXT DEFAULT 'active' CHECK(status IN ('active','archived')),
+  tags TEXT DEFAULT '[]',
+  file_url TEXT DEFAULT '',
+  parent_id TEXT DEFAULT '',
+  payload_json TEXT DEFAULT '{}',
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_library_items_category ON library_items(category);
+CREATE INDEX IF NOT EXISTS idx_library_items_parent ON library_items(parent_id);

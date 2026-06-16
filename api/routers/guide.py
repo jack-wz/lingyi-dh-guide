@@ -124,6 +124,13 @@ async def proxy_tasks(request: Request, path: str = ""):
     return await _proxy(request, f"/api/tasks{suffix}")
 
 
+@router.api_route("/library", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
+@router.api_route("/library/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
+async def proxy_library(request: Request, path: str = ""):
+    suffix = f"/{path}" if path else ""
+    return await _proxy(request, f"/api/library{suffix}")
+
+
 @router.api_route("/ops", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
 @router.api_route("/ops/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
 async def proxy_ops(request: Request, path: str = ""):

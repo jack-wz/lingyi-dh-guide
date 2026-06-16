@@ -57,7 +57,7 @@ from api.routers import (
     frame_router,
     guide_router,
 )
-from api.routers.guide_static import UPLOADS_DIR, RENDERS_DIR
+from api.routers.guide_static import UPLOADS_DIR, RENDERS_DIR, BRAND_FONTS_DIR
 from fastapi.staticfiles import StaticFiles
 
 
@@ -144,6 +144,7 @@ app.include_router(guide_router, prefix=api_config.api_prefix)
 # Guide platform static assets (uploads / renders)
 app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="guide-uploads")
 app.mount("/renders", StaticFiles(directory=str(RENDERS_DIR)), name="guide-renders")
+app.mount("/brand-fonts", StaticFiles(directory=str(BRAND_FONTS_DIR)), name="guide-brand-fonts")
 
 
 @app.get("/")

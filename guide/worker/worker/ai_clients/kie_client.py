@@ -8,8 +8,10 @@ import json
 import os
 import time
 import requests
-from worker.config import get_kie_config, get_prompt
+from worker.config import _load_json, get_kie_config, get_prompt
 from worker.provider_errors import ProviderTimeoutError, raise_if_timeout
+
+KIE_UPLOAD_BASE = os.getenv("KIE_UPLOAD_BASE", "https://kieai.redpandaai.co")
 
 
 class KieClient:
@@ -17,6 +19,7 @@ class KieClient:
         api_key, base_url = get_kie_config()
         self.base_url = base_url
         self.api_key = api_key
+        self.upload_base = KIE_UPLOAD_BASE
         self.headers = {
             "Authorization": f"Bearer {self.api_key}",
             "Content-Type": "application/json",
@@ -43,6 +46,87 @@ class KieClient:
             raise
         res.raise_for_status()
         return res.json()
+
+    def upload_local_file(self, local_path: str, upload_path: str = "pixelle-preview") -> str:
+        """Upload a local file to KIE storage and return a public fileUrl."""
+        if not self.api_key or not local_path or not os.path.exists(local_path):
+            return ""
+        file_name = os.path.basename(local_path)
+        timeout_s = 120
+        try:
+            with open(local_path, "rb") as handle:
+                res = requests.post(
+                    f"{self.upload_base}/api/file-stream-upload",
+                    headers={"Authorization": f"Bearer {self.api_key}"},
+                    files={"file": (file_name, handle)},
+                    data={"uploadPath": upload_path, "fileName": file_name},
+                    timeout=timeout_s,
+                )
+            res.raise_for_status()
+            payload = res.json()
+            if payload.get("success") and payload.get("data", {}).get("fileUrl"):
+                return str(payload["data"]["fileUrl"])
+            if payload.get("code") == 200 and payload.get("data", {}).get("fileUrl"):
+                return str(payload["data"]["fileUrl"])
+            print(f"[KIE] Upload response missing fileUrl: {payload}")
+            return ""
+        except Exception as exc:
+            print(f"[KIE] Upload failed for {local_path}: {exc}")
+            return ""
+
+    def _aspect_ratio(self, override: str | None = None) -> str:
+        if override:
+            return override
+        cfg = _load_json().get("models", {}).get("kie", {})
+        return str(cfg.get("aspect_ratio") or "9:16")
+
+    def _resolution(self) -> str:
+        cfg = _load_json().get("models", {}).get("kie", {})
+        return str(cfg.get("resolution") or "2K")
+
+    def _poll_timeout(self) -> int:
+        cfg = _load_json().get("models", {}).get("kie", {})
+        try:
+            return int(cfg.get("poll_timeout") or 300)
+        except (TypeError, ValueError):
+            return 300
+
+    def generate_text_image(
+        self,
+        prompt: str,
+        aspect_ratio: str = "9:16",
+        resolution: str = "2K",
+    ) -> str:
+        """Generate scene image from text via KIE GPT Image 2 文生图."""
+        if not self.api_key:
+            print("[KIE] No API key configured, skipping text-to-image")
+            return ""
+        if not prompt.strip():
+            return ""
+        try:
+            payload = {
+                "model": "gpt-image-2-text-to-image",
+                "input": {
+                    "prompt": prompt,
+                    "aspect_ratio": aspect_ratio,
+                    "resolution": resolution,
+                },
+            }
+            result = self._post("/api/v1/jobs/createTask", json=payload)
+            code = result.get("code", 0)
+            if code != 200:
+                print(f"[KIE] Text-to-image task failed: code={code}, msg={result.get('msg', '')}")
+                return ""
+            task_id = result.get("data", {}).get("taskId", "")
+            if not task_id:
+                return ""
+            print(f"[KIE] Text-to-image task created: {task_id}")
+            return self._poll_task(task_id)
+        except ProviderTimeoutError:
+            raise
+        except Exception as exc:
+            print(f"[KIE] Text-to-image failed: {exc}")
+            return ""
 
     def generate_scene_image(
         self,
@@ -91,7 +175,7 @@ class KieClient:
                 return ""
 
             print(f"[KIE] Task created: {task_id}")
-            return self._poll_task(task_id)
+            return self._poll_task(task_id, timeout=self._poll_timeout())
 
         except ProviderTimeoutError:
             raise
@@ -131,7 +215,7 @@ class KieClient:
 
             task_id = result.get("data", {}).get("taskId", "")
             if task_id:
-                return self._poll_task(task_id)
+                return self._poll_task(task_id, timeout=self._poll_timeout())
             return ""
         except ProviderTimeoutError:
             raise

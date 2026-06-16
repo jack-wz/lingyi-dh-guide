@@ -3,6 +3,7 @@
 import os
 import subprocess
 from worker.ass_generator import generate_ass
+from worker.brand_fonts import prepare_brand_fonts, resolve_brand_font_path
 from worker.whisper_aligner import apply_whisper_subtitle_timings
 from worker.timeline_sync import (
     reconcile_timeline,
@@ -72,7 +73,12 @@ def _wrap_text(draw, text: str, font, max_width: int) -> list[str]:
     return lines[:5]
 
 
-def _load_font(image_font, size: int, bold: bool = False):
+def _load_font(image_font, size: int, bold: bool = False, font_path: str = ""):
+    if font_path and os.path.exists(font_path):
+        try:
+            return image_font.truetype(font_path, size)
+        except Exception:
+            pass
     candidates = [
         "/System/Library/Fonts/STHeiti Medium.ttc" if bold else "/System/Library/Fonts/STHeiti Light.ttc",
         "/System/Library/Fonts/Supplemental/Songti.ttc",
@@ -91,7 +97,7 @@ def _load_font(image_font, size: int, bold: bool = False):
     return image_font.load_default()
 
 
-def _render_placeholder_overlay(ov: dict, work_dir: str) -> str:
+def _render_placeholder_overlay(ov: dict, work_dir: str, font_family: str = "") -> str:
     """Render text/logo/interactive/record placeholders into a transparent PNG."""
     try:
         from PIL import Image, ImageDraw, ImageFont
@@ -102,6 +108,8 @@ def _render_placeholder_overlay(ov: dict, work_dir: str) -> str:
     interaction = ov.get("interaction") or {}
     metadata = ov.get("metadata") or {}
     style = ov.get("style") or {}
+    requested_family = str(style.get("fontFamily") or font_family or "").split(",")[0].strip().strip("'\"")
+    brand_font_path = resolve_brand_font_path(work_dir, requested_family or None)
     is_interactive = bool(interaction)
     is_recording = metadata.get("source") == "record"
 
@@ -140,9 +148,9 @@ def _render_placeholder_overlay(ov: dict, work_dir: str) -> str:
     border = (255, 215, 0, 120) if style_variant == "feifei-yellow" else (79, 70, 229, 90)
     draw.rounded_rectangle((8, 8, width - 8, height - 8), radius=radius, fill=fill, outline=border, width=3)
 
-    title_font = _load_font(ImageFont, 36, bold=True)
-    body_font = _load_font(ImageFont, 24)
-    small_font = _load_font(ImageFont, 18)
+    title_font = _load_font(ImageFont, 36, bold=True, font_path=brand_font_path)
+    body_font = _load_font(ImageFont, 24, font_path=brand_font_path)
+    small_font = _load_font(ImageFont, 18, font_path=brand_font_path)
 
     text = ov.get("text") or ov.get("label") or ("Screen recording" if is_recording else "Object")
     if object_type == "logo" and not ov.get("text"):
@@ -170,8 +178,8 @@ def _render_placeholder_overlay(ov: dict, work_dir: str) -> str:
         lines = []
     else:
         if style_variant in {"feifei-yellow", "jianying-card"}:
-            title_font = _load_font(ImageFont, 52 if style_variant == "feifei-yellow" else 44, bold=True)
-            body_font = _load_font(ImageFont, 40 if style_variant == "feifei-yellow" else 36, bold=True)
+            title_font = _load_font(ImageFont, 52 if style_variant == "feifei-yellow" else 44, bold=True, font_path=brand_font_path)
+            body_font = _load_font(ImageFont, 40 if style_variant == "feifei-yellow" else 36, bold=True, font_path=brand_font_path)
         lines = _wrap_text(draw, text, title_font if object_type == "logo" else body_font, width - 70)
         y = max(28, (height - len(lines) * 34) // 2)
 
@@ -217,11 +225,11 @@ def _compute_overlay_box(ov: dict, canvas_w: int, canvas_h: int) -> tuple[int, i
     return ov_w, ov_h, pos_x, pos_y
 
 
-def _resolve_overlay_asset(ov: dict, work_dir: str) -> str:
+def _resolve_overlay_asset(ov: dict, work_dir: str, default_font_family: str = "") -> str:
     """Resolve overlay asset: download if URL, return local path."""
     url = ov.get("asset_url", "")
     if not url and (ov.get("object_type") or ov.get("interaction") or ov.get("metadata")):
-        return _render_placeholder_overlay(ov, work_dir)
+        return _render_placeholder_overlay(ov, work_dir, font_family=default_font_family)
     if not url:
         return ""
     if os.path.isabs(url) and os.path.exists(url):
@@ -318,6 +326,9 @@ def assemble_final_video(
     ensure_dir(os.path.dirname(output_path))
     ensure_dir(work_dir)
 
+    fonts_manifest = prepare_brand_fonts(global_config, work_dir)
+    default_font_family = str(fonts_manifest.get("default_family") or "")
+
     synced = reconcile_timeline(segments, overlays, work_dir=work_dir)
     segments = synced["segments"]
     overlays = synced["overlays"]
@@ -351,7 +362,7 @@ def assemble_final_video(
     # Resolve overlay assets
     resolved_overlays = []
     for ov in overlays:
-        asset = _resolve_overlay_asset(ov, work_dir)
+        asset = _resolve_overlay_asset(ov, work_dir, default_font_family=default_font_family)
         if asset and os.path.exists(asset):
             resolved_overlays.append({**ov, "asset_path": asset})
 
@@ -521,7 +532,12 @@ def assemble_final_video(
     if ass_input_index is not None and _has_ass_filter():
         out_label = "subbed"
         ass_filter_path = _escape_ffmpeg_filter_path(_make_filter_relative(ass_result, work_dir))
-        filters.append(f"[{current_video}]ass=filename={ass_filter_path}[{out_label}]")
+        fonts_dir = fonts_manifest.get("fonts_dir") or os.path.join(work_dir, "fonts")
+        ass_opts = f"filename={ass_filter_path}"
+        if fonts_manifest.get("family_paths"):
+            fontsdir_rel = _escape_ffmpeg_filter_path(_make_filter_relative(fonts_dir, work_dir))
+            ass_opts += f":fontsdir={fontsdir_rel}"
+        filters.append(f"[{current_video}]ass={ass_opts}[{out_label}]")
         current_video = out_label
     elif ass_input_index is not None:
         print("[Stage4] libass unavailable — skipping burned-in subtitles")

@@ -2,6 +2,9 @@ import Database from 'better-sqlite3';
 import { readFileSync, mkdirSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { seedLibraryItems } from '../library-seed.js';
+import { importExternalCatalog } from '../import-external-catalog.js';
+import { seedLocalBrandSystem } from '../local-brand-system.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -64,10 +67,29 @@ function migrateDb(db: Database.Database): void {
   addColumn(db, 'digital_humans', 'provider_job_id', "TEXT DEFAULT ''");
   addColumn(db, 'digital_humans', 'training_error', "TEXT DEFAULT ''");
   addColumn(db, 'digital_humans', 'last_trained_at', 'TEXT');
+  addColumn(db, 'digital_humans', 'half_body_cutout_url', "TEXT DEFAULT ''");
 
   db.prepare("UPDATE digital_humans SET status = 'pending_assets' WHERE status = 'pending'").run();
   db.exec('CREATE INDEX IF NOT EXISTS idx_render_jobs_pipeline ON render_jobs(pipeline_key)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_assets_type ON assets(type)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_library_items_category ON library_items(category)');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_library_items_parent ON library_items(parent_id)');
+  seedLibraryItems(db);
+  try {
+    const brandSeed = seedLocalBrandSystem(db, getDataDir());
+    if (brandSeed !== 'skipped') {
+      console.info(`[brand] local brand system ${brandSeed}`);
+    }
+  } catch (err) {
+    console.warn('[brand] local seed skipped:', err instanceof Error ? err.message : err);
+  }
+  if (process.env.IMPORT_EXTERNAL_CATALOG === 'true') {
+    try {
+      importExternalCatalog(db, { dataDir: getDataDir() });
+    } catch (err) {
+      console.warn('[catalog] external import skipped:', err instanceof Error ? err.message : err);
+    }
+  }
 }
 
 function tableSql(db: Database.Database, table: string): string {

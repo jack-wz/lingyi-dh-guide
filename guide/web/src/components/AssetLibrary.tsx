@@ -1,41 +1,136 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useEditorStore } from '../store/editorStore';
 import type { AssetTab } from '../store/editorStore';
-import { IconUser, IconImage, IconType, IconMusic, IconSparkles, IconSearch } from './Icons';
+import { IconUser, IconImage, IconType, IconMusic, IconMic, IconSparkles, IconSearch } from './Icons';
 import { SCENE_IMAGES, SCENE_CATEGORIES } from '../data/sceneImages';
 import { SUBTITLE_STYLES } from '../data/subtitleStyles';
+import { normalizeSubtitleStyleId } from '../utils/subtitleStylePreview';
 import { SOUND_EFFECTS, SOUND_CATEGORIES } from '../data/soundEffects';
 import { ANIMATION_PRESETS, ANIM_CATEGORIES } from '../data/animations';
 import { getAssetMapFromDsl } from '@shared/assetResolver';
+import { usePageVisibleRefresh } from '../hooks/usePageVisibleRefresh';
+import {
+  assetHubHref,
+  fetchLibraryItems,
+  libraryBgmItems,
+  libraryMediaItems,
+  libraryTtsItems,
+} from '../utils/libraryApi';
 
 interface Props {
   tab: AssetTab;
+  editorId?: string;
   selectedDhId?: string;
   onSelectDh?: (id: string) => void;
   onEdited?: () => void;
   showSearch?: boolean;
 }
 
-export default function AssetLibrary({ tab, selectedDhId = '', onSelectDh, onEdited, showSearch = true }: Props) {
+export default function AssetLibrary({ tab, editorId, selectedDhId = '', onSelectDh, onEdited, showSearch = true }: Props) {
   const dsl = useEditorStore(s => s.dsl);
   const currentSegIndex = useEditorStore(s => s.currentSegIndex);
   const updateDsl = useEditorStore(s => s.updateDsl);
+  const refreshTick = usePageVisibleRefresh();
   const [digitalHumans, setDigitalHumans] = useState<Array<{ id: string; name: string; status: string; face_photo_url?: string }>>([]);
   const [libraryAssets, setLibraryAssets] = useState<Array<{ id: string; name: string; type: string; file_url: string }>>([]);
+  const [libraryMedia, setLibraryMedia] = useState<Array<{ id: string; name: string; file_url: string; description?: string }>>([]);
+  const [libraryBgms, setLibraryBgms] = useState<Array<{ id: string; name: string; file_url: string; description?: string }>>([]);
+  const [libraryTts, setLibraryTts] = useState<Array<{ id: string; name: string; voice_id: string; description?: string }>>([]);
   const [sceneCategory, setSceneCategory] = useState('all');
   const [search, setSearch] = useState('');
+  const [showBuiltinScenes, setShowBuiltinScenes] = useState(false);
+  const [showBuiltinSounds, setShowBuiltinSounds] = useState(false);
+
+  const mediaHub = editorId ? assetHubHref(editorId, 'media') : '/assets?tab=media';
+  const voiceHub = editorId ? assetHubHref(editorId, 'voice') : '/assets?tab=voice';
+  const dhHub = editorId ? assetHubHref(editorId, 'digital_human') : '/assets?tab=digital_human';
 
   useEffect(() => {
-    fetch('/api/digital-humans').then(r => r.json()).then(setDigitalHumans).catch(() => {});
-  }, []);
+    if (tab !== 'dh') return;
+    const controller = new AbortController();
+    fetchLibraryItems({ category: 'digital_human', limit: 120, signal: controller.signal })
+      .then((items) => {
+        setDigitalHumans(items.map((item) => ({
+          id: item.id,
+          name: item.name,
+          status: item.status,
+          face_photo_url: item.file_url || String(item.payload?.face_photo_url || ''),
+        })));
+      })
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        fetch('/api/digital-humans').then((r) => r.json()).then(setDigitalHumans).catch(() => {});
+      });
+    return () => controller.abort();
+  }, [tab, refreshTick]);
 
   useEffect(() => {
     if (tab !== 'sticker') return;
-    fetch('/api/assets?type=sticker,image,video,logo&limit=120')
-      .then(r => r.json())
-      .then((data) => setLibraryAssets(data.items || []))
-      .catch(() => setLibraryAssets([]));
-  }, [tab]);
+    const controller = new AbortController();
+    fetchLibraryItems({ category: 'media', limit: 120, signal: controller.signal })
+      .then((items) => {
+        setLibraryAssets(libraryMediaItems(items).map((item) => ({
+          id: item.id,
+          name: item.name,
+          type: 'media',
+          file_url: item.file_url,
+        })));
+      })
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        fetch('/api/assets?type=sticker,image,video,logo&limit=120')
+          .then((r) => r.json())
+          .then((data) => setLibraryAssets(data.items || []))
+          .catch(() => setLibraryAssets([]));
+      });
+    return () => controller.abort();
+  }, [tab, refreshTick]);
+
+  useEffect(() => {
+    if (tab !== 'scene') return;
+    const controller = new AbortController();
+    fetchLibraryItems({ category: 'media', limit: 80, signal: controller.signal })
+      .then((items) => {
+        setLibraryMedia(libraryMediaItems(items).map((item) => ({
+          id: item.id,
+          name: item.name,
+          file_url: item.file_url,
+          description: item.description,
+        })));
+      })
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        setLibraryMedia([]);
+      });
+    return () => controller.abort();
+  }, [tab, refreshTick]);
+
+  useEffect(() => {
+    if (tab !== 'sound') return;
+    const controller = new AbortController();
+    fetchLibraryItems({ category: 'voice', limit: 60, signal: controller.signal })
+      .then((items) => {
+        setLibraryBgms(libraryBgmItems(items).map((item) => ({
+          id: item.id,
+          name: item.name,
+          file_url: item.file_url,
+          description: item.description,
+        })));
+        setLibraryTts(libraryTtsItems(items).map((item) => ({
+          id: item.id,
+          name: item.name,
+          voice_id: String(item.payload?.voice_id || ''),
+          description: item.description,
+        })));
+      })
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        setLibraryBgms([]);
+        setLibraryTts([]);
+      });
+    return () => controller.abort();
+  }, [tab, refreshTick]);
 
   const seg = dsl?.segments[currentSegIndex];
   const getSegmentStartTime = useEditorStore(s => s.getSegmentStartTime);
@@ -148,6 +243,51 @@ export default function AssetLibrary({ tab, selectedDhId = '', onSelectDh, onEdi
       <div className="flex-1 overflow-y-auto p-2 min-h-0">
         {tab === 'scene' && (
           <>
+            <div className="mb-3">
+              <div className="flex items-center justify-between mb-1.5 px-0.5">
+                <p className="text-[10px] font-medium text-foreground">资产库场景</p>
+                <Link to={mediaHub} className="text-[9px] text-brand-blue hover:underline">管理</Link>
+              </div>
+              {libraryMedia.length === 0 ? (
+                <div className="rounded-md border border-dashed border-border p-3 text-center text-[10px] text-muted-foreground">
+                  暂无媒体素材，
+                  <Link to={mediaHub} className="text-brand-blue hover:underline">去资产库上传</Link>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-1.5">
+                  {libraryMedia.filter((item) => !search || item.name.includes(search)).map((item) => (
+                    <div key={item.id} className="group rounded-md overflow-hidden border border-border hover:border-foreground/30">
+                      <button type="button" onClick={() => applySceneBackground({ description: item.description || item.name, url: item.file_url })} className="w-full text-left">
+                        <div className="aspect-[9/16] bg-secondary">
+                          <img src={item.file_url} className="w-full h-full object-cover" alt="" />
+                        </div>
+                      </button>
+                      <div className="p-1 flex items-center gap-1">
+                        <p className="text-[9px] truncate flex-1">{item.name}</p>
+                        <button
+                          type="button"
+                          title="添加为贴片"
+                          onClick={() => addSceneAsOverlay(item.file_url)}
+                          className="shrink-0 text-[8px] px-1 py-0.5 rounded bg-secondary hover:bg-accent"
+                        >
+                          贴片
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowBuiltinScenes((v) => !v)}
+              className="w-full mb-2 text-[10px] text-muted-foreground hover:text-foreground flex items-center justify-between px-0.5"
+            >
+              <span>示例场景（内置）</span>
+              <span>{showBuiltinScenes ? '收起' : '展开'}</span>
+            </button>
+            {showBuiltinScenes && (
+              <>
             <div className="flex flex-wrap gap-1 mb-2">
               <button onClick={() => setSceneCategory('all')}
                 className={`text-[10px] px-2 py-0.5 rounded-full ${sceneCategory === 'all' ? 'bg-foreground text-background' : 'bg-secondary text-muted-foreground'}`}>全部</button>
@@ -192,13 +332,15 @@ export default function AssetLibrary({ tab, selectedDhId = '', onSelectDh, onEdi
                 </div>
               ))}
             </div>
+              </>
+            )}
           </>
         )}
 
         {tab === 'subtitle' && (
           <div className="space-y-2">
             {SUBTITLE_STYLES.map(style => {
-              const isActive = seg?.subtitle.style_id === style.id;
+              const isActive = normalizeSubtitleStyleId(seg?.subtitle.style_id || '') === style.id;
               const p = style.preview;
               return (
                 <div key={style.id}
@@ -238,7 +380,62 @@ export default function AssetLibrary({ tab, selectedDhId = '', onSelectDh, onEdi
 
         {tab === 'sound' && (
           <>
-            {SOUND_CATEGORIES.map(cat => {
+            <div className="mb-3">
+              <div className="flex items-center justify-between mb-1.5 px-0.5">
+                <p className="text-[10px] font-medium text-foreground">资产库 BGM</p>
+                <Link to={voiceHub} className="text-[9px] text-brand-blue hover:underline">管理</Link>
+              </div>
+              {libraryBgms.length === 0 ? (
+                <p className="text-[10px] text-muted-foreground px-0.5">暂无 BGM</p>
+              ) : (
+                <div className="space-y-1">
+                  {libraryBgms.map((bgm) => (
+                    <div key={bgm.id} onClick={() => applyToSeg('segment_bgm_url', bgm.file_url)}
+                      className={`flex items-center gap-2 p-2 rounded-md cursor-pointer transition-colors ${
+                        seg?.segment_bgm_url === bgm.file_url ? 'bg-foreground/10 ring-1 ring-foreground/20' : 'hover:bg-accent'
+                      }`}>
+                      <div className="w-8 h-8 rounded bg-secondary flex items-center justify-center shrink-0">
+                        <IconMusic size={14} className="text-muted-foreground" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[11px] font-medium truncate">{bgm.name}</p>
+                        <p className="text-[9px] text-muted-foreground truncate">{bgm.description || '背景音乐'}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+            {libraryTts.length > 0 && (
+              <div className="mb-3">
+                <p className="text-[10px] font-medium text-foreground mb-1.5 px-0.5">资产库音色</p>
+                <div className="space-y-1">
+                  {libraryTts.map((voice) => (
+                    <div key={voice.id} onClick={() => applyToSeg('voice_id', voice.voice_id)}
+                      className={`flex items-center gap-2 p-2 rounded-md cursor-pointer transition-colors ${
+                        seg?.voice_id === voice.voice_id ? 'bg-foreground/10 ring-1 ring-foreground/20' : 'hover:bg-accent'
+                      }`}>
+                      <div className="w-8 h-8 rounded bg-secondary flex items-center justify-center shrink-0">
+                        <IconMic size={14} className="text-muted-foreground" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[11px] font-medium truncate">{voice.name}</p>
+                        <p className="text-[9px] text-muted-foreground truncate">{voice.voice_id}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => setShowBuiltinSounds((v) => !v)}
+              className="w-full mb-2 text-[10px] text-muted-foreground hover:text-foreground flex items-center justify-between px-0.5"
+            >
+              <span>示例音效（内置）</span>
+              <span>{showBuiltinSounds ? '收起' : '展开'}</span>
+            </button>
+            {showBuiltinSounds && SOUND_CATEGORIES.map(cat => {
               const items = SOUND_EFFECTS.filter(s => s.category === cat.id);
               if (!items.length) return null;
               return (
@@ -365,7 +562,7 @@ export default function AssetLibrary({ tab, selectedDhId = '', onSelectDh, onEdi
               <div className="text-center py-8">
                 <IconUser size={32} className="text-muted-foreground/40 mx-auto mb-2" />
                 <p className="text-[10px] text-muted-foreground">暂无就绪数字人</p>
-                <p className="text-[9px] text-muted-foreground/60 mt-1">请先在数字人管理页面创建</p>
+                <Link to={dhHub} className="text-[9px] text-brand-blue mt-2 inline-block">前往资产库创建</Link>
               </div>
             ) : (
               <div className="grid grid-cols-2 gap-2">

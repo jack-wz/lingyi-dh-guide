@@ -68,8 +68,10 @@ function objectToOverlay(
     || Boolean(obj.interaction) || metadata.source === 'record';
   if (!assetUrl && !hasRenderable) return null;
 
-  let duration = Number(metadata.duration_sec ?? segmentDuration);
+  const startTime = Math.max(0, Number(obj.seg_start_time ?? 0));
+  let duration = Number(obj.duration ?? metadata.duration_sec ?? segmentDuration);
   if (!Number.isFinite(duration) || duration <= 0) duration = segmentDuration;
+  duration = Math.min(duration, Math.max(0.1, segmentDuration - startTime));
 
   let renderWidthPct = 33;
   let renderHeightPct = 13;
@@ -89,9 +91,9 @@ function objectToOverlay(
     render_width_pct: renderWidthPct,
     render_height_pct: renderHeightPct,
     rotation: Number(obj.rotation ?? 0),
-    seg_start_time: 0,
-    duration: Math.min(duration, segmentDuration),
-    animation: String(metadata.animation || 'none'),
+    seg_start_time: startTime,
+    duration,
+    animation: String(obj.animation || metadata.animation || 'none'),
     object_type: objType,
     label: String(obj.label || ''),
     text: String(obj.text || ''),

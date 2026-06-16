@@ -90,14 +90,26 @@ export function redactProviderConfigSnapshot(snapshot: unknown): unknown {
   return snapshot;
 }
 
+function parseStoredError(errorMessage: string): { error_code: string | null; error_message: string } {
+  const raw = String(errorMessage || '').trim();
+  const match = raw.match(/^\[([A-Z][A-Z0-9_]*)\]\s*(.*)$/s);
+  if (match) {
+    return { error_code: match[1], error_message: match[2] || raw };
+  }
+  return { error_code: null, error_message: raw };
+}
+
 export function enrichJob<T extends Record<string, unknown>>(
   job: T | undefined,
   dataDir: string,
-): (T & { output_exists: boolean }) | undefined {
+): (T & { output_exists: boolean; error_code: string | null }) | undefined {
   if (!job) return undefined;
   const outputUrl = typeof job.output_url === 'string' ? job.output_url : undefined;
+  const parsed = parseStoredError(String(job.error_message || ''));
   return {
     ...job,
+    error_message: parsed.error_message,
+    error_code: parsed.error_code,
     provider_config_snapshot: redactProviderConfigSnapshot(job.provider_config_snapshot),
     output_exists: outputExists(outputUrl, dataDir),
   };

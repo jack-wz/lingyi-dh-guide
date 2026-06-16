@@ -173,7 +173,9 @@ def process_job(job):
         update_job(job_id, status="cancelled", stage="cancelled", progress=0, error_message=str(e))
         post_log(job_id, f"任务已取消: {e}", level="warn")
     except Exception as e:
-        error_msg = f"{type(e).__name__}: {str(e)}"
+        from worker.errors import format_worker_error
+
+        error_msg = format_worker_error(e)
         print(f"[Worker] Job {job_id} failed: {error_msg}")
         traceback.print_exc()
         update_job(job_id, status="failed", stage="failed", error_message=error_msg)

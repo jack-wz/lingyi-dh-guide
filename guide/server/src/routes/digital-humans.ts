@@ -1,8 +1,12 @@
 import { Router, Request, Response } from 'express';
+import { join } from 'path';
+import { existsSync } from 'fs';
 import { v4 as uuidv4 } from 'uuid';
-import { getDb } from '../db/database.js';
+import { getDb, getDataDir } from '../db/database.js';
 import { removeRenderArtifactsForJobs } from '../render-artifacts.js';
 import { spawnDetachedPython } from '../python-spawn.js';
+import { mattingDigitalHumanImage } from '../digital-human-matting.js';
+import { ErrorCodes, apiError, apiErrorFromMessage } from '../apiErrors.js';
 
 const router = Router();
 
@@ -42,7 +46,7 @@ router.get('/', (_req: Request, res: Response) => {
 router.get('/:id', (req: Request, res: Response) => {
   const db = getDb();
   const row = db.prepare('SELECT * FROM digital_humans WHERE id = ?').get(req.params.id);
-  if (!row) return res.status(404).json({ error: 'Digital human not found' });
+  if (!row) return apiError(res, ErrorCodes.DH_NOT_FOUND, 'Digital human not found', 404);
   res.json(row);
 });
 
@@ -64,9 +68,9 @@ router.post('/', (req: Request, res: Response) => {
 router.put('/:id', (req: Request, res: Response) => {
   const db = getDb();
   const existing = db.prepare('SELECT * FROM digital_humans WHERE id = ?').get(req.params.id) as any;
-  if (!existing) return res.status(404).json({ error: 'Not found' });
+  if (!existing) return apiError(res, ErrorCodes.DH_NOT_FOUND, 'Digital human not found', 404);
 
-  const fields = ['name', 'face_photo_url', 'half_body_photo_url', 'full_body_photo_url',
+  const fields = ['name', 'face_photo_url', 'half_body_photo_url', 'half_body_cutout_url', 'full_body_photo_url',
     'voice_sample_url', 'voice_clone_id', 'image_model_id', 'status', 'provider_job_id',
     'training_error', 'last_trained_at'];
 
@@ -101,7 +105,7 @@ router.delete('/:id', (req: Request, res: Response) => {
   const dhId = req.params.id;
 
   const existing = db.prepare('SELECT * FROM digital_humans WHERE id = ?').get(dhId);
-  if (!existing) return res.status(404).json({ error: 'Digital human not found' });
+  if (!existing) return apiError(res, ErrorCodes.DH_NOT_FOUND, 'Digital human not found', 404);
 
   const jobs = db.prepare('SELECT id, output_url FROM render_jobs WHERE digital_human_id = ?').all(dhId) as Array<{
     id: string;
@@ -126,7 +130,7 @@ router.delete('/:id', (req: Request, res: Response) => {
 router.post('/:id/train', (req: Request, res: Response) => {
   const db = getDb();
   const row = db.prepare('SELECT * FROM digital_humans WHERE id = ?').get(req.params.id) as any;
-  if (!row) return res.status(404).json({ error: 'Not found' });
+  if (!row) return apiError(res, ErrorCodes.DH_NOT_FOUND, 'Digital human not found', 404);
 
   const missing = missingAssets(row);
 
@@ -138,7 +142,7 @@ router.post('/:id/train', (req: Request, res: Response) => {
        WHERE id = ?`
     ).run(msg, req.params.id);
     const updated = db.prepare('SELECT * FROM digital_humans WHERE id = ?').get(req.params.id);
-    return res.status(400).json({ error: msg, digital_human: updated });
+    return apiError(res, ErrorCodes.ASSETS_INCOMPLETE, msg, 400, { digital_human: updated });
   }
 
   const provider = normalizeProvider(req.body?.provider || defaultTrainingProvider());
@@ -181,7 +185,7 @@ router.post('/:id/train', (req: Request, res: Response) => {
 router.post('/:id/training-status', (req: Request, res: Response) => {
   const db = getDb();
   const row = db.prepare('SELECT * FROM digital_humans WHERE id = ?').get(req.params.id) as any;
-  if (!row) return res.status(404).json({ error: 'Not found' });
+  if (!row) return apiError(res, ErrorCodes.DH_NOT_FOUND, 'Digital human not found', 404);
 
   const nextStatus = req.body?.status;
   if (!['training', 'ready', 'failed'].includes(nextStatus)) {
@@ -224,6 +228,38 @@ router.post('/:id/training-status', (req: Request, res: Response) => {
     nextStatus,
     req.params.id
   );
+
+  const updated = db.prepare('SELECT * FROM digital_humans WHERE id = ?').get(req.params.id);
+  res.json(updated);
+});
+
+function resolveUploadPath(url: string): string {
+  const normalized = String(url || '').trim();
+  if (!normalized.startsWith('/uploads/')) return '';
+  return join(getDataDir(), normalized.replace(/^\//, ''));
+}
+
+// POST /api/digital-humans/:id/matting - generate transparent cutout from half-body photo
+router.post('/:id/matting', (req: Request, res: Response) => {
+  const db = getDb();
+  const row = db.prepare('SELECT * FROM digital_humans WHERE id = ?').get(req.params.id) as Record<string, string> | undefined;
+  if (!row) return apiError(res, ErrorCodes.DH_NOT_FOUND, 'Digital human not found', 404);
+
+  const srcPath = resolveUploadPath(row.half_body_photo_url);
+  if (!srcPath || !existsSync(srcPath)) {
+    return res.status(400).json({ error: '半身照片不存在，无法抠图' });
+  }
+
+  const cutoutPath = join(getDataDir(), 'uploads', 'digital-humans', req.params.id, 'half_body_cutout.png');
+  const result = mattingDigitalHumanImage(srcPath, cutoutPath);
+  if (!result.ok) {
+    return apiErrorFromMessage(res, result.error || '抠图失败', 500);
+  }
+
+  const cutoutUrl = `/uploads/digital-humans/${req.params.id}/half_body_cutout.png`;
+  db.prepare(
+    `UPDATE digital_humans SET half_body_cutout_url = ?, updated_at = datetime('now') WHERE id = ?`,
+  ).run(cutoutUrl, req.params.id);
 
   const updated = db.prepare('SELECT * FROM digital_humans WHERE id = ?').get(req.params.id);
   res.json(updated);
