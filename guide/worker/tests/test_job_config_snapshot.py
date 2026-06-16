@@ -28,10 +28,13 @@ class JobConfigSnapshotTests(unittest.TestCase):
                     "wavespeed": {
                         "api_key": "snapshot-wave-key",
                         "base_url": "https://snapshot.wave",
+                        "model": "infinitetalk-multi",
+                        "resolution": "720p",
                     },
                 },
                 "pipeline": {
                     "poll_interval": 11,
+                    "avatar_provider": "kie",
                     "timeline_validate": False,
                     "timeline_validate_strict": True,
                 },
@@ -43,7 +46,12 @@ class JobConfigSnapshotTests(unittest.TestCase):
                 config.get_yuntts_config(),
                 ("snapshot-yuntts-key", "https://snapshot.yuntts", "snapshot-voice"),
             )
-            self.assertEqual(config.get_wavespeed_config(), ("snapshot-wave-key", "https://snapshot.wave"))
+            self.assertEqual(
+                config.get_wavespeed_config(),
+                ("snapshot-wave-key", "https://snapshot.wave", "infinitetalk-multi", "720p"),
+            )
+            self.assertEqual(config.get_avatar_provider(), "kie")
+            self.assertEqual(config.get_pipeline_config()["avatar_provider"], "kie")
             pipeline_cfg = config.get_pipeline_config()
             self.assertEqual(pipeline_cfg["poll_interval"], 11)
             self.assertFalse(pipeline_cfg["timeline_validate"])

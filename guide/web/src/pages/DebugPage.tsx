@@ -21,7 +21,7 @@ interface Config {
   models: {
     kie: { base_url: string; api_key: string; model: string; aspect_ratio: string; resolution: string; poll_timeout: number };
     yuntts: { base_url: string; api_key: string; default_voice: string; max_audio_duration: number };
-    wavespeed: { base_url: string; api_key: string; resolution: string };
+    wavespeed: { base_url: string; api_key: string; model: string; resolution: string };
     ffmpeg: { codec: string; preset: string; crf: number; audio_bitrate: string };
     llm: { base_url: string; api_key: string; model: string };
   };
@@ -36,6 +36,7 @@ interface Config {
     tts_speed_threshold: number;
     ken_burns_zoom_start: number;
     ken_burns_zoom_end: number;
+    avatar_provider: 'wavespeed' | 'kie';
     timeline_validate: boolean;
     timeline_validate_strict: boolean;
     subtitle_aligner: 'whisper' | 'heuristic';
@@ -343,6 +344,23 @@ function PromptsPanel({ log }: { log: (l: LogEntry['level'], m: string) => void 
             </select>
           </div>
           <div className="col-span-2">
+            <label className="text-[12px] text-muted-foreground block mb-1">口型/数字人后端</label>
+            <select
+              value={config.pipeline.avatar_provider || 'wavespeed'}
+              onChange={e => setConfig({
+                ...config,
+                pipeline: { ...config.pipeline, avatar_provider: e.target.value as 'wavespeed' | 'kie' },
+              })}
+              className="w-full h-9 bg-secondary border border-border rounded-md px-2 text-sm"
+            >
+              <option value="wavespeed">WaveSpeed（InfiniteTalk 等，推荐）</option>
+              <option value="kie">KIE 口型同步（预留，尚未实现）</option>
+            </select>
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              KIE 用于场景图生成；口型视频由本项选择 WaveSpeed 或未来的 KIE 口型 API。
+            </p>
+          </div>
+          <div className="col-span-2">
             <label className="text-[12px] text-muted-foreground block mb-1">Whisper 模型</label>
             <input
               value={config.pipeline.whisper_model || 'base'}
@@ -361,12 +379,22 @@ function PromptsPanel({ log }: { log: (l: LogEntry['level'], m: string) => void 
 }
 
 /* ===== 模型配置面板 (可编辑) ===== */
+interface AvatarDiagnostics {
+  provider: string;
+  wavespeed_model: string;
+  resolution: string;
+  configured: boolean;
+  hint: string;
+}
+
 function ModelsPanel({ log }: { log: (l: LogEntry['level'], m: string) => void }) {
   const [config, setConfig] = useState<Config | null>(null);
+  const [avatarDiag, setAvatarDiag] = useState<AvatarDiagnostics | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     fetch(`${API_BASE}/config`).then(r => r.json()).then(setConfig).catch(() => {});
+    fetch(`${API_BASE}/config/diagnostics`).then(r => r.json()).then(d => setAvatarDiag(d.avatar ?? null)).catch(() => {});
   }, []);
 
   const save = async () => {
@@ -411,7 +439,8 @@ function ModelsPanel({ log }: { log: (l: LogEntry['level'], m: string) => void }
     { key: 'wavespeed', label: 'WaveSpeed 唇形同步', icon: IconFilm, fields: [
       { key: 'base_url', label: '基础 URL' },
       { key: 'api_key', label: 'API 密钥', sensitive: true },
-      { key: 'resolution', label: '分辨率' },
+      { key: 'model', label: '口型模型 (infinitetalk / infinitetalk-multi)' },
+      { key: 'resolution', label: '分辨率 (480p / 720p)' },
     ]},
     { key: 'ffmpeg', label: 'FFmpeg 编码参数', icon: IconSettings, fields: [
       { key: 'codec', label: '编码器' },
@@ -423,6 +452,23 @@ function ModelsPanel({ log }: { log: (l: LogEntry['level'], m: string) => void }
 
   return (
     <div className="space-y-4">
+      {avatarDiag && (
+        <div className="bg-card border border-border rounded-lg p-4">
+          <h3 className="text-[14px] font-medium mb-2">口型/数字人运行时</h3>
+          <div className="grid grid-cols-2 gap-2 text-[12px]">
+            <div className="text-muted-foreground">后端</div>
+            <div className="font-mono">{avatarDiag.provider}</div>
+            <div className="text-muted-foreground">WaveSpeed 模型</div>
+            <div className="font-mono">{avatarDiag.wavespeed_model}</div>
+            <div className="text-muted-foreground">分辨率</div>
+            <div className="font-mono">{avatarDiag.resolution}</div>
+            <div className="text-muted-foreground">密钥状态</div>
+            <div>{avatarDiag.configured ? '已配置' : '未配置'}</div>
+          </div>
+          <p className="mt-3 text-[11px] text-muted-foreground">{avatarDiag.hint}</p>
+        </div>
+      )}
+
       <div className="bg-card border border-border rounded-lg p-4">
         <h3 className="text-[14px] font-medium mb-2">LLM 运行时状态</h3>
         <div className="grid grid-cols-2 gap-2 text-[12px]">

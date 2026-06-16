@@ -14,7 +14,7 @@ interface Config {
   models: {
     kie: { base_url: string; api_key: string; model: string; aspect_ratio: string; resolution: string; poll_timeout: number };
     yuntts: { base_url: string; api_key: string; default_voice: string; max_audio_duration: number };
-    wavespeed: { base_url: string; api_key: string; resolution: string };
+    wavespeed: { base_url: string; api_key: string; model: string; resolution: string };
     ffmpeg: { codec: string; preset: string; crf: number; audio_bitrate: string };
     llm: { base_url: string; api_key: string; model: string };
   };
@@ -28,6 +28,7 @@ interface Config {
     tts_speed_threshold: number;
     ken_burns_zoom_start: number;
     ken_burns_zoom_end: number;
+    avatar_provider: 'wavespeed' | 'kie';
     timeline_validate: boolean;
     timeline_validate_strict: boolean;
     subtitle_aligner: 'whisper' | 'heuristic';
@@ -39,7 +40,7 @@ const DEFAULT_CONFIG: Config = {
   models: {
     kie: { base_url: 'https://api.kie.ai', api_key: '', model: 'gpt-image-2-image-to-image', aspect_ratio: '9:16', resolution: '2K', poll_timeout: 300 },
     yuntts: { base_url: 'https://www.yuntts.com/api/v1', api_key: 'sk-', default_voice: 'zh-CN-XiaoxiaoNeural', max_audio_duration: 28 },
-    wavespeed: { base_url: 'https://api.wavespeed.ai', api_key: '', resolution: '480p' },
+    wavespeed: { base_url: 'https://api.wavespeed.ai', api_key: '', model: 'infinitetalk', resolution: '480p' },
     ffmpeg: { codec: 'libx264', preset: 'veryfast', crf: 18, audio_bitrate: '192k' },
     llm: { base_url: 'https://api.openai.com/v1', api_key: '', model: 'gpt-4o-mini' },
   },
@@ -53,6 +54,7 @@ const DEFAULT_CONFIG: Config = {
     tts_speed_threshold: 1.1,
     ken_burns_zoom_start: 1.0,
     ken_burns_zoom_end: 1.15,
+    avatar_provider: 'wavespeed',
     timeline_validate: true,
     timeline_validate_strict: false,
     subtitle_aligner: 'whisper',
@@ -99,7 +101,8 @@ function buildDiagnostics(config: Config) {
       name: 'KIE 场景图',
       configured: hasUsableApiKey(config.models.kie.api_key),
       base_url: config.models.kie.base_url,
-      used_for: ['standard'],
+      model: config.models.kie.model,
+      used_for: ['scene_image'],
       fallback: '缺失时会跳过 AI 场景图，改用参考图或占位画面。',
     },
     yuntts: {
@@ -115,7 +118,9 @@ function buildDiagnostics(config: Config) {
       name: 'WaveSpeed 口型/数字人视频',
       configured: hasUsableApiKey(config.models.wavespeed.api_key),
       base_url: config.models.wavespeed.base_url,
-      used_for: ['standard', 'digital_human'],
+      model: config.models.wavespeed.model || 'infinitetalk',
+      resolution: config.models.wavespeed.resolution || '480p',
+      used_for: ['lip_sync'],
       fallback: '缺失时会跳过口型视频，退回图片动效或占位视频。',
     },
     ffmpeg: {
@@ -162,10 +167,31 @@ function buildDiagnostics(config: Config) {
     },
   };
 
+  const avatarProvider = (config.pipeline?.avatar_provider || 'wavespeed').toLowerCase();
+  const wavespeedModel = config.models.wavespeed.model || 'infinitetalk';
+
   return {
     data_dir: getDataDir(),
     providers: providerList,
     pipelines: pipelineStatus,
+    avatar: {
+      provider: avatarProvider,
+      wavespeed_model: wavespeedModel,
+      resolution: config.models.wavespeed.resolution || '480p',
+      configured:
+        avatarProvider === 'kie'
+          ? hasUsableApiKey(config.models.kie.api_key)
+          : hasUsableApiKey(config.models.wavespeed.api_key),
+      available_providers: [
+        { id: 'wavespeed', label: 'WaveSpeed（InfiniteTalk 等）', ready: true },
+        { id: 'kie', label: 'KIE 口型同步（预留插槽）', ready: false },
+      ],
+      available_wavespeed_models: ['infinitetalk', 'infinitetalk-multi', 'infinite-talk'],
+      hint:
+        avatarProvider === 'kie'
+          ? 'KIE 口型 adapter 尚未实现，请改用 wavespeed 或等待后续版本。'
+          : `当前口型后端：WaveSpeed / ${wavespeedModel}`,
+    },
   };
 }
 

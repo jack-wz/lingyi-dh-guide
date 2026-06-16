@@ -117,7 +117,7 @@ def verify_yuntts() -> dict:
 
 
 def verify_wavespeed() -> dict:
-    key, base = get_wavespeed_config()
+    key, base, *_ = get_wavespeed_config()
     url = f"{base.rstrip('/')}/api/v3/balance"
     res = requests.get(url, headers={"Authorization": f"Bearer {key}"}, timeout=30)
     body = res.json() if res.headers.get("content-type", "").startswith("application/json") else {}

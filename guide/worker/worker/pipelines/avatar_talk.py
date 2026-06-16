@@ -10,7 +10,8 @@ import asyncio
 
 from worker.pipelines import BasePipeline, pipeline_registry
 from worker.context import PipelineContext
-from worker.avatar_adapter import avatar_registry
+from worker.avatar_provider import resolve_avatar_adapter
+from worker.config import get_avatar_provider
 from worker.stage1_parser import parse_template
 from worker.stage3_video_gen import generate_segment_videos
 from worker.stage4_ffmpeg import assemble_final_video
@@ -43,8 +44,8 @@ class AvatarTalkPipeline(BasePipeline):
         ctx.report_progress("scene_gen", 25, "AvatarTalk：跳过场景图生成，使用数字人直接合成")
 
     async def generate_videos(self, ctx: PipelineContext):
-        provider = os.getenv("AVATAR_PROVIDER", "wavespeed")
-        adapter = avatar_registry.get(provider, server_base_url=ctx.server_base_url)
+        provider = get_avatar_provider()
+        adapter = resolve_avatar_adapter(ctx.server_base_url)
         print(f"[AvatarTalk] Using avatar provider: {provider}")
 
         voice_clone_id = ctx.digital_human.get("voice_clone_id", "")

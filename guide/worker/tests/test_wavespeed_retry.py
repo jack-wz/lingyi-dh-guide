@@ -10,7 +10,10 @@ from worker.provider_errors import ProviderTimeoutError
 
 
 class WaveSpeedRetryTests(unittest.TestCase):
-    @patch("worker.ai_clients.talking_head_client.get_wavespeed_config", return_value=("test-key", "https://wave.test"))
+    @patch(
+        "worker.ai_clients.talking_head_client.get_wavespeed_config",
+        return_value=("test-key", "https://wave.test", "infinitetalk", "480p"),
+    )
     @patch.object(TalkingHeadClient, "_generate_talking_video_once")
     def test_retries_on_timeout(self, mock_once, _cfg):
         mock_once.side_effect = [
@@ -24,7 +27,10 @@ class WaveSpeedRetryTests(unittest.TestCase):
         self.assertEqual(url, "https://cdn.example/video.mp4")
         self.assertEqual(mock_once.call_count, 3)
 
-    @patch("worker.ai_clients.talking_head_client.get_wavespeed_config", return_value=("test-key", "https://wave.test"))
+    @patch(
+        "worker.ai_clients.talking_head_client.get_wavespeed_config",
+        return_value=("test-key", "https://wave.test", "infinitetalk", "480p"),
+    )
     @patch.object(TalkingHeadClient, "_generate_talking_video_once", return_value="")
     def test_exhausts_retries_on_empty_result(self, mock_once, _cfg):
         client = TalkingHeadClient()

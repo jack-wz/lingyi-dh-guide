@@ -43,11 +43,11 @@ def generate_segment_videos(
         raise RuntimeError("FFmpeg is not available. Install FFmpeg and ensure `ffmpeg` is on PATH.")
 
     ensure_dir(work_dir)
-    from worker.ai_clients.talking_head_client import TalkingHeadClient
+    from worker.avatar_provider import resolve_avatar_adapter
     from worker.tts_adapter import tts_registry
 
     tts = tts_adapter or tts_registry.get("yuntts")
-    talking_head = TalkingHeadClient()
+    avatar = avatar_adapter or resolve_avatar_adapter(server_base_url)
     canvas_w = global_config.get("canvas_width", 1080)
     canvas_h = global_config.get("canvas_height", 1920)
     fps = global_config.get("fps", 30)
@@ -130,8 +130,8 @@ def generate_segment_videos(
             print(f"[Stage3] Segment {i+1}: Trying talking head (lip-sync) video...")
             clip_path = _generate_narration_clip(
                 seg, i, text, duration, scene_path, tts_path,
-                talking_head, work_dir, canvas_w, canvas_h, fps, server_base_url,
-                avatar_adapter, human_photos,
+                work_dir, canvas_w, canvas_h, fps, server_base_url,
+                avatar, human_photos,
             )
         else:
             print(f"[Stage3] Segment {i+1}: Skipping talking head (missing scene image or TTS audio)")
@@ -259,9 +259,9 @@ def _resolve_voice_sample(voice_sample_url: str, server_base_url: str, work_dir:
 
 def _generate_narration_clip(
     seg, index, text, duration, scene_path, tts_path,
-    talking_head, work_dir, canvas_w, canvas_h, fps,
+    work_dir, canvas_w, canvas_h, fps,
     server_base_url,
-    avatar_adapter=None,
+    avatar_adapter,
     human_config=None,
 ):
     """Generate a talking-head narration clip using pre-generated TTS audio."""
@@ -271,39 +271,19 @@ def _generate_narration_clip(
     except Exception:
         audio_dur = duration
 
-    video_url = None
-    if avatar_adapter is not None:
-        print(f"[Stage3] Seg {index+1}: Calling AvatarAdapter: image={scene_path}, audio={tts_path}")
-        try:
-            clip_path = os.path.join(work_dir, f"clip_{index}.mp4")
-            generated = avatar_adapter.generate(
-                audio_path=tts_path,
-                image_path=scene_path,
-                human_config=human_config or {},
-                output_path=clip_path,
-            )
-            if generated and os.path.exists(generated):
-                return generated
-        except Exception as e:
-            print(f"[Stage3] AvatarAdapter generation failed: {e}")
-
-    if not video_url:
-        # Pass local paths directly - talking_head_client will upload to WaveSpeed
-        print(f"[Stage3] Seg {index+1}: Calling talking head API: image={scene_path}, audio={tts_path}")
-        video_url = talking_head.generate_talking_video(
-            image_path_or_url=scene_path,
-            audio_path_or_url=tts_path,
-            duration=audio_dur,
-        )
-
-    if video_url:
+    print(f"[Stage3] Seg {index+1}: Calling AvatarAdapter: image={scene_path}, audio={tts_path}")
+    try:
         clip_path = os.path.join(work_dir, f"clip_{index}.mp4")
-        try:
-            download_file(video_url, clip_path)
-            print(f"[Stage3] Seg {index+1}: Talking head video downloaded")
-            return clip_path
-        except Exception as e:
-            print(f"[Stage3] Download talking video failed: {e}")
+        generated = avatar_adapter.generate(
+            audio_path=tts_path,
+            image_path=scene_path,
+            human_config=human_config or {},
+            output_path=clip_path,
+        )
+        if generated and os.path.exists(generated):
+            return generated
+    except Exception as e:
+        print(f"[Stage3] AvatarAdapter generation failed: {e}")
 
     # Fallback: scene image + audio overlay
     return _generate_image_audio_clip(

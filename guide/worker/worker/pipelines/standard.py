@@ -8,6 +8,7 @@ from worker.stage1_parser import parse_template
 from worker.stage2_scene_gen import generate_scene_images
 from worker.stage3_video_gen import generate_segment_videos
 from worker.stage4_ffmpeg import assemble_final_video
+from worker.avatar_provider import resolve_avatar_adapter
 
 
 class StandardPipeline(BasePipeline):
@@ -45,11 +46,13 @@ class StandardPipeline(BasePipeline):
         voice_clone_id = ctx.digital_human.get("voice_clone_id", "")
         human_photos = ctx.digital_human or {}
         voice_sample_url = ctx.digital_human.get("voice_sample_url", "")
+        adapter = resolve_avatar_adapter(ctx.server_base_url)
         await asyncio.to_thread(
             generate_segment_videos,
             ctx.segments, ctx.dsl.get("globalConfig", {}),
             voice_clone_id, human_photos, ctx.work_dir,
-            ctx.server_base_url, ctx.on_progress, voice_sample_url
+            ctx.server_base_url, ctx.on_progress, voice_sample_url,
+            avatar_adapter=adapter,
         )
 
     async def assemble(self, ctx: PipelineContext) -> str:

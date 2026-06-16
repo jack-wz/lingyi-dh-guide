@@ -6,6 +6,25 @@ import requests
 from worker.config import get_wavespeed_config
 from worker.provider_errors import ProviderTimeoutError, raise_if_timeout
 
+# WaveSpeed-hosted talking-head models (extend as new endpoints ship).
+WAVESPEED_TALKING_MODEL_PATHS: dict[str, str] = {
+    "infinitetalk": "/api/v3/wavespeed-ai/infinitetalk",
+    "infinite-talk": "/api/v3/wavespeed-ai/infinitetalk",
+    "infinitetalk-multi": "/api/v3/wavespeed-ai/infinitetalk-multi",
+}
+
+
+def resolve_wavespeed_submit_url(base_url: str, model: str) -> str:
+    """Map configured model id to WaveSpeed submit URL."""
+    raw = (model or "infinitetalk").strip()
+    if raw.startswith("http://") or raw.startswith("https://"):
+        return raw
+    if raw.startswith("/api/"):
+        return f"{base_url.rstrip('/')}{raw}"
+    path = WAVESPEED_TALKING_MODEL_PATHS.get(raw.lower(), f"/api/v3/wavespeed-ai/{raw}")
+    return f"{base_url.rstrip('/')}{path}"
+
+
 DEFAULT_MAX_ATTEMPTS = int(os.getenv("WAVESPEED_MAX_ATTEMPTS", "3"))
 DEFAULT_RETRY_BACKOFF = float(os.getenv("WAVESPEED_RETRY_BACKOFF", "2.0"))
 
@@ -19,9 +38,11 @@ def _is_retriable_http_error(exc: Exception) -> bool:
 
 class TalkingHeadClient:
     def __init__(self, server_base_url: str = ""):
-        api_key, base_url = get_wavespeed_config()
+        api_key, base_url, model, resolution = get_wavespeed_config()
         self.base_url = base_url
         self.api_key = api_key
+        self.model = model
+        self.resolution = resolution
         self.server_base_url = server_base_url
         self.headers = {
             "Authorization": f"Bearer {self.api_key}",
@@ -194,10 +215,11 @@ class TalkingHeadClient:
         payload = {
             "image": image_url,
             "audio": audio_url,
-            "resolution": "480p",
+            "resolution": self.resolution or "480p",
             "seed": -1,
         }
-        submit_url = f"{self.base_url}/api/v3/wavespeed-ai/infinitetalk"
+        submit_url = resolve_wavespeed_submit_url(self.base_url, self.model)
+        print(f"[TalkingHead] Model={self.model} resolution={payload['resolution']}")
         print(f"[TalkingHead] Submitting task to {submit_url}")
         print(f"[TalkingHead] Payload: {payload}")
         timeout_s = 60

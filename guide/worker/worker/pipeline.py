@@ -110,6 +110,9 @@ def run_pipeline(
         voice_clone_id = digital_human.get("voice_clone_id", "")
         voice_sample_url = digital_human.get("voice_sample_url", "")
 
+        from worker.avatar_provider import resolve_avatar_adapter
+
+        adapter = resolve_avatar_adapter(server_base_url)
         segments = generate_segment_videos(
             segments,
             resolved["globalConfig"],
@@ -119,6 +122,7 @@ def run_pipeline(
             server_base_url,
             on_progress,
             voice_sample_url=voice_sample_url,
+            avatar_adapter=adapter,
         )
 
         # === Stage 4: FFmpeg assembly ===

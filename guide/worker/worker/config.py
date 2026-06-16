@@ -75,6 +75,11 @@ def get_yuntts_config():
     return api_key, base_url, default_voice
 
 
+WAVESPEED_DEFAULT_MODEL = os.getenv("WAVESPEED_MODEL", "infinitetalk")
+WAVESPEED_DEFAULT_RESOLUTION = os.getenv("WAVESPEED_RESOLUTION", "480p")
+AVATAR_PROVIDER_DEFAULT = os.getenv("AVATAR_PROVIDER", "wavespeed")
+
+
 def get_wavespeed_config():
     """Get WaveSpeed config with hot-reload from config.json."""
     cfg = _load_json().get("models", {}).get("wavespeed", {})
@@ -82,7 +87,16 @@ def get_wavespeed_config():
     if not api_key or "***" in api_key:
         api_key = WAVESPEED_API_KEY
     base_url = cfg.get("base_url") or WAVESPEED_BASE_URL
-    return api_key, base_url
+    model = (cfg.get("model") or WAVESPEED_DEFAULT_MODEL or "infinitetalk").strip()
+    resolution = (cfg.get("resolution") or WAVESPEED_DEFAULT_RESOLUTION or "480p").strip()
+    return api_key, base_url, model, resolution
+
+
+def get_avatar_provider() -> str:
+    """Talking-head provider: wavespeed (InfiniteTalk via WaveSpeed) or kie (reserved)."""
+    cfg = _load_json().get("pipeline", {})
+    provider = (os.getenv("AVATAR_PROVIDER") or cfg.get("avatar_provider") or AVATAR_PROVIDER_DEFAULT or "wavespeed")
+    return str(provider).strip().lower() or "wavespeed"
 
 
 def get_pipeline_config():
@@ -93,6 +107,7 @@ def get_pipeline_config():
         "tts_speed_threshold": cfg.get("tts_speed_threshold") or 1.1,
         "ken_burns_zoom_start": cfg.get("ken_burns_zoom_start") or 1.0,
         "ken_burns_zoom_end": cfg.get("ken_burns_zoom_end") or 1.15,
+        "avatar_provider": get_avatar_provider(),
         "timeline_validate": _env_bool(
             "RENDER_TIMELINE_VALIDATE",
             cfg.get("timeline_validate", True),

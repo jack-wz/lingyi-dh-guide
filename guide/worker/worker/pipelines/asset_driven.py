@@ -10,7 +10,7 @@ import asyncio
 from worker.pipelines import BasePipeline, pipeline_registry
 from worker.context import PipelineContext
 from worker.ai_clients.llm_client import LLMClient
-from worker.avatar_adapter import avatar_registry
+from worker.avatar_provider import resolve_avatar_adapter
 from worker.stage1_parser import parse_template
 from worker.stage2_scene_gen import generate_scene_images
 from worker.stage3_video_gen import generate_segment_videos
@@ -93,8 +93,7 @@ class AssetDrivenPipeline(BasePipeline):
         )
 
     async def generate_videos(self, ctx: PipelineContext):
-        provider = os.getenv("AVATAR_PROVIDER", "wavespeed")
-        adapter = avatar_registry.get(provider, server_base_url=ctx.server_base_url)
+        adapter = resolve_avatar_adapter(ctx.server_base_url)
         voice_clone_id = ctx.digital_human.get("voice_clone_id", "")
         human_photos = ctx.digital_human or {}
         voice_sample_url = ctx.digital_human.get("voice_sample_url", "")

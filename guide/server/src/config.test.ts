@@ -74,6 +74,7 @@ describe('config diagnostics', () => {
       data_dir: string;
       providers: Array<{ key: string; configured: boolean; base_url: string }>;
       pipelines: Record<string, { blockers: string[]; warnings: string[]; provider_keys: string[] }>;
+      avatar: { provider: string; wavespeed_model: string; configured: boolean };
     };
     assert.equal(body.data_dir, dataDir);
     assert.equal(body.providers.find((p) => p.key === 'kie')?.configured, true);
@@ -83,5 +84,15 @@ describe('config diagnostics', () => {
     assert.deepEqual(body.pipelines.standard.provider_keys, ['kie', 'yuntts', 'wavespeed', 'ffmpeg']);
     assert.ok(Array.isArray(body.pipelines.standard.blockers));
     assert.ok(Array.isArray(body.pipelines.digital_human.warnings));
+    assert.equal(body.avatar.provider, 'wavespeed');
+    assert.equal(body.avatar.wavespeed_model, 'infinitetalk');
+    assert.equal(body.avatar.configured, true);
+
+    const kieAvatar = await request('PATCH', '/api/config/pipeline', { avatar_provider: 'kie' });
+    assert.equal(kieAvatar.status, 200);
+    const afterKie = await request('GET', '/api/config/diagnostics');
+    const avatarAfter = (afterKie.json as { avatar: { provider: string; configured: boolean } }).avatar;
+    assert.equal(avatarAfter.provider, 'kie');
+    assert.equal(avatarAfter.configured, true);
   });
 });

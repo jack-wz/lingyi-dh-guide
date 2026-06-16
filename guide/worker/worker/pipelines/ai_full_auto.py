@@ -14,6 +14,7 @@ from worker.ai_clients.llm_client import LLMClient
 from worker.stage1_parser import parse_template
 from worker.stage2_scene_gen import generate_scene_images
 from worker.stage3_video_gen import generate_segment_videos
+from worker.avatar_provider import resolve_avatar_adapter
 from worker.stage4_ffmpeg import assemble_final_video
 
 
@@ -123,6 +124,7 @@ class AIFullAutoPipeline(BasePipeline):
         voice_clone_id = ctx.digital_human.get("voice_clone_id", "")
         human_photos = ctx.digital_human or {}
         voice_sample_url = ctx.digital_human.get("voice_sample_url", "")
+        adapter = resolve_avatar_adapter(ctx.server_base_url)
         await asyncio.to_thread(
             generate_segment_videos,
             ctx.segments,
@@ -133,6 +135,7 @@ class AIFullAutoPipeline(BasePipeline):
             ctx.server_base_url,
             lambda stage, progress, msg="": ctx.on_progress(stage, progress, msg),
             voice_sample_url,
+            avatar_adapter=adapter,
         )
 
     async def assemble(self, ctx: PipelineContext) -> str:
