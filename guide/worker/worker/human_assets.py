@@ -88,7 +88,13 @@ def resolve_human_assets_on_segments(
 
         if face_local:
             seg["human_face_path"] = face_local
-        if half_local and not seg.get("scene_image_path"):
+        elif half_local:
+            seg["human_face_path"] = half_local
+        if half_local and dh.get("enabled"):
+            seg["scene_image_path"] = half_local
+            if half_url:
+                seg["scene_image_url"] = half_url
+        elif half_local and not seg.get("scene_image_path"):
             seg["scene_image_path"] = half_local
             if half_url:
                 seg["scene_image_url"] = half_url

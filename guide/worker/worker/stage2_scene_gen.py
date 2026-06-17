@@ -47,12 +47,20 @@ def generate_scene_images(
     segments = resolved_script.get("segments", [])
     kie = KieClient()
     human_face_url = human_photos.get("face_photo_url", "")
+    human_half_url = (
+        human_photos.get("half_body_photo_url")
+        or human_photos.get("half_body_cutout_url")
+        or ""
+    )
     persona_face = _load_persona_angle(human_photos.get("image_model_id", ""), "face")
     if persona_face:
         human_face_url = persona_face
 
     # Download human face photo to local for reuse
     human_face_path = ""
+    human_half_path = ""
+    if human_half_url:
+        human_half_path = _resolve_local(human_half_url, server_base_url)
     if human_face_url:
         local_path = _resolve_local(human_face_url, server_base_url)
         if local_path and os.path.exists(local_path):
@@ -75,7 +83,34 @@ def generate_scene_images(
 
         # Check if this segment should use digital human
         dh_config = seg.get("digital_human", {})
-        use_digital_human = dh_config.get("enabled", False) or human_face_path
+        use_digital_human = dh_config.get("enabled", False) or human_face_path or human_half_path
+
+        # Digital-human segments: prefer half-body as talking-head source; optionally fuse with template ref via KIE
+        if use_digital_human and human_half_path:
+            human_ref_url = human_half_url or human_face_url
+            human_kie = resolve_kie_input_url(human_ref_url, kie, server_base_url) if human_ref_url else ""
+            ref_kie = resolve_kie_input_url(scene_url, kie, server_base_url) if scene_url else ""
+            if ref_kie and human_kie:
+                print(f"[Stage2] Segment {i+1}: generating digital-human scene via KIE fusion...")
+                generated_url = kie.generate_scene_image(
+                    reference_image_url=ref_kie,
+                    human_image_url=human_kie,
+                    prompt=seg.get("scene_description") or seg.get("narration_text", ""),
+                )
+                if generated_url:
+                    scene_path = os.path.join(work_dir, f"scene_{i}.png")
+                    try:
+                        download_file(generated_url, scene_path)
+                    except Exception as e:
+                        print(f"[Stage2] Download fused scene failed: {e}")
+                        scene_path = ""
+            if not scene_path:
+                print(f"[Stage2] Segment {i+1}: using digital human half-body as scene")
+                scene_path = human_half_path
+            seg["scene_image_path"] = scene_path
+            seg["human_face_path"] = human_face_path or human_half_path
+            print(f"[Stage2] Segment {i+1}: scene = {scene_path or '(none)'}")
+            continue
 
         ref_kie = resolve_kie_input_url(scene_url, kie, server_base_url) if scene_url else ""
         human_kie = resolve_kie_input_url(human_face_url, kie, server_base_url) if human_face_url else ""

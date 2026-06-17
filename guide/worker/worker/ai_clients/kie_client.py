@@ -75,11 +75,11 @@ class KieClient:
                 )
             res.raise_for_status()
             payload = res.json()
-            if payload.get("success") and payload.get("data", {}).get("fileUrl"):
-                return str(payload["data"]["fileUrl"])
-            if payload.get("code") == 200 and payload.get("data", {}).get("fileUrl"):
-                return str(payload["data"]["fileUrl"])
-            print(f"[KIE] Upload response missing fileUrl: {payload}")
+            data = payload.get("data") or {}
+            file_url = data.get("fileUrl") or data.get("downloadUrl") or data.get("url") or ""
+            if file_url and (payload.get("success") or payload.get("code") == 200):
+                return str(file_url)
+            print(f"[KIE] Upload response missing public URL: {payload}")
             return ""
         except Exception as exc:
             print(f"[KIE] Upload failed for {local_path}: {exc}")
