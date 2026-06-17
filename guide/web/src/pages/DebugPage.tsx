@@ -13,8 +13,10 @@ interface LlmRuntime {
   source: 'env' | 'config' | 'none';
   base_url: string;
   model: string;
+  model_fast: string;
   api_key_masked: string;
   used_for: string[];
+  available_models?: string[];
 }
 
 interface Config {
@@ -33,7 +35,7 @@ interface Config {
     yuntts: { base_url: string; api_key: string; default_voice: string; max_audio_duration: number };
     wavespeed: { base_url: string; api_key: string; model: string; resolution: string };
     ffmpeg: { codec: string; preset: string; crf: number; audio_bitrate: string };
-    llm: { base_url: string; api_key: string; model: string };
+    llm: { base_url: string; api_key: string; model: string; model_fast: string };
   };
   llm_runtime?: LlmRuntime;
   prompts: {
@@ -426,13 +428,19 @@ function ModelsPanel({ log }: { log: (l: LogEntry['level'], m: string) => void }
   if (!config) return <div className="text-muted-foreground py-8 text-center">加载中...</div>;
 
   const llmRuntime = config.llm_runtime;
-  const llmModel = config.models.llm || { base_url: '', api_key: '', model: 'gpt-4o-mini' };
+  const llmModel = config.models.llm || {
+    base_url: 'https://api.deepseek.com',
+    api_key: '',
+    model: 'deepseek-v4-pro',
+    model_fast: 'deepseek-v4-flash',
+  };
 
   const sections = [
-    { key: 'llm', label: 'LLM 文本润色', icon: IconType, fields: [
-      { key: 'base_url', label: '基础 URL' },
+    { key: 'llm', label: 'LLM（DeepSeek 文本润色/脚本）', icon: IconType, fields: [
+      { key: 'base_url', label: '基础 URL (https://api.deepseek.com)' },
       { key: 'api_key', label: 'API 密钥', sensitive: true },
-      { key: 'model', label: '模型名' },
+      { key: 'model', label: '主模型 (deepseek-v4-pro)' },
+      { key: 'model_fast', label: '快速模型 (deepseek-v4-flash)' },
     ]},
     { key: 'kie', label: 'KIE.ai（场景图 + InfiniteTalk 口型）', icon: IconImage, fields: [
       { key: 'base_url', label: '基础 URL' },
@@ -489,8 +497,10 @@ function ModelsPanel({ log }: { log: (l: LogEntry['level'], m: string) => void }
         <div className="grid grid-cols-2 gap-2 text-[12px]">
           <div className="text-muted-foreground">生效来源</div>
           <div className="font-mono">{llmRuntime?.source === 'env' ? '环境变量 (LLM_* / OPENAI_*)' : llmRuntime?.source === 'config' ? 'config.json' : '未配置'}</div>
-          <div className="text-muted-foreground">当前模型</div>
+          <div className="text-muted-foreground">主模型</div>
           <div className="font-mono">{llmRuntime?.model || llmModel.model || '—'}</div>
+          <div className="text-muted-foreground">快速模型</div>
+          <div className="font-mono">{llmRuntime?.model_fast || llmModel.model_fast || '—'}</div>
           <div className="text-muted-foreground">Base URL</div>
           <div className="font-mono truncate">{llmRuntime?.base_url || llmModel.base_url || '—'}</div>
           <div className="text-muted-foreground">密钥</div>

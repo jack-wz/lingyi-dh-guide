@@ -147,6 +147,25 @@ def _env_bool(name: str, default: bool) -> bool:
     return str(raw).strip().lower() in {"1", "true", "yes", "on"}
 
 
+LLM_DEFAULT_BASE_URL = os.getenv("LLM_BASE_URL", os.getenv("OPENAI_BASE_URL", "https://api.deepseek.com"))
+LLM_DEFAULT_MODEL = os.getenv("LLM_MODEL", "deepseek-v4-pro")
+LLM_DEFAULT_MODEL_FAST = os.getenv("LLM_MODEL_FAST", "deepseek-v4-flash")
+
+
+def get_llm_config(fast: bool = False):
+    """OpenAI-compatible LLM config (DeepSeek: https://api.deepseek.com)."""
+    cfg = _load_json().get("models", {}).get("llm", {})
+    api_key = cfg.get("api_key", "")
+    if not api_key or "***" in api_key:
+        api_key = os.getenv("LLM_API_KEY", os.getenv("OPENAI_API_KEY", ""))
+    base_url = (cfg.get("base_url") or LLM_DEFAULT_BASE_URL or "https://api.deepseek.com").rstrip("/")
+    if fast:
+        model = (cfg.get("model_fast") or LLM_DEFAULT_MODEL_FAST or "deepseek-v4-flash").strip()
+    else:
+        model = (cfg.get("model") or LLM_DEFAULT_MODEL or "deepseek-v4-pro").strip()
+    return api_key, base_url, model
+
+
 def get_prompt(key, fallback=""):
     """Get a prompt from config.json with hot-reload."""
     val = _load_json().get("prompts", {}).get(key, "")

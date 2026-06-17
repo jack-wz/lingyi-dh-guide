@@ -26,7 +26,7 @@ interface Config {
     yuntts: { base_url: string; api_key: string; default_voice: string; max_audio_duration: number };
     wavespeed: { base_url: string; api_key: string; model: string; resolution: string };
     ffmpeg: { codec: string; preset: string; crf: number; audio_bitrate: string };
-    llm: { base_url: string; api_key: string; model: string };
+    llm: { base_url: string; api_key: string; model: string; model_fast: string };
   };
   prompts: {
     scene_image_default: string;
@@ -62,7 +62,12 @@ const DEFAULT_CONFIG: Config = {
     yuntts: { base_url: 'https://www.yuntts.com/api/v1', api_key: 'sk-', default_voice: 'zh-CN-XiaoxiaoNeural', max_audio_duration: 28 },
     wavespeed: { base_url: 'https://api.wavespeed.ai', api_key: '', model: 'infinitetalk', resolution: '480p' },
     ffmpeg: { codec: 'libx264', preset: 'veryfast', crf: 18, audio_bitrate: '192k' },
-    llm: { base_url: 'https://api.openai.com/v1', api_key: '', model: 'gpt-4o-mini' },
+    llm: {
+      base_url: 'https://api.deepseek.com',
+      api_key: '',
+      model: 'deepseek-v4-pro',
+      model_fast: 'deepseek-v4-flash',
+    },
   },
   prompts: {
     scene_image_default: '将这张场景参考图与人物融合，生成一个真实自然的导购场景图',

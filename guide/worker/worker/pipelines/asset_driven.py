@@ -35,7 +35,7 @@ class AssetDrivenPipeline(BasePipeline):
 
         if asset_urls:
             new_segments = []
-            llm = LLMClient()
+            llm = LLMClient(fast=True)
             for i, url in enumerate(asset_urls[:20]):
                 seg = {**(base_segment or {})}
                 narration = seg.get("narration_text", "")

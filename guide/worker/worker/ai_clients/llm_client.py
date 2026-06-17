@@ -1,14 +1,15 @@
 """Generic OpenAI-compatible LLM client for script/scene generation."""
 
-import os
 import json
 from typing import Any
 
 import requests
 
+from worker.config import get_llm_config
+
 
 class LLMClient:
-    """Minimal OpenAI-compatible chat client."""
+    """Minimal OpenAI-compatible chat client (DeepSeek / OpenAI)."""
 
     def __init__(
         self,
@@ -16,10 +17,12 @@ class LLMClient:
         api_key: str | None = None,
         model: str | None = None,
         timeout: int = 120,
+        fast: bool = False,
     ):
-        self.base_url = (base_url or os.getenv("LLM_BASE_URL", "https://api.openai.com/v1")).rstrip("/")
-        self.api_key = api_key or os.getenv("LLM_API_KEY", "")
-        self.model = model or os.getenv("LLM_MODEL", "gpt-4o-mini")
+        cfg_key, cfg_base, cfg_model = get_llm_config(fast=fast)
+        self.base_url = (base_url or cfg_base).rstrip("/")
+        self.api_key = api_key or cfg_key
+        self.model = model or cfg_model
         self.timeout = timeout
 
     def chat(self, system_prompt: str, user_prompt: str, temperature: float = 0.7) -> str:
@@ -50,7 +53,6 @@ class LLMClient:
     def generate_json(self, system_prompt: str, user_prompt: str, temperature: float = 0.5) -> dict[str, Any]:
         """Call the LLM and parse the response as JSON."""
         content = self.chat(system_prompt, user_prompt, temperature)
-        # Strip markdown code fences if present
         cleaned = content.strip()
         if cleaned.startswith("```"):
             cleaned = "\n".join(cleaned.split("\n")[1:])

@@ -6,15 +6,22 @@ export interface LlmConfig {
   base_url: string;
   api_key: string;
   model: string;
+  model_fast: string;
 }
 
 function readLlmConfig(): LlmConfig | null {
   const apiKey = process.env.LLM_API_KEY || process.env.OPENAI_API_KEY || '';
-  const baseUrl = process.env.LLM_BASE_URL || process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1';
-  const model = process.env.LLM_MODEL || 'gpt-4o-mini';
+  const baseUrl = process.env.LLM_BASE_URL || process.env.OPENAI_BASE_URL || 'https://api.deepseek.com';
+  const model = process.env.LLM_MODEL || 'deepseek-v4-pro';
+  const modelFast = process.env.LLM_MODEL_FAST || 'deepseek-v4-flash';
 
   if (apiKey) {
-    return { base_url: baseUrl.replace(/\/$/, ''), api_key: apiKey, model };
+    return {
+      base_url: baseUrl.replace(/\/$/, ''),
+      api_key: apiKey,
+      model,
+      model_fast: modelFast,
+    };
   }
 
   const configPath = join(getDataDir(), 'config.json');
@@ -27,6 +34,7 @@ function readLlmConfig(): LlmConfig | null {
       base_url: String(llm.base_url || baseUrl).replace(/\/$/, ''),
       api_key: String(llm.api_key),
       model: String(llm.model || model),
+      model_fast: String(llm.model_fast || modelFast),
     };
   } catch {
     return null;
@@ -75,15 +83,19 @@ export interface LlmDisplayInfo {
   source: 'env' | 'config' | 'none';
   base_url: string;
   model: string;
+  model_fast: string;
   api_key_masked: string;
   used_for: string[];
+  available_models: string[];
 }
 
 export function getLlmDisplayInfo(): LlmDisplayInfo {
   const usedFor = ['润色口播 (/api/ai/polish-script)'];
   const envKey = process.env.LLM_API_KEY || process.env.OPENAI_API_KEY || '';
-  const defaultBase = 'https://api.openai.com/v1';
-  const defaultModel = process.env.LLM_MODEL || 'gpt-4o-mini';
+  const defaultBase = 'https://api.deepseek.com';
+  const defaultModel = process.env.LLM_MODEL || 'deepseek-v4-pro';
+  const defaultModelFast = process.env.LLM_MODEL_FAST || 'deepseek-v4-flash';
+  const availableModels = ['deepseek-v4-pro', 'deepseek-v4-flash'];
 
   if (envKey) {
     return {
@@ -91,8 +103,10 @@ export function getLlmDisplayInfo(): LlmDisplayInfo {
       source: 'env',
       base_url: (process.env.LLM_BASE_URL || process.env.OPENAI_BASE_URL || defaultBase).replace(/\/$/, ''),
       model: defaultModel,
+      model_fast: defaultModelFast,
       api_key_masked: `${envKey.slice(0, 6)}***`,
       used_for: usedFor,
+      available_models: availableModels,
     };
   }
 
@@ -103,8 +117,10 @@ export function getLlmDisplayInfo(): LlmDisplayInfo {
       source: 'none',
       base_url: defaultBase,
       model: defaultModel,
+      model_fast: defaultModelFast,
       api_key_masked: '',
       used_for: usedFor,
+      available_models: availableModels,
     };
   }
 
@@ -113,7 +129,9 @@ export function getLlmDisplayInfo(): LlmDisplayInfo {
     source: 'config',
     base_url: cfg.base_url,
     model: cfg.model,
+    model_fast: cfg.model_fast,
     api_key_masked: `${cfg.api_key.slice(0, 6)}***`,
     used_for: usedFor,
+    available_models: availableModels,
   };
 }
