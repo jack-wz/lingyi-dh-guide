@@ -24,7 +24,12 @@ class TTSAdapter(ABC):
         """Clone voice from sample then synthesize."""
 
     @abstractmethod
-    def synthesize_fallback(self, text: str, output_path: str) -> str:
+    def synthesize_fallback(
+        self,
+        text: str,
+        output_path: str,
+        voice_sample_path: str = "",
+    ) -> str:
         """Provider-specific fallback when primary synthesis fails."""
 
 
@@ -46,7 +51,18 @@ class YunTTSAdapter(TTSAdapter):
     ) -> str:
         return self._client.clone_and_synthesize(text, voice_sample_path, output_path, voice_name)
 
-    def synthesize_fallback(self, text: str, output_path: str) -> str:
+    def synthesize_fallback(
+        self,
+        text: str,
+        output_path: str,
+        voice_sample_path: str = "",
+    ) -> str:
+        import os
+
+        if voice_sample_path and os.path.exists(voice_sample_path):
+            cloned = self._client.clone_and_synthesize(text, voice_sample_path, output_path)
+            if cloned:
+                return cloned
         return self._client.synthesize_edge_tts(text, output_path)
 
 
