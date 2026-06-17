@@ -24,6 +24,17 @@ def _resolve_local(url: str) -> str:
     return ""
 
 
+def _is_stage2_generated_scene(scene_path: str, work_dir: str) -> bool:
+    """True when Stage2 saved a KIE-fused or generated scene under work_dir."""
+    if not scene_path or not work_dir:
+        return False
+    try:
+        rel = os.path.relpath(scene_path, work_dir)
+    except ValueError:
+        return False
+    return not rel.startswith("..") and os.path.basename(rel).startswith("scene_")
+
+
 def _download_asset(url: str, work_dir: str, basename: str, server_base_url: str) -> str:
     if not url:
         return ""
@@ -91,9 +102,11 @@ def resolve_human_assets_on_segments(
         elif half_local:
             seg["human_face_path"] = half_local
         if half_local and dh.get("enabled"):
-            seg["scene_image_path"] = half_local
-            if half_url:
-                seg["scene_image_url"] = half_url
+            existing_scene = seg.get("scene_image_path") or ""
+            if not _is_stage2_generated_scene(existing_scene, work_dir):
+                seg["scene_image_path"] = half_local
+                if half_url:
+                    seg["scene_image_url"] = half_url
         elif half_local and not seg.get("scene_image_path"):
             seg["scene_image_path"] = half_local
             if half_url:

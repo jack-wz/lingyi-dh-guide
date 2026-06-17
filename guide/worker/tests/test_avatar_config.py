@@ -6,7 +6,7 @@ from unittest.mock import patch
 from worker.ai_clients.talking_head_client import resolve_wavespeed_submit_url
 from worker.avatar_adapter import KieAvatarAdapter, WaveSpeedAvatarAdapter, avatar_registry
 from worker import config
-from worker.config import get_avatar_provider, get_wavespeed_config
+from worker.config import get_avatar_provider, get_kie_avatar_config, get_wavespeed_config, _normalize_video_resolution
 
 
 class AvatarConfigTests(unittest.TestCase):
@@ -60,6 +60,26 @@ class AvatarConfigTests(unittest.TestCase):
 
         self.assertEqual(_resolve_kie_avatar_model_id("infinitetalk"), "infinitalk/from-audio")
         self.assertEqual(_resolve_kie_avatar_model_id("infinitalk/from-audio"), "infinitalk/from-audio")
+
+    def test_normalize_video_resolution_adds_p_suffix(self):
+        self.assertEqual(_normalize_video_resolution("480"), "480p")
+        self.assertEqual(_normalize_video_resolution("720p"), "720p")
+
+    @patch("worker.config._load_json")
+    def test_get_kie_avatar_config_normalizes_resolution(self, mock_load):
+        mock_load.return_value = {
+            "models": {
+                "kie": {
+                    "api_key": "key",
+                    "avatar_model": "infinitalk",
+                    "avatar_resolution": "480",
+                }
+            }
+        }
+        with patch("worker.config.KIE_API_KEY", "key"):
+            _key, _base, model, resolution, _prompt, _timeout = get_kie_avatar_config()
+        self.assertEqual(model, "infinitalk/from-audio")
+        self.assertEqual(resolution, "480p")
 
 
 if __name__ == "__main__":

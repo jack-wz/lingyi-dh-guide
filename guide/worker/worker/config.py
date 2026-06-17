@@ -58,6 +58,14 @@ KIE_AVATAR_DEFAULT_MODEL = os.getenv("KIE_AVATAR_MODEL", "infinitalk/from-audio"
 KIE_AVATAR_DEFAULT_RESOLUTION = os.getenv("KIE_AVATAR_RESOLUTION", "480p")
 
 
+def _normalize_video_resolution(resolution: str) -> str:
+    """KIE/WaveSpeed expect values like 480p; config may store bare digits."""
+    raw = str(resolution or "480p").strip()
+    if raw.isdigit():
+        return f"{raw}p"
+    return raw
+
+
 def get_kie_config():
     """Get KIE config with hot-reload from config.json."""
     cfg = _load_json().get("models", {}).get("kie", {})
@@ -75,7 +83,9 @@ def get_kie_avatar_config():
     raw_model = (cfg.get("avatar_model") or KIE_AVATAR_DEFAULT_MODEL or "infinitalk/from-audio").strip()
     if raw_model.lower() in {"infinitalk", "infinite-talk"}:
         raw_model = "infinitalk/from-audio"
-    resolution = (cfg.get("avatar_resolution") or KIE_AVATAR_DEFAULT_RESOLUTION or "480p").strip()
+    resolution = _normalize_video_resolution(
+        cfg.get("avatar_resolution") or KIE_AVATAR_DEFAULT_RESOLUTION or "480p"
+    )
     prompt = cfg.get("avatar_prompt") or get_prompt(
         "avatar_infinitetalk",
         "自然口播，轻微头部动作和表情，电商导购短视频风格",

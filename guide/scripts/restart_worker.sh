@@ -6,7 +6,7 @@ REPO_ROOT="$(cd "$ROOT/.." && pwd)"
 export SERVER_URL="${SERVER_URL:-http://127.0.0.1:8000}"
 export DATA_DIR="${DATA_DIR:-$ROOT/data}"
 
-if pkill -f "guide/worker/run_worker.py" 2>/dev/null || pkill -f "run_worker.py" 2>/dev/null; then
+if pkill -f "run_worker.py" 2>/dev/null; then
   echo "Stopped existing worker(s)"
   sleep 1
 fi
