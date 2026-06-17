@@ -12,6 +12,7 @@ from worker.pipelines import BasePipeline, pipeline_registry
 from worker.context import PipelineContext
 from worker.avatar_provider import resolve_avatar_adapter
 from worker.config import get_avatar_provider
+from worker.human_assets import resolve_human_assets_on_segments
 from worker.stage1_parser import parse_template
 from worker.stage3_video_gen import generate_segment_videos
 from worker.stage4_ffmpeg import assemble_final_video
@@ -38,10 +39,16 @@ class AvatarTalkPipeline(BasePipeline):
                 seg["digital_human"]["enabled"] = True
 
     async def generate_scenes(self, ctx: PipelineContext):
-        # Avatar talk can optionally skip scene images and composite avatar over
-        # a solid or blurred background; here we keep scene generation so the
-        # fallback composition still works.
-        ctx.report_progress("scene_gen", 25, "AvatarTalk：跳过场景图生成，使用数字人直接合成")
+        ctx.report_progress("scene_gen", 15, "AvatarTalk：解析数字人素材...")
+        human_photos = ctx.digital_human or {}
+        await asyncio.to_thread(
+            resolve_human_assets_on_segments,
+            ctx.segments,
+            human_photos,
+            ctx.work_dir,
+            ctx.server_base_url,
+        )
+        ctx.report_progress("scene_gen", 25, "数字人素材就绪")
 
     async def generate_videos(self, ctx: PipelineContext):
         provider = get_avatar_provider()

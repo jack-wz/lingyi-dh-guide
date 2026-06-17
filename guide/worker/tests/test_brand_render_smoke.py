@@ -126,7 +126,7 @@ class TestBrandRenderSmoke(unittest.TestCase):
                 generate_ass(segments, global_config, ass_path)
                 with open(ass_path, encoding="utf-8-sig") as f:
                     ass_text = f.read()
-                self.assertRegex(ass_text, rf"Style: Default,{family},")
+                self.assertRegex(ass_text, rf"Style: [^,]+,{family},")
 
                 output_path = os.path.join(work_dir, "final.mp4")
                 result = assemble_final_video(segments, [], global_config, work_dir, output_path)

@@ -6,6 +6,7 @@ from worker.pipelines import BasePipeline, pipeline_registry
 from worker.context import PipelineContext
 from worker.avatar_provider import resolve_avatar_adapter
 from worker.stage1_parser import parse_template
+from worker.human_assets import resolve_human_assets_on_segments
 from worker.stage3_video_gen import generate_segment_videos
 from worker.stage4_ffmpeg import assemble_final_video
 
@@ -33,8 +34,18 @@ class DigitalHumanPipeline(BasePipeline):
                 seg["digital_human"]["enabled"] = True
 
     async def generate_scenes(self, ctx: PipelineContext):
-        # Skip scene generation - use digital human directly
-        ctx.report_progress("scene_gen", 25, "数字人模式：跳过场景图生成")
+        import asyncio
+
+        ctx.report_progress("scene_gen", 15, "数字人模式：解析数字人素材...")
+        human_photos = ctx.digital_human or {}
+        await asyncio.to_thread(
+            resolve_human_assets_on_segments,
+            ctx.segments,
+            human_photos,
+            ctx.work_dir,
+            ctx.server_base_url,
+        )
+        ctx.report_progress("scene_gen", 25, "数字人素材就绪")
 
     async def generate_videos(self, ctx: PipelineContext):
         adapter = resolve_avatar_adapter(ctx.server_base_url)

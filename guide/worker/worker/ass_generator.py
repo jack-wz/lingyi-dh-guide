@@ -5,6 +5,12 @@ from __future__ import annotations
 import re
 from typing import Iterable
 
+from worker.subtitle_styles import (
+    build_ass_style_line,
+    get_style_render_px,
+    normalize_subtitle_style_id,
+)
+
 # ASS time format: H:MM:SS.cc (centiseconds)
 _TIME_RE = re.compile(r"^(\d+):(\d{2}):(\d{2})\.(\d{2})$")
 _MAJOR_BREAKS = "。！？!?"
@@ -17,26 +23,6 @@ _FADE_OUT_MS = 280
 _SUBTITLE_FONT_MIN = 32
 _SUBTITLE_FONT_MAX = 120
 _SUBTITLE_FONT_DEFAULT = 72
-
-_STYLE_ALIASES = {
-    "yellow-highlight": "bold-yellow",
-    "classic-white-stroke": "default",
-    "stroke-large": "bold-white-stroke",
-    "semi-transparent-bar": "bottom-center",
-}
-
-_STYLE_RENDER_PX = {
-    "default": 28,
-    "bottom-center": 32,
-    "bold-yellow": 30,
-    "bold-white-stroke": 36,
-    "subtitle-card": 26,
-    "brand-elegant": 28,
-    "brand-blue": 26,
-    "gradient-glow": 28,
-    "minimal": 24,
-}
-
 
 def _sec_to_ass(seconds: float) -> str:
     if seconds < 0:
@@ -235,11 +221,6 @@ def _segment_timeline(segments: list[dict]) -> list[tuple[dict, float, float]]:
     return timeline
 
 
-def _normalize_subtitle_style_id(style_id: str) -> str:
-    raw = str(style_id or "default").strip()
-    return _STYLE_ALIASES.get(raw, raw)
-
-
 def _clamp_subtitle_font_size(value: int) -> int:
     return max(_SUBTITLE_FONT_MIN, min(_SUBTITLE_FONT_MAX, int(value)))
 
@@ -270,8 +251,8 @@ def _resolve_subtitle_font_size(
         except (TypeError, ValueError):
             pass
 
-    canonical = _normalize_subtitle_style_id(style_id)
-    px = _STYLE_RENDER_PX.get(canonical, 28)
+    canonical = normalize_subtitle_style_id(style_id)
+    px = get_style_render_px(canonical)
     scaled = round(px * (canvas_h / 1080) * 1.8)
     return _clamp_subtitle_font_size(max(_SUBTITLE_FONT_DEFAULT, scaled))
 
@@ -298,30 +279,21 @@ def generate_ass(
     ass_font = _resolve_ass_font(global_config)
 
     base_font_size = _resolve_subtitle_font_size({}, global_config, canvas_h=canvas_h)
+    default_animation = "fadeIn"
 
-    default_style = {
-        "font": ass_font,
-        "size": base_font_size,
-        "color": "#FFFFFF",
-        "highlight_color": "#FFD700",
-        "position": "bottom",
-        "animation": "fadeIn",
-        "max_chars_per_line": max_chars_per_phrase,
-    }
-
-    style_name = "Default"
-    style_defs = [
-        f"Style: {style_name},{default_style['font']},{default_style['size']},"
-        f"&H00FFFFFF,&H000000FF,&H00000000,&H80000000,"
-        f"0,0,0,0,100,100,0,0,1,3,2,2,10,10,120,1",
-        "Style: Highlight,"
-        f"{default_style['font']},{default_style['size'] + 4},"
-        f"&H0000D7FF,&H000000FF,&H00000000,&H80000000,"
-        f"0,0,0,0,100,100,0,0,1,4,2,2,10,10,120,1",
-    ]
-    dynamic_styles: dict[str, int] = {}
+    style_defs: list[str] = []
+    style_registry: dict[str, str] = {}
     events: list[str] = []
     timeline = _segment_timeline(segments)
+
+    def _style_name_for(canonical_style: str, font_size: int) -> str:
+        key = f"{canonical_style}_{font_size}"
+        if key in style_registry:
+            return style_registry[key]
+        name = f"Style_{len(style_registry)}"
+        style_defs.append(build_ass_style_line(name, ass_font, font_size, canonical_style))
+        style_registry[key] = name
+        return name
 
     for seg, seg_start, seg_end in timeline:
         text = (seg.get("narration_text") or "").strip()
@@ -329,9 +301,12 @@ def generate_ass(
             continue
 
         subtitle_cfg = seg.get("subtitle") or {}
+        if subtitle_cfg.get("enabled") is False:
+            continue
+
         style_key = subtitle_cfg.get("style_id") or subtitle_cfg.get("style", "default")
-        canonical_style = _normalize_subtitle_style_id(style_key)
-        animation = subtitle_cfg.get("animation", default_style["animation"])
+        canonical_style = normalize_subtitle_style_id(style_key)
+        animation = subtitle_cfg.get("animation", default_animation)
         max_chars = int(subtitle_cfg.get("max_chars_per_line") or max_chars_per_phrase)
 
         seg_font_size = _resolve_subtitle_font_size(
@@ -341,32 +316,7 @@ def generate_ass(
             canvas_h=canvas_h,
         )
 
-        style = default_style.copy()
-        if canonical_style == "bold-yellow" or style_key == "yellow-highlight":
-            style["highlight_color"] = "#FFD700"
-            use_style = "Highlight"
-            if seg_font_size != default_style["size"]:
-                highlight_name = f"Highlight_{seg_font_size}"
-                if highlight_name not in dynamic_styles:
-                    dynamic_styles[highlight_name] = seg_font_size + 4
-                    style_defs.append(
-                        f"Style: {highlight_name},{default_style['font']},{seg_font_size + 4},"
-                        f"&H0000D7FF,&H000000FF,&H00000000,&H80000000,"
-                        f"0,0,0,0,100,100,0,0,1,4,2,2,10,10,120,1"
-                    )
-                use_style = highlight_name
-        elif seg_font_size != default_style["size"]:
-            custom_name = f"Custom_{seg_font_size}"
-            if custom_name not in dynamic_styles:
-                dynamic_styles[custom_name] = seg_font_size
-                style_defs.append(
-                    f"Style: {custom_name},{default_style['font']},{seg_font_size},"
-                    f"&H00FFFFFF,&H000000FF,&H00000000,&H80000000,"
-                    f"0,0,0,0,100,100,0,0,1,3,2,2,10,10,120,1"
-                )
-            use_style = custom_name
-        else:
-            use_style = style_name
+        use_style = _style_name_for(canonical_style, seg_font_size)
 
         phrases = split_narration_phrases(text, max_chars=max_chars)
         preset_timings = seg.get("subtitle_phrase_timings") or []
@@ -393,6 +343,9 @@ def generate_ass(
                 f"Dialogue: 0,{_sec_to_ass(start)},{_sec_to_ass(end)},"
                 f"{use_style},,0,0,0,,{dialogue_text}"
             )
+
+    if not style_defs:
+        style_defs.append(build_ass_style_line("Default", ass_font, base_font_size, "default"))
 
     header = f"""[Script Info]
 Title: Pixelle-Video Subtitles

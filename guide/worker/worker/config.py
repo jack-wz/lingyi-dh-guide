@@ -73,6 +73,8 @@ def get_kie_avatar_config():
     cfg = _load_json().get("models", {}).get("kie", {})
     api_key, base_url = get_kie_config()
     raw_model = (cfg.get("avatar_model") or KIE_AVATAR_DEFAULT_MODEL or "infinitalk/from-audio").strip()
+    if raw_model.lower() in {"infinitalk", "infinite-talk"}:
+        raw_model = "infinitalk/from-audio"
     resolution = (cfg.get("avatar_resolution") or KIE_AVATAR_DEFAULT_RESOLUTION or "480p").strip()
     prompt = cfg.get("avatar_prompt") or get_prompt(
         "avatar_infinitetalk",

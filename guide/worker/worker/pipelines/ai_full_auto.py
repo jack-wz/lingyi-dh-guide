@@ -12,6 +12,7 @@ from worker.pipelines import BasePipeline, pipeline_registry
 from worker.context import PipelineContext
 from worker.ai_clients.llm_client import LLMClient
 from worker.stage1_parser import parse_template
+from worker.human_assets import resolve_human_assets_on_segments
 from worker.stage2_scene_gen import generate_scene_images
 from worker.stage3_video_gen import generate_segment_videos
 from worker.avatar_provider import resolve_avatar_adapter
@@ -68,6 +69,17 @@ class AIFullAutoPipeline(BasePipeline):
         # Materialize DSL from generated segments
         template_segments = ctx.dsl.get("segments", [])
         base_segment = template_segments[0] if template_segments else {}
+        global_config = ctx.dsl.get("globalConfig", {}) or {}
+        dh_id = (ctx.dsl.get("meta") or {}).get("digital_human_id") or ctx.digital_human.get("id", "")
+        default_subtitle = {
+            "enabled": True,
+            "style_id": global_config.get("subtitle_style")
+            or (global_config.get("brand_pack") or {}).get("subtitleStyle")
+            or (base_segment.get("subtitle") or {}).get("style_id")
+            or "default",
+            "position": "bottom",
+            "animation": (base_segment.get("subtitle") or {}).get("animation", "fadeIn"),
+        }
         now = asyncio.get_event_loop().time()
 
         new_segments = []
@@ -86,6 +98,8 @@ class AIFullAutoPipeline(BasePipeline):
                 "scene_image_url": "",
                 "segment_bgm_url": "",
                 "thumbnail_url": "",
+                "avatar_id": dh_id or base_segment.get("avatar_id", ""),
+                "subtitle": {**default_subtitle, **(base_segment.get("subtitle") or {})},
                 "diagnostics": ["由 AI 全自动流水线生成"],
                 "digital_human": {**(base_segment.get("digital_human") or {}), "enabled": True},
             }
@@ -118,6 +132,13 @@ class AIFullAutoPipeline(BasePipeline):
             ctx.work_dir,
             ctx.server_base_url,
             lambda stage, progress, msg="": ctx.on_progress(stage, progress, msg),
+        )
+        await asyncio.to_thread(
+            resolve_human_assets_on_segments,
+            ctx.segments,
+            ctx.digital_human or human_photos,
+            ctx.work_dir,
+            ctx.server_base_url,
         )
 
     async def generate_videos(self, ctx: PipelineContext):

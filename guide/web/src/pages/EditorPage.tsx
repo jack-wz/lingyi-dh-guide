@@ -545,10 +545,11 @@ export default function EditorPage() {
     await saveTemplate();
     const isAIFullAuto = pipelineKey === 'ai_full_auto';
     const endpoint = isAIFullAuto ? '/api/renders/ai-generate' : '/api/renders';
+    const resolvedDhId = selectedDhId || dsl.meta.digital_human_id || '';
     const body = isAIFullAuto
       ? {
           template_id: id,
-          digital_human_id: selectedDhId,
+          digital_human_id: resolvedDhId,
           topic,
           script_text: scriptText,
           variables: variableValues,
@@ -556,7 +557,7 @@ export default function EditorPage() {
         }
       : {
           template_id: id,
-          digital_human_id: selectedDhId || undefined,
+          digital_human_id: resolvedDhId || undefined,
           pipeline_key: pipelineKey,
           input_mode: inputMode,
           topic,

@@ -199,6 +199,86 @@ function estimateNarrationDuration(text: string): number {
   return Math.max(4, Math.min(14, estimatedSeconds || 5));
 }
 
+const DH_PIPELINE_KEYS = new Set([
+  'digital_human',
+  'ai_full_auto',
+  'avatar_talk',
+  'asset_driven',
+]);
+
+function defaultSubtitleFromGlobal(globalConfig: Record<string, any>) {
+  const styleId = globalConfig.subtitle_style
+    || globalConfig.brand_pack?.subtitleStyle
+    || 'default';
+  return {
+    enabled: true,
+    style_id: styleId,
+    position: 'bottom',
+    animation: 'fadeIn',
+  };
+}
+
+export function enrichDslWithJobContext(
+  dsl: Record<string, any>,
+  job: {
+    digital_human_id?: string | null;
+    pipeline_key?: string | null;
+  },
+  digitalHuman?: Record<string, any> | null,
+) {
+  const dhId = job.digital_human_id || dsl.meta?.digital_human_id;
+  if (!dhId) return dsl;
+
+  const dh = digitalHuman || {};
+  const catalogEntry = {
+    name: dh.name || '',
+    face_photo_url: dh.face_photo_url || '',
+    half_body_photo_url: dh.half_body_photo_url || '',
+    half_body_cutout_url: dh.half_body_cutout_url || '',
+    full_body_photo_url: dh.full_body_photo_url || '',
+  };
+
+  dsl.meta = {
+    ...(dsl.meta || {}),
+    digital_human_id: dhId,
+  };
+  dsl.globalConfig = dsl.globalConfig || {};
+  dsl.globalConfig.digital_human_catalog = {
+    ...(dsl.globalConfig.digital_human_catalog || {}),
+    [dhId]: {
+      ...(dsl.globalConfig.digital_human_catalog?.[dhId] || {}),
+      ...catalogEntry,
+    },
+  };
+
+  const enableDh = DH_PIPELINE_KEYS.has(String(job.pipeline_key || ''));
+  const defaultSubtitle = defaultSubtitleFromGlobal(dsl.globalConfig);
+  dsl.segments = (dsl.segments || []).map((seg: Record<string, any>) => {
+    const narrationLike = seg.type === 'narration' || seg.type === undefined;
+    const dhEnabled = enableDh
+      ? (narrationLike ? true : Boolean(seg.digital_human?.enabled))
+      : Boolean(seg.digital_human?.enabled);
+    return {
+      ...seg,
+      avatar_id: dhId,
+      digital_human: {
+        enabled: false,
+        position: { x: 50, y: 80 },
+        scale: 100,
+        ...(seg.digital_human || {}),
+        enabled: dhEnabled,
+      },
+      subtitle: {
+        ...defaultSubtitle,
+        ...(seg.subtitle || {}),
+        enabled: seg.subtitle?.enabled !== false,
+      },
+    };
+  });
+
+  return dsl;
+}
+
 function cloneSegmentTemplate(templateDsl: Record<string, any>, index: number) {
   const source = Array.isArray(templateDsl.segments) && templateDsl.segments.length > 0
     ? templateDsl.segments[Math.min(index, templateDsl.segments.length - 1)]
@@ -263,6 +343,8 @@ export function materializeRenderDsl(
   };
   dsl.variables = Array.isArray(dsl.variables) ? dsl.variables : [];
   dsl.globalConfig = dsl.globalConfig || {};
+  const defaultSubtitle = defaultSubtitleFromGlobal(dsl.globalConfig || {});
+  const dhId = dsl.meta?.digital_human_id || '';
   dsl.segments = sourceTexts.map((text, index) => {
     const segment = cloneSegmentTemplate(dsl, index);
     return {
@@ -274,6 +356,15 @@ export function materializeRenderDsl(
       scene_description: segment.scene_description || (inputMode === 'topic'
         ? `${topic.trim()} - scene ${index + 1}`
         : text.slice(0, 120)),
+      avatar_id: dhId || segment.avatar_id || '',
+      digital_human: {
+        ...(segment.digital_human || {}),
+        enabled: dhId ? true : Boolean(segment.digital_human?.enabled),
+      },
+      subtitle: {
+        ...defaultSubtitle,
+        ...(segment.subtitle || {}),
+      },
       diagnostics: [
         ...(Array.isArray(segment.diagnostics) ? segment.diagnostics : []),
         inputMode === 'topic' ? '由主题模式生成的初始分镜草稿' : '由固定脚本模式拆分生成',

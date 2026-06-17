@@ -67,7 +67,22 @@ class TestAssGenerator(unittest.TestCase):
         generate_ass(segments, {"canvas_width": 1080, "canvas_height": 1920}, path)
         with open(path, encoding="utf-8-sig") as f:
             content = f.read()
-        self.assertIn("Style: Custom_88,", content)
+        self.assertIn(",88,", content)
+        self.assertIn("Dialogue:", content)
+
+    def test_generate_ass_yellow_highlight_color(self):
+        segments = [
+            {
+                "narration_text": "今日特价仅需99元。",
+                "duration_sec": 4.0,
+                "subtitle": {"style_id": "yellow-highlight", "animation": "fadeIn"},
+            }
+        ]
+        path = "/tmp/test_subtitles_yellow.ass"
+        generate_ass(segments, {"canvas_width": 1080, "canvas_height": 1920, "subtitle_font_size": 72}, path)
+        with open(path, encoding="utf-8-sig") as f:
+            content = f.read()
+        self.assertIn("&H0000D7FF", content)
         self.assertIn("Dialogue:", content)
 
     def test_resolve_ass_font_from_brand_pack(self):

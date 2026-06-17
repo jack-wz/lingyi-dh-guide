@@ -12,6 +12,7 @@ import {
   TERMINAL_STATUSES,
   enrichJob,
   getPipeline,
+  enrichDslWithJobContext,
   materializeRenderDsl,
   shouldTimeoutJob,
   statusFromStage,
@@ -271,7 +272,12 @@ function materializeClaimedJob(job: any) {
     job.topic || '',
     job.script_text || '',
   );
-  job.template_dsl = hydrateDslBrandPack(materialized, db);
+  let hydrated = hydrateDslBrandPack(materialized, db);
+  if (job.digital_human_id) {
+    const dh = db.prepare('SELECT * FROM digital_humans WHERE id = ?').get(job.digital_human_id) as Record<string, unknown> | undefined;
+    hydrated = enrichDslWithJobContext(hydrated, job, dh || null);
+  }
+  job.template_dsl = hydrated;
   return job;
 }
 

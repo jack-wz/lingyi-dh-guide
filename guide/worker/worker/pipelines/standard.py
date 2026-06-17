@@ -5,6 +5,7 @@ import asyncio
 from worker.pipelines import BasePipeline, pipeline_registry
 from worker.context import PipelineContext
 from worker.stage1_parser import parse_template
+from worker.human_assets import resolve_human_assets_on_segments
 from worker.stage2_scene_gen import generate_scene_images
 from worker.stage3_video_gen import generate_segment_videos
 from worker.stage4_ffmpeg import assemble_final_video
@@ -41,6 +42,14 @@ class StandardPipeline(BasePipeline):
             resolved_script, human_photos, ctx.work_dir,
             ctx.server_base_url, ctx.on_progress
         )
+        if human_photos:
+            await asyncio.to_thread(
+                resolve_human_assets_on_segments,
+                ctx.segments,
+                human_photos,
+                ctx.work_dir,
+                ctx.server_base_url,
+            )
 
     async def generate_videos(self, ctx: PipelineContext):
         voice_clone_id = ctx.digital_human.get("voice_clone_id", "")

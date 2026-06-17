@@ -68,6 +68,8 @@ def generate_segment_videos(
         print(f"[Stage3] Segment {i+1}: scene={scene_path}, human_face={human_face_path}")
         print(f"[Stage3] Segment {i+1}: voice_clone_id={voice_clone_id}")
 
+        voice_sample_path = _resolve_voice_sample(voice_sample_url, server_base_url, work_dir)
+
         # Step 1: Generate TTS audio when narration text is present (smoke / template-only jobs
         # may omit digital_human voice_clone_id — still synthesize via Edge/fallback TTS).
         if text:
@@ -78,17 +80,16 @@ def generate_segment_videos(
 
                 if not tts_path:
                     print(f"[Stage3] Segment {i+1}: TTS failed with stored voice_id, trying to re-clone...")
-                    voice_sample_path = _resolve_voice_sample(voice_sample_url, server_base_url, work_dir)
                     if voice_sample_path and os.path.exists(voice_sample_path):
                         tts_path = tts.clone_and_synthesize(
                             text, voice_sample_path, audio_path, voice_name=f"vh_{i}"
                         )
                     else:
                         print(f"[Stage3] Segment {i+1}: No voice sample available, trying fallback TTS...")
-                        tts_path = tts.synthesize_fallback(text, audio_path)
+                        tts_path = tts.synthesize_fallback(text, audio_path, voice_sample_path)
             else:
                 print(f"[Stage3] Segment {i+1}: No voice_clone_id, using fallback TTS...")
-                tts_path = tts.synthesize_fallback(text, audio_path)
+                tts_path = tts.synthesize_fallback(text, audio_path, voice_sample_path)
 
             if tts_path and os.path.exists(tts_path):
                 try:
@@ -119,22 +120,37 @@ def generate_segment_videos(
                 print(f"[Stage3] Segment {i+1}: TTS failed, will use silent audio")
                 tts_path = ""
 
-        # Step 2: Generate video clip
-        # Try talking head first if we have both scene image and TTS audio
+        # Step 2: Generate video clip — prefer talking-head when we have avatar image + TTS
+        avatar_image = ""
+        if scene_path and os.path.exists(scene_path):
+            avatar_image = scene_path
+        elif human_face_path and os.path.exists(human_face_path):
+            avatar_image = human_face_path
+
+        human_config = dict(human_photos or {})
+        if voice_clone_id:
+            human_config["voice_clone_id"] = voice_clone_id
+        if voice_sample_url:
+            human_config["voice_sample_url"] = voice_sample_url
+
         can_use_talking_head = (
-            scene_path and os.path.exists(scene_path) and 
-            tts_path and os.path.exists(tts_path)
+            avatar_image
+            and tts_path
+            and os.path.exists(tts_path)
         )
-        
+
         if can_use_talking_head:
             print(f"[Stage3] Segment {i+1}: Trying talking head (lip-sync) video...")
             clip_path = _generate_narration_clip(
-                seg, i, text, duration, scene_path, tts_path,
+                seg, i, text, duration, avatar_image, tts_path,
                 work_dir, canvas_w, canvas_h, fps, server_base_url,
-                avatar, human_photos,
+                avatar, human_config,
             )
         else:
-            print(f"[Stage3] Segment {i+1}: Skipping talking head (missing scene image or TTS audio)")
+            print(
+                f"[Stage3] Segment {i+1}: Skipping talking head "
+                f"(avatar_image={bool(avatar_image)}, tts={bool(tts_path)})"
+            )
 
         # Fallback: Scene image + TTS audio
         if not clip_path and scene_path and os.path.exists(scene_path) and tts_path and os.path.exists(tts_path):

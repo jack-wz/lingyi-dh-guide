@@ -9,6 +9,7 @@ import {
   enrichJob,
   getPipeline,
   isHeartbeatStale,
+  enrichDslWithJobContext,
   materializeRenderDsl,
   outputExists,
   parseHeartbeatMs,
@@ -165,6 +166,35 @@ describe('render-utils', () => {
     assert.equal(topicDsl.segments.length, 4);
     assert.match(topicDsl.segments[0].narration_text, /销售培训/);
     assert.match(topicDsl.segments[0].diagnostics.at(-1), /主题模式/);
+  });
+
+  it('enriches DSL with digital human catalog and enables narration segments', () => {
+    const dsl = {
+      meta: { name: 'Demo' },
+      globalConfig: { subtitle_style: 'bold-yellow' },
+      segments: [
+        {
+          type: 'narration',
+          narration_text: '测试口播',
+          digital_human: { enabled: false, position: { x: 50, y: 80 }, scale: 100 },
+          subtitle: { enabled: true, style_id: 'default', position: 'bottom', animation: 'fadeIn' },
+        },
+      ],
+    };
+    const enriched = enrichDslWithJobContext(
+      dsl,
+      { digital_human_id: 'dh-1', pipeline_key: 'digital_human' },
+      {
+        id: 'dh-1',
+        name: '导购员',
+        face_photo_url: '/uploads/face.png',
+        half_body_photo_url: '/uploads/half.png',
+      },
+    ) as any;
+    assert.equal(enriched.meta.digital_human_id, 'dh-1');
+    assert.equal(enriched.segments[0].avatar_id, 'dh-1');
+    assert.equal(enriched.segments[0].digital_human.enabled, true);
+    assert.equal(enriched.globalConfig.digital_human_catalog['dh-1'].face_photo_url, '/uploads/face.png');
   });
 
   it('splits long Chinese script paragraphs by sentence without requiring spaces', () => {
