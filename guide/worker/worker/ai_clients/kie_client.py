@@ -13,6 +13,17 @@ from worker.provider_errors import ProviderTimeoutError, raise_if_timeout
 
 KIE_UPLOAD_BASE = os.getenv("KIE_UPLOAD_BASE", "https://kieai.redpandaai.co")
 
+KIE_AVATAR_MODEL_ALIASES: dict[str, str] = {
+    "infinitetalk": "infinitalk/from-audio",
+    "infinite-talk": "infinitalk/from-audio",
+    "infinitalk/from-audio": "infinitalk/from-audio",
+}
+
+
+def _resolve_kie_avatar_model_id(model: str) -> str:
+    raw = (model or "infinitalk/from-audio").strip()
+    return KIE_AVATAR_MODEL_ALIASES.get(raw.lower(), raw)
+
 
 class KieClient:
     def __init__(self):
@@ -181,6 +192,62 @@ class KieClient:
             raise
         except Exception as e:
             print(f"[KIE] Scene generation failed: {e}")
+            return ""
+
+    def generate_infinitetalk_video(
+        self,
+        image_url: str,
+        audio_url: str,
+        model: str = "infinitalk/from-audio",
+        resolution: str = "480p",
+        prompt: str = "",
+        seed: int | None = None,
+        poll_timeout: int | None = None,
+    ) -> str:
+        """Generate talking-head video via KIE InfiniteTalk (infinitalk/from-audio)."""
+        if not self.api_key:
+            print("[KIE] No API key configured, skipping InfiniteTalk")
+            return ""
+        if not image_url or not audio_url:
+            print("[KIE] InfiniteTalk requires image_url and audio_url")
+            return ""
+
+        model_id = _resolve_kie_avatar_model_id(model)
+        try:
+            input_payload: dict[str, object] = {
+                "image_url": image_url,
+                "audio_url": audio_url,
+                "resolution": resolution or "480p",
+                "prompt": prompt or get_prompt(
+                    "avatar_infinitetalk",
+                    "自然口播，轻微头部动作和表情，电商导购短视频风格",
+                ),
+            }
+            if seed is not None and seed >= 0:
+                input_payload["seed"] = seed
+
+            payload = {
+                "model": model_id,
+                "input": input_payload,
+            }
+            result = self._post("/api/v1/jobs/createTask", json=payload)
+            code = result.get("code", 0)
+            if code != 200:
+                print(f"[KIE] InfiniteTalk task failed: code={code}, msg={result.get('msg', '')}")
+                return ""
+
+            task_id = result.get("data", {}).get("taskId", "")
+            if not task_id:
+                print("[KIE] InfiniteTalk: no taskId in response")
+                return ""
+
+            print(f"[KIE] InfiniteTalk task created: {task_id} model={model_id}")
+            timeout = poll_timeout if poll_timeout is not None else self._poll_timeout()
+            return self._poll_task(task_id, timeout=timeout)
+        except ProviderTimeoutError:
+            raise
+        except Exception as exc:
+            print(f"[KIE] InfiniteTalk failed: {exc}")
             return ""
 
     def create_human_model(self, photo_urls: list[str]) -> str:

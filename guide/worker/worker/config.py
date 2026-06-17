@@ -54,6 +54,10 @@ def _load_json():
     return _deep_merge(data, _JOB_CONFIG_SNAPSHOT)
 
 
+KIE_AVATAR_DEFAULT_MODEL = os.getenv("KIE_AVATAR_MODEL", "infinitalk/from-audio")
+KIE_AVATAR_DEFAULT_RESOLUTION = os.getenv("KIE_AVATAR_RESOLUTION", "480p")
+
+
 def get_kie_config():
     """Get KIE config with hot-reload from config.json."""
     cfg = _load_json().get("models", {}).get("kie", {})
@@ -62,6 +66,23 @@ def get_kie_config():
         api_key = KIE_API_KEY
     base_url = cfg.get("base_url") or KIE_BASE_URL
     return api_key, base_url
+
+
+def get_kie_avatar_config():
+    """KIE InfiniteTalk lip-sync settings (separate from scene-image model)."""
+    cfg = _load_json().get("models", {}).get("kie", {})
+    api_key, base_url = get_kie_config()
+    raw_model = (cfg.get("avatar_model") or KIE_AVATAR_DEFAULT_MODEL or "infinitalk/from-audio").strip()
+    resolution = (cfg.get("avatar_resolution") or KIE_AVATAR_DEFAULT_RESOLUTION or "480p").strip()
+    prompt = cfg.get("avatar_prompt") or get_prompt(
+        "avatar_infinitetalk",
+        "自然口播，轻微头部动作和表情，电商导购短视频风格",
+    )
+    try:
+        poll_timeout = int(cfg.get("avatar_poll_timeout") or cfg.get("poll_timeout") or 300)
+    except (TypeError, ValueError):
+        poll_timeout = 300
+    return api_key, base_url, raw_model, resolution, prompt, poll_timeout
 
 
 def get_yuntts_config():

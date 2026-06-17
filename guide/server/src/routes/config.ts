@@ -12,7 +12,17 @@ function getConfigPath() {
 
 interface Config {
   models: {
-    kie: { base_url: string; api_key: string; model: string; aspect_ratio: string; resolution: string; poll_timeout: number };
+    kie: {
+      base_url: string;
+      api_key: string;
+      model: string;
+      aspect_ratio: string;
+      resolution: string;
+      poll_timeout: number;
+      avatar_model: string;
+      avatar_resolution: string;
+      avatar_prompt: string;
+    };
     yuntts: { base_url: string; api_key: string; default_voice: string; max_audio_duration: number };
     wavespeed: { base_url: string; api_key: string; model: string; resolution: string };
     ffmpeg: { codec: string; preset: string; crf: number; audio_bitrate: string };
@@ -38,7 +48,17 @@ interface Config {
 
 const DEFAULT_CONFIG: Config = {
   models: {
-    kie: { base_url: 'https://api.kie.ai', api_key: '', model: 'gpt-image-2-image-to-image', aspect_ratio: '9:16', resolution: '2K', poll_timeout: 300 },
+    kie: {
+      base_url: 'https://api.kie.ai',
+      api_key: '',
+      model: 'gpt-image-2-image-to-image',
+      aspect_ratio: '9:16',
+      resolution: '2K',
+      poll_timeout: 300,
+      avatar_model: 'infinitalk/from-audio',
+      avatar_resolution: '480p',
+      avatar_prompt: '',
+    },
     yuntts: { base_url: 'https://www.yuntts.com/api/v1', api_key: 'sk-', default_voice: 'zh-CN-XiaoxiaoNeural', max_audio_duration: 28 },
     wavespeed: { base_url: 'https://api.wavespeed.ai', api_key: '', model: 'infinitetalk', resolution: '480p' },
     ffmpeg: { codec: 'libx264', preset: 'veryfast', crf: 18, audio_bitrate: '192k' },
@@ -169,6 +189,12 @@ function buildDiagnostics(config: Config) {
 
   const avatarProvider = (config.pipeline?.avatar_provider || 'wavespeed').toLowerCase();
   const wavespeedModel = config.models.wavespeed.model || 'infinitetalk';
+  const kieAvatarModel = config.models.kie.avatar_model || 'infinitalk/from-audio';
+  const avatarModel = avatarProvider === 'kie' ? kieAvatarModel : wavespeedModel;
+  const avatarResolution =
+    avatarProvider === 'kie'
+      ? (config.models.kie.avatar_resolution || '480p')
+      : (config.models.wavespeed.resolution || '480p');
 
   return {
     data_dir: getDataDir(),
@@ -176,20 +202,23 @@ function buildDiagnostics(config: Config) {
     pipelines: pipelineStatus,
     avatar: {
       provider: avatarProvider,
+      model: avatarModel,
       wavespeed_model: wavespeedModel,
-      resolution: config.models.wavespeed.resolution || '480p',
+      kie_avatar_model: kieAvatarModel,
+      resolution: avatarResolution,
       configured:
         avatarProvider === 'kie'
           ? hasUsableApiKey(config.models.kie.api_key)
           : hasUsableApiKey(config.models.wavespeed.api_key),
       available_providers: [
         { id: 'wavespeed', label: 'WaveSpeed（InfiniteTalk 等）', ready: true },
-        { id: 'kie', label: 'KIE 口型同步（预留插槽）', ready: false },
+        { id: 'kie', label: 'KIE InfiniteTalk（infinitalk/from-audio）', ready: true },
       ],
       available_wavespeed_models: ['infinitetalk', 'infinitetalk-multi', 'infinite-talk'],
+      available_kie_avatar_models: ['infinitalk/from-audio', 'infinitetalk', 'infinite-talk'],
       hint:
         avatarProvider === 'kie'
-          ? 'KIE 口型 adapter 尚未实现，请改用 wavespeed 或等待后续版本。'
+          ? `当前口型后端：KIE / ${kieAvatarModel}`
           : `当前口型后端：WaveSpeed / ${wavespeedModel}`,
     },
   };

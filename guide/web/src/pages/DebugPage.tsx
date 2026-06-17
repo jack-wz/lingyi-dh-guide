@@ -19,7 +19,17 @@ interface LlmRuntime {
 
 interface Config {
   models: {
-    kie: { base_url: string; api_key: string; model: string; aspect_ratio: string; resolution: string; poll_timeout: number };
+    kie: {
+      base_url: string;
+      api_key: string;
+      model: string;
+      aspect_ratio: string;
+      resolution: string;
+      poll_timeout: number;
+      avatar_model: string;
+      avatar_resolution: string;
+      avatar_prompt: string;
+    };
     yuntts: { base_url: string; api_key: string; default_voice: string; max_audio_duration: number };
     wavespeed: { base_url: string; api_key: string; model: string; resolution: string };
     ffmpeg: { codec: string; preset: string; crf: number; audio_bitrate: string };
@@ -354,7 +364,7 @@ function PromptsPanel({ log }: { log: (l: LogEntry['level'], m: string) => void 
               className="w-full h-9 bg-secondary border border-border rounded-md px-2 text-sm"
             >
               <option value="wavespeed">WaveSpeed（InfiniteTalk 等，推荐）</option>
-              <option value="kie">KIE 口型同步（预留，尚未实现）</option>
+              <option value="kie">KIE InfiniteTalk（infinitalk/from-audio）</option>
             </select>
             <p className="mt-1 text-[11px] text-muted-foreground">
               KIE 用于场景图生成；口型视频由本项选择 WaveSpeed 或未来的 KIE 口型 API。
@@ -381,7 +391,9 @@ function PromptsPanel({ log }: { log: (l: LogEntry['level'], m: string) => void 
 /* ===== 模型配置面板 (可编辑) ===== */
 interface AvatarDiagnostics {
   provider: string;
+  model: string;
   wavespeed_model: string;
+  kie_avatar_model: string;
   resolution: string;
   configured: boolean;
   hint: string;
@@ -422,13 +434,16 @@ function ModelsPanel({ log }: { log: (l: LogEntry['level'], m: string) => void }
       { key: 'api_key', label: 'API 密钥', sensitive: true },
       { key: 'model', label: '模型名' },
     ]},
-    { key: 'kie', label: 'KIE.ai 图生图', icon: IconImage, fields: [
+    { key: 'kie', label: 'KIE.ai（场景图 + InfiniteTalk 口型）', icon: IconImage, fields: [
       { key: 'base_url', label: '基础 URL' },
       { key: 'api_key', label: 'API 密钥', sensitive: true },
-      { key: 'model', label: '模型名' },
-      { key: 'aspect_ratio', label: '宽高比' },
-      { key: 'resolution', label: '分辨率' },
+      { key: 'model', label: '场景图模型' },
+      { key: 'aspect_ratio', label: '场景宽高比' },
+      { key: 'resolution', label: '场景分辨率' },
       { key: 'poll_timeout', label: '轮询超时 (秒)', type: 'number' as const },
+      { key: 'avatar_model', label: '口型模型 (infinitalk/from-audio)' },
+      { key: 'avatar_resolution', label: '口型分辨率 (480p / 720p)' },
+      { key: 'avatar_prompt', label: '口型提示词' },
     ]},
     { key: 'yuntts', label: 'YunTTS 语音合成', icon: IconMic, fields: [
       { key: 'base_url', label: '基础 URL' },
@@ -458,8 +473,8 @@ function ModelsPanel({ log }: { log: (l: LogEntry['level'], m: string) => void }
           <div className="grid grid-cols-2 gap-2 text-[12px]">
             <div className="text-muted-foreground">后端</div>
             <div className="font-mono">{avatarDiag.provider}</div>
-            <div className="text-muted-foreground">WaveSpeed 模型</div>
-            <div className="font-mono">{avatarDiag.wavespeed_model}</div>
+            <div className="text-muted-foreground">口型模型</div>
+            <div className="font-mono">{avatarDiag.model}</div>
             <div className="text-muted-foreground">分辨率</div>
             <div className="font-mono">{avatarDiag.resolution}</div>
             <div className="text-muted-foreground">密钥状态</div>

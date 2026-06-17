@@ -48,7 +48,7 @@ class WaveSpeedAvatarAdapter(AvatarAdapter):
 
 
 class KieAvatarAdapter(AvatarAdapter):
-    """KIE lip-sync adapter slot — returns empty until KIE video API is integrated."""
+    """KIE InfiniteTalk lip-sync adapter (infinitalk/from-audio)."""
 
     def __init__(self, server_base_url: str = ""):
         self._client = KieAvatarClient(server_base_url=server_base_url)

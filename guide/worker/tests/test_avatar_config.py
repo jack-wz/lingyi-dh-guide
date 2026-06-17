@@ -55,10 +55,11 @@ class AvatarConfigTests(unittest.TestCase):
         self.assertIsInstance(avatar_registry.get("wavespeed"), WaveSpeedAvatarAdapter)
         self.assertIsInstance(avatar_registry.get("kie"), KieAvatarAdapter)
 
-    def test_kie_adapter_returns_empty_until_implemented(self):
-        adapter = KieAvatarAdapter()
-        out = adapter.generate("a.wav", "face.png", {}, "out.mp4")
-        self.assertEqual(out, "")
+    def test_kie_avatar_model_alias(self):
+        from worker.ai_clients.kie_client import _resolve_kie_avatar_model_id
+
+        self.assertEqual(_resolve_kie_avatar_model_id("infinitetalk"), "infinitalk/from-audio")
+        self.assertEqual(_resolve_kie_avatar_model_id("infinitalk/from-audio"), "infinitalk/from-audio")
 
 
 if __name__ == "__main__":
