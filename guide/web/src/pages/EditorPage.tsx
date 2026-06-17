@@ -22,6 +22,12 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import { applyVariableSubstitution, buildVariableDefaults } from '../utils/dslNormalize';
 import { normalizeSegmentObjects, resolveElementTiming } from '../utils/elementTiming';
 import { SUBTITLE_STYLES } from '../data/subtitleStyles';
+import {
+  resolveSubtitleFontSize,
+  SUBTITLE_FONT_SIZE_DEFAULT,
+  SUBTITLE_FONT_SIZE_MAX,
+  SUBTITLE_FONT_SIZE_MIN,
+} from '@shared/subtitleStyles';
 import { libraryPayloadToBrandPack } from '@shared/brandPack';
 import EditorCoachmark from '../components/EditorCoachmark';
 import { formatApiErrorMessage, parseApiErrorResponse } from '../utils/apiError';
@@ -153,7 +159,13 @@ export default function EditorPage() {
           narration_text: seg.narration_text || '', duration_sec: seg.duration_sec || 5,
           scene_image_url: seg.scene_image_url || '', scene_description: seg.scene_description || '',
           camera_shot: seg.camera_shot || '', segment_bgm_url: seg.segment_bgm_url || '',
-          subtitle: { enabled: seg.subtitle?.enabled ?? true, style_id: seg.subtitle?.style_id || 'default', position: seg.subtitle?.position || 'bottom', animation: seg.subtitle?.animation || 'fadeIn' },
+          subtitle: {
+            enabled: seg.subtitle?.enabled ?? true,
+            style_id: seg.subtitle?.style_id || 'default',
+            position: seg.subtitle?.position || 'bottom',
+            animation: seg.subtitle?.animation || 'fadeIn',
+            font_size: typeof seg.subtitle?.font_size === 'number' ? seg.subtitle.font_size : undefined,
+          },
           transition: seg.transition || { type: 'none', duration: 0.5 },
           digital_human: seg.digital_human || opentalkingDigitalHumanDefaults(false),
           overlays: Array.isArray(seg.overlays) ? seg.overlays : [],
@@ -1648,6 +1660,14 @@ function DesignPanel({
             <option key={style.id} value={style.id}>{style.name}</option>
           ))}
         </select>
+        <NumberField
+          label="字幕默认字号"
+          value={cfg.subtitle_font_size ?? SUBTITLE_FONT_SIZE_DEFAULT}
+          min={SUBTITLE_FONT_SIZE_MIN}
+          max={SUBTITLE_FONT_SIZE_MAX}
+          onChange={(value) => updateGlobal({ subtitle_font_size: value })}
+        />
+        <p className="text-[11px] text-muted-foreground">作用于全模板；单分镜可在右侧「字幕」面板单独覆盖。</p>
       </PanelSection>
 
       <PanelSection title="输出规格" icon={<IconFilm size={15} />}>
@@ -1730,6 +1750,11 @@ function ObjectPanel({
   }
 
   if (selectedElement.type === 'subtitle') {
+    const resolvedSize = resolveSubtitleFontSize({
+      styleId: seg.subtitle.style_id,
+      fontSize: seg.subtitle.font_size,
+      globalFontSize: dsl.globalConfig.subtitle_font_size,
+    });
     return (
       <div className="p-4 space-y-4">
         <PanelSection title="字幕" icon={<IconType size={15} />}>
@@ -1737,6 +1762,32 @@ function ObjectPanel({
             显示字幕
             <input type="checkbox" checked={seg.subtitle.enabled} onChange={(e) => updateSeg({ subtitle: { ...seg.subtitle, enabled: e.target.checked } })} />
           </label>
+          <select
+            value={seg.subtitle.style_id}
+            onChange={(e) => updateSeg({ subtitle: { ...seg.subtitle, style_id: e.target.value } })}
+            className="mt-3 w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
+          >
+            {SUBTITLE_STYLES.map((style) => (
+              <option key={style.id} value={style.id}>{style.name}</option>
+            ))}
+          </select>
+          <NumberField
+            label="字号"
+            value={seg.subtitle.font_size ?? dsl.globalConfig.subtitle_font_size ?? SUBTITLE_FONT_SIZE_DEFAULT}
+            min={SUBTITLE_FONT_SIZE_MIN}
+            max={SUBTITLE_FONT_SIZE_MAX}
+            onChange={(value) => updateSeg({ subtitle: { ...seg.subtitle, font_size: value } })}
+          />
+          <p className="text-[11px] text-muted-foreground">
+            当前渲染约 {resolvedSize}px（范围 {SUBTITLE_FONT_SIZE_MIN}–{SUBTITLE_FONT_SIZE_MAX}）
+          </p>
+          <button
+            type="button"
+            className="text-xs text-muted-foreground underline"
+            onClick={() => updateSeg({ subtitle: { ...seg.subtitle, font_size: undefined } })}
+          >
+            恢复为模板默认字号
+          </button>
           <select
             value={seg.subtitle.position}
             onChange={(e) => updateSeg({ subtitle: { ...seg.subtitle, position: e.target.value as Segment['subtitle']['position'] } })}

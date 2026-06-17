@@ -11,7 +11,13 @@ export interface Segment {
   camera_shot: string;
   segment_bgm_url: string;
   segment_bgm_duration_sec?: number;
-  subtitle: { enabled: boolean; style_id: string; position: 'top' | 'center' | 'bottom'; animation: 'none' | 'fadeIn' | 'typewriter' };
+  subtitle: {
+    enabled: boolean;
+    style_id: string;
+    position: 'top' | 'center' | 'bottom';
+    animation: 'none' | 'fadeIn' | 'typewriter';
+    font_size?: number;
+  };
   transition: { type: string; duration: number };
   digital_human: { enabled: boolean; position: { x: number; y: number }; scale: number };
   overlays: Array<{
@@ -102,6 +108,7 @@ export interface GlobalConfig {
   default_font_family?: string;
   output_resolution?: string;
   aspect_ratio?: '9:16' | '16:9' | '1:1';
+  subtitle_font_size?: number;
   asset_map?: Record<string, string>;
   digital_human_catalog?: DigitalHumanCatalog;
 }

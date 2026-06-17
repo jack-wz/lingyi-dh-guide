@@ -3,6 +3,7 @@ import unittest
 from worker.ass_generator import (
     _ass_to_sec,
     _resolve_ass_font,
+    _resolve_subtitle_font_size,
     _sec_to_ass,
     allocate_phrase_timings,
     generate_ass,
@@ -44,6 +45,30 @@ class TestAssGenerator(unittest.TestCase):
     def test_time_roundtrip(self):
         self.assertEqual(_sec_to_ass(65.5), "0:01:05.50")
         self.assertAlmostEqual(_ass_to_sec("0:01:05.50"), 65.5, places=2)
+
+    def test_resolve_subtitle_font_size_override(self):
+        size = _resolve_subtitle_font_size(
+            {"font_size": 96},
+            {},
+            style_id="default",
+            canvas_h=1920,
+        )
+        self.assertEqual(size, 96)
+
+    def test_generate_ass_uses_custom_font_size(self):
+        segments = [
+            {
+                "narration_text": "大字幕测试。",
+                "duration_sec": 4.0,
+                "subtitle": {"style_id": "default", "font_size": 88, "animation": "fadeIn"},
+            }
+        ]
+        path = "/tmp/test_subtitles_font_size.ass"
+        generate_ass(segments, {"canvas_width": 1080, "canvas_height": 1920}, path)
+        with open(path, encoding="utf-8-sig") as f:
+            content = f.read()
+        self.assertIn("Style: Custom_88,", content)
+        self.assertIn("Dialogue:", content)
 
     def test_resolve_ass_font_from_brand_pack(self):
         self.assertEqual(_resolve_ass_font({}), "PingFang SC")

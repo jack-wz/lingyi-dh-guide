@@ -14,6 +14,28 @@ _MIN_PHRASE_SEC = 0.65
 _INTER_PHRASE_GAP_SEC = 0.12
 _FADE_IN_MS = 380
 _FADE_OUT_MS = 280
+_SUBTITLE_FONT_MIN = 32
+_SUBTITLE_FONT_MAX = 120
+_SUBTITLE_FONT_DEFAULT = 72
+
+_STYLE_ALIASES = {
+    "yellow-highlight": "bold-yellow",
+    "classic-white-stroke": "default",
+    "stroke-large": "bold-white-stroke",
+    "semi-transparent-bar": "bottom-center",
+}
+
+_STYLE_RENDER_PX = {
+    "default": 28,
+    "bottom-center": 32,
+    "bold-yellow": 30,
+    "bold-white-stroke": 36,
+    "subtitle-card": 26,
+    "brand-elegant": 28,
+    "brand-blue": 26,
+    "gradient-glow": 28,
+    "minimal": 24,
+}
 
 
 def _sec_to_ass(seconds: float) -> str:
@@ -213,6 +235,47 @@ def _segment_timeline(segments: list[dict]) -> list[tuple[dict, float, float]]:
     return timeline
 
 
+def _normalize_subtitle_style_id(style_id: str) -> str:
+    raw = str(style_id or "default").strip()
+    return _STYLE_ALIASES.get(raw, raw)
+
+
+def _clamp_subtitle_font_size(value: int) -> int:
+    return max(_SUBTITLE_FONT_MIN, min(_SUBTITLE_FONT_MAX, int(value)))
+
+
+def _resolve_subtitle_font_size(
+    subtitle_cfg: dict,
+    global_config: dict,
+    *,
+    style_id: str = "default",
+    canvas_h: int = 1920,
+) -> int:
+    """Resolve ASS Fontsize from per-segment override, global default, or style preset."""
+    override = subtitle_cfg.get("font_size")
+    if override is not None:
+        try:
+            size = int(override)
+            if size > 0:
+                return _clamp_subtitle_font_size(size)
+        except (TypeError, ValueError):
+            pass
+
+    global_size = global_config.get("subtitle_font_size")
+    if global_size is not None:
+        try:
+            size = int(global_size)
+            if size > 0:
+                return _clamp_subtitle_font_size(size)
+        except (TypeError, ValueError):
+            pass
+
+    canonical = _normalize_subtitle_style_id(style_id)
+    px = _STYLE_RENDER_PX.get(canonical, 28)
+    scaled = round(px * (canvas_h / 1080) * 1.8)
+    return _clamp_subtitle_font_size(max(_SUBTITLE_FONT_DEFAULT, scaled))
+
+
 def _resolve_ass_font(global_config: dict) -> str:
     """Use brand pack default font when present; ASS Fontname is a single family."""
     raw = global_config.get("default_font_family") or ""
@@ -234,9 +297,11 @@ def generate_ass(
     canvas_h = global_config.get("canvas_height", 1920)
     ass_font = _resolve_ass_font(global_config)
 
+    base_font_size = _resolve_subtitle_font_size({}, global_config, canvas_h=canvas_h)
+
     default_style = {
         "font": ass_font,
-        "size": 48,
+        "size": base_font_size,
         "color": "#FFFFFF",
         "highlight_color": "#FFD700",
         "position": "bottom",
@@ -254,22 +319,7 @@ def generate_ass(
         f"&H0000D7FF,&H000000FF,&H00000000,&H80000000,"
         f"0,0,0,0,100,100,0,0,1,4,2,2,10,10,120,1",
     ]
-
-    header = f"""[Script Info]
-Title: Pixelle-Video Subtitles
-ScriptType: v4.00+
-PlayResX: {canvas_w}
-PlayResY: {canvas_h}
-WrapStyle: 0
-
-[V4+ Styles]
-Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-{chr(10).join(style_defs)}
-
-[Events]
-Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
-"""
-
+    dynamic_styles: dict[str, int] = {}
     events: list[str] = []
     timeline = _segment_timeline(segments)
 
@@ -279,14 +329,42 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             continue
 
         subtitle_cfg = seg.get("subtitle") or {}
-        style_key = subtitle_cfg.get("style", "default")
+        style_key = subtitle_cfg.get("style_id") or subtitle_cfg.get("style", "default")
+        canonical_style = _normalize_subtitle_style_id(style_key)
         animation = subtitle_cfg.get("animation", default_style["animation"])
         max_chars = int(subtitle_cfg.get("max_chars_per_line") or max_chars_per_phrase)
 
+        seg_font_size = _resolve_subtitle_font_size(
+            subtitle_cfg,
+            global_config,
+            style_id=canonical_style,
+            canvas_h=canvas_h,
+        )
+
         style = default_style.copy()
-        if style_key == "yellow-highlight":
+        if canonical_style == "bold-yellow" or style_key == "yellow-highlight":
             style["highlight_color"] = "#FFD700"
             use_style = "Highlight"
+            if seg_font_size != default_style["size"]:
+                highlight_name = f"Highlight_{seg_font_size}"
+                if highlight_name not in dynamic_styles:
+                    dynamic_styles[highlight_name] = seg_font_size + 4
+                    style_defs.append(
+                        f"Style: {highlight_name},{default_style['font']},{seg_font_size + 4},"
+                        f"&H0000D7FF,&H000000FF,&H00000000,&H80000000,"
+                        f"0,0,0,0,100,100,0,0,1,4,2,2,10,10,120,1"
+                    )
+                use_style = highlight_name
+        elif seg_font_size != default_style["size"]:
+            custom_name = f"Custom_{seg_font_size}"
+            if custom_name not in dynamic_styles:
+                dynamic_styles[custom_name] = seg_font_size
+                style_defs.append(
+                    f"Style: {custom_name},{default_style['font']},{seg_font_size},"
+                    f"&H00FFFFFF,&H000000FF,&H00000000,&H80000000,"
+                    f"0,0,0,0,100,100,0,0,1,3,2,2,10,10,120,1"
+                )
+            use_style = custom_name
         else:
             use_style = style_name
 
@@ -315,6 +393,21 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
                 f"Dialogue: 0,{_sec_to_ass(start)},{_sec_to_ass(end)},"
                 f"{use_style},,0,0,0,,{dialogue_text}"
             )
+
+    header = f"""[Script Info]
+Title: Pixelle-Video Subtitles
+ScriptType: v4.00+
+PlayResX: {canvas_w}
+PlayResY: {canvas_h}
+WrapStyle: 0
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+{chr(10).join(style_defs)}
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+"""
 
     with open(output_path, "w", encoding="utf-8-sig") as f:
         f.write(header)

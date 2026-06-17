@@ -12,6 +12,7 @@ import {
   buildSubtitleTextShadow,
   normalizeSubtitleStyleId,
   type SubtitleStyleRender,
+  resolveSubtitleFontSize,
 } from './subtitleStyles';
 
 export const HYPERFRAMES_RUNTIME_URL =
@@ -25,7 +26,7 @@ interface Segment {
   scene_image_url: string;
   scene_description: string;
   camera_shot?: string;
-  subtitle: { enabled: boolean; style_id: string; position: string; animation: string };
+  subtitle: { enabled: boolean; style_id: string; position: string; animation: string; font_size?: number };
   transition: { type: string; duration: number };
   digital_human: { enabled: boolean; position: { x: number; y: number }; scale: number };
   avatar_id?: string;
@@ -143,10 +144,16 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
       const bg = style.bg === 'transparent' ? 'transparent' : style.bg;
       const padding = style.padding || (bg === 'transparent' ? '4px 8px' : '8px 16px');
       const borderRadius = style.borderRadius ?? 8;
+      const fontSizePx = resolveSubtitleFontSize({
+        styleId,
+        fontSize: seg.subtitle.font_size,
+        globalFontSize: (dsl.globalConfig as { subtitle_font_size?: number }).subtitle_font_size,
+        canvasHeight: Number((dsl.globalConfig as { canvas_height?: number }).canvas_height) || 1920,
+      });
       subtitleHtml = `
       <div class="clip subtitle ${animClass}" data-start="${start + 0.3}" data-duration="${Math.max(0.1, dur - 0.3)}" data-track-index="2"
            style="${clipStyle(`left:5%;right:5%;bottom:${100 - parseInt(posY, 10)}%;text-align:center;
-                  color:${style.color};font-size:${style.size};font-weight:${style.weight};
+                  color:${style.color};font-size:${fontSizePx}px;font-weight:${style.weight};
                   text-shadow:${textShadow};background:${bg};
                   padding:${padding};border-radius:${borderRadius}px;font-family:${subFont};`)}">
         ${escapeHtml(seg.narration_text)}

@@ -4,6 +4,12 @@ import { useEditorStore } from '../store/editorStore';
 import type { EditorObject } from '../store/editorStore';
 import { getSegmentLocalTime, isOverlayVisibleAtLocalTime } from '../utils/overlayTiming';
 import { isTimedElementVisibleAtLocalTime } from '../utils/elementTiming';
+import {
+  buildSubtitleTextShadow,
+  getSubtitleStyleDefinition,
+  normalizeSubtitleStyleId,
+  resolveSubtitlePreviewFontSizePx,
+} from '@shared/subtitleStyles';
 
 interface Layout {
   displayW: number;
@@ -200,21 +206,45 @@ export default function PreviewInteractionLayer({ layout }: { layout: Layout }) 
         );
       })}
 
-      {segment.subtitle.enabled && (
-        <button
-          type="button"
-          className={`absolute left-[5%] right-[5%] h-9 border-2 rounded-md ${
-            selectedElement.type === 'subtitle' && selectedElement.segIndex === currentSegIndex
-              ? 'border-primary'
-              : 'border-transparent hover:border-primary/30'
-          }`}
-          style={{
-            bottom: segment.subtitle.position === 'top' ? undefined : segment.subtitle.position === 'center' ? '45%' : '12%',
-            top: segment.subtitle.position === 'top' ? '6%' : undefined,
-          }}
-          onClick={(e) => { e.stopPropagation(); setSelectedElement({ type: 'subtitle', segIndex: currentSegIndex }); }}
-        />
-      )}
+      {segment.subtitle.enabled && (() => {
+        const styleId = normalizeSubtitleStyleId(segment.subtitle.style_id);
+        const styleDef = getSubtitleStyleDefinition(styleId);
+        const render = styleDef?.render;
+        const previewFont = resolveSubtitlePreviewFontSizePx({
+          styleId,
+          fontSize: segment.subtitle.font_size,
+          globalFontSize: dsl.globalConfig.subtitle_font_size,
+          canvasWidth: dsl.globalConfig.canvas_width || 1080,
+          previewWidth: displayW,
+        });
+        const posStyle = {
+          bottom: segment.subtitle.position === 'top' ? undefined : segment.subtitle.position === 'center' ? '45%' : '12%',
+          top: segment.subtitle.position === 'top' ? '6%' : undefined,
+        } as const;
+        const previewText = (segment.narration_text || '字幕预览').slice(0, 24);
+        return (
+          <button
+            type="button"
+            className={`absolute left-[5%] right-[5%] min-h-9 border-2 rounded-md px-2 py-1 text-center leading-snug pointer-events-auto ${
+              selectedElement.type === 'subtitle' && selectedElement.segIndex === currentSegIndex
+                ? 'border-primary'
+                : 'border-transparent hover:border-primary/30'
+            }`}
+            style={{
+              ...posStyle,
+              color: render?.color || '#fff',
+              background: render?.bg === 'transparent' ? 'transparent' : (render?.bg || 'rgba(0,0,0,0.45)'),
+              fontSize: previewFont,
+              fontWeight: render?.weight || 600,
+              textShadow: buildSubtitleTextShadow(render?.outline, (render?.weight || 600) >= 700 ? 2 : 1),
+              borderRadius: render?.borderRadius ?? 6,
+            }}
+            onClick={(e) => { e.stopPropagation(); setSelectedElement({ type: 'subtitle', segIndex: currentSegIndex }); }}
+          >
+            {previewText}
+          </button>
+        );
+      })()}
 
       {selectedObject && selectedObject.visible !== false && !selectedObject.locked && (
         <ObjectTransformHandles

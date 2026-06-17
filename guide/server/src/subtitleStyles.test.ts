@@ -4,6 +4,8 @@ import {
   buildSubtitleStyleRenderMap,
   getSubtitleStyleDefinition,
   normalizeSubtitleStyleId,
+  resolveSubtitleFontSize,
+  SUBTITLE_FONT_SIZE_DEFAULT,
 } from '../../shared/subtitleStyles';
 
 test('normalizeSubtitleStyleId maps legacy aliases to canonical keys', () => {
@@ -21,6 +23,12 @@ test('buildSubtitleStyleRenderMap covers all canonical and alias keys', () => {
   assert.ok(map['yellow-highlight']);
   assert.ok(map['brand-elegant']);
   assert.ok(map['bold-white-stroke']);
+});
+
+test('resolveSubtitleFontSize honors segment and global overrides', () => {
+  assert.equal(resolveSubtitleFontSize({ fontSize: 96 }), 96);
+  assert.equal(resolveSubtitleFontSize({ globalFontSize: 80 }), 80);
+  assert.ok(resolveSubtitleFontSize({ styleId: 'bold-white-stroke' }) >= SUBTITLE_FONT_SIZE_DEFAULT);
 });
 
 test('brand-elegant preview uses champagne palette', () => {

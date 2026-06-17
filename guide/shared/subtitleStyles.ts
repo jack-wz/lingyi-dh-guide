@@ -282,6 +282,58 @@ export function buildSubtitleTextShadow(outline?: string, width = 2): string {
   return STROKE_SHADOW(outline, width);
 }
 
+export const SUBTITLE_FONT_SIZE_MIN = 32;
+export const SUBTITLE_FONT_SIZE_MAX = 120;
+export const SUBTITLE_FONT_SIZE_DEFAULT = 72;
+
+export function parseSubtitleRenderSizePx(size: string): number {
+  const match = String(size || '').match(/(\d+(?:\.\d+)?)/);
+  return match ? Math.round(Number(match[1])) : 28;
+}
+
+function clampSubtitleFontSize(value: number): number {
+  return Math.max(SUBTITLE_FONT_SIZE_MIN, Math.min(SUBTITLE_FONT_SIZE_MAX, Math.round(value)));
+}
+
+/** Resolve ASS / render font size (px at 1080×1920 baseline) from overrides, global default, or style preset. */
+export function resolveSubtitleFontSize(options: {
+  styleId?: string;
+  fontSize?: number;
+  globalFontSize?: number;
+  canvasHeight?: number;
+}): number {
+  const { styleId, fontSize, globalFontSize, canvasHeight = 1920 } = options;
+  if (typeof fontSize === 'number' && fontSize > 0) {
+    return clampSubtitleFontSize(fontSize);
+  }
+  if (typeof globalFontSize === 'number' && globalFontSize > 0) {
+    return clampSubtitleFontSize(globalFontSize);
+  }
+  const def = getSubtitleStyleDefinition(styleId || 'default');
+  const px = def ? parseSubtitleRenderSizePx(def.render.size) : 28;
+  const scaled = Math.round(px * (canvasHeight / 1080) * 1.8);
+  return clampSubtitleFontSize(Math.max(SUBTITLE_FONT_SIZE_DEFAULT, scaled));
+}
+
+/** CSS font-size for HyperFrames / editor preview (scales with preview width). */
+export function resolveSubtitlePreviewFontSizePx(options: {
+  styleId?: string;
+  fontSize?: number;
+  globalFontSize?: number;
+  canvasWidth?: number;
+  previewWidth?: number;
+}): number {
+  const canvasWidth = options.canvasWidth || 1080;
+  const previewWidth = options.previewWidth || canvasWidth;
+  const assSize = resolveSubtitleFontSize({
+    styleId: options.styleId,
+    fontSize: options.fontSize,
+    globalFontSize: options.globalFontSize,
+    canvasHeight: Math.round(canvasWidth * (16 / 9)),
+  });
+  return Math.max(10, Math.round(assSize * (previewWidth / canvasWidth)));
+}
+
 /** Editor asset-library card list (canonical ids only). */
 export const SUBTITLE_STYLES = SUBTITLE_STYLE_DEFINITIONS.map((def) => ({
   id: def.id,

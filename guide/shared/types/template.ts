@@ -49,6 +49,8 @@ export interface GlobalConfig {
   brand_color: string;
   output_resolution: '720p' | '1080p' | '4K' | string;
   aspect_ratio: AspectRatio;
+  /** Default subtitle font size (ASS px at 1080×1920). Segments may override via subtitle.font_size. */
+  subtitle_font_size?: number;
 }
 
 export interface Segment {
@@ -129,6 +131,8 @@ export interface SubtitleConfig {
   style_id: string;
   position: SubtitlePosition;
   animation: SubtitleAnimation;
+  /** ASS/render font size (px baseline at 1080×1920). Omit to use globalConfig.subtitle_font_size or style preset. */
+  font_size?: number;
 }
 
 export interface TransitionConfig {

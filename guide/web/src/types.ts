@@ -75,6 +75,7 @@ export interface SubCfg {
   style_id: string;
   position: 'top' | 'center' | 'bottom';
   animation: 'none' | 'fadeIn' | 'typewriter';
+  font_size?: number;
 }
 
 export interface TransCfg {
