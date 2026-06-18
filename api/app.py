@@ -11,9 +11,9 @@
 # limitations under the License.
 
 """
-Pixelle-Video FastAPI Application
+Lingyi DH Guide — FastAPI gateway
 
-Main FastAPI app with all routers and middleware.
+Main FastAPI app with guide-platform proxy and legacy media routers.
 
 Run this script to start the FastAPI server:
     uv run python api/app.py
@@ -69,33 +69,33 @@ async def lifespan(app: FastAPI):
     Handles startup and shutdown events.
     """
     # Startup
-    logger.info("🚀 Starting Pixelle-Video API...")
+    logger.info("🚀 Starting Lingyi DH Guide API...")
     await task_manager.start()
     await guide_manager.start()
-    logger.info("✅ Pixelle-Video API started successfully\n")
+    logger.info("✅ Lingyi DH Guide API started successfully\n")
     
     yield
     
     # Shutdown
-    logger.info("🛑 Shutting down Pixelle-Video API...")
+    logger.info("🛑 Shutting down Lingyi DH Guide API...")
     await guide_manager.stop()
     await task_manager.stop()
     await shutdown_pixelle_video()
-    logger.info("✅ Pixelle-Video API shutdown complete")
+    logger.info("✅ Lingyi DH Guide API shutdown complete")
 
 
 # Create FastAPI app
 app = FastAPI(
-    title="Pixelle-Video API",
+    title="Lingyi DH Guide API",
     description="""
-    ## Pixelle-Video - AI Video Generation Platform API
+    ## 零一数字人导购平台 API
     
-    ### Features
-    - 🤖 **LLM**: Large language model integration
-    - 🔊 **TTS**: Text-to-speech synthesis
-    - 🎨 **Image**: AI image generation
-    - 📝 **Content**: Automated content generation
-    - 🎬 **Video**: End-to-end video generation
+    ### Guide platform (primary)
+    - 模板 / 数字人 / 渲染任务 / 资产库
+    - KIE 场景融合 · MOSI 配音 · 口型视频 · FFmpeg 成片
+    
+    ### Legacy media routers (optional)
+    - LLM / TTS / Image / Content / Video task APIs
     
     ### Video Generation Modes
     - **Sync**: `/api/video/generate/sync` - For small videos (< 30s)
@@ -151,7 +151,7 @@ app.mount("/brand-fonts", StaticFiles(directory=str(BRAND_FONTS_DIR)), name="gui
 async def root():
     """Root endpoint with API information"""
     return {
-        "service": "Pixelle-Video API",
+        "service": "Lingyi DH Guide API",
         "version": "0.1.0",
         "docs": api_config.docs_url,
         "health": "/health",
@@ -182,7 +182,7 @@ if __name__ == "__main__":
     import uvicorn
     
     # Parse command line arguments
-    parser = argparse.ArgumentParser(description="Start Pixelle-Video API Server")
+    parser = argparse.ArgumentParser(description="Start Lingyi DH Guide API Server")
     parser.add_argument("--host", default="0.0.0.0", help="Host to bind to")
     parser.add_argument("--port", type=int, default=8000, help="Port to bind to")
     parser.add_argument("--reload", action="store_true", help="Enable auto-reload")
@@ -192,7 +192,7 @@ if __name__ == "__main__":
     # Print startup banner
     print(f"""
 ╔══════════════════════════════════════════════════════════════╗
-║                    Pixelle-Video API Server                      ║
+║                 Lingyi DH Guide API Server                       ║
 ╚══════════════════════════════════════════════════════════════╝
 
 Starting server at http://{args.host}:{args.port}

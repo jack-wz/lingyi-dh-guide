@@ -8,7 +8,7 @@
 
 ### Changed
 
-- 文档与启动脚本：剔除 Pixelle-Video 产品说明，统一以「零一数字人导购平台」表述；根 `README.md` 重写为导购平台入口
+- 文档与启动脚本：统一以「零一数字人导购平台」表述；GitHub 仓库更名为 `lingyi-dh-guide`
 
 ### Added
 
@@ -56,5 +56,5 @@
 - HyperFrames 编辑器实时预览
 - 飞鹤/剪映模板数据资产与 E2E 脚本
 
-[Unreleased]: https://github.com/jack-wz/Pixelle-Video/compare/v1.0.0...main
-[1.0.0]: https://github.com/jack-wz/Pixelle-Video/releases
+[Unreleased]: https://github.com/jack-wz/lingyi-dh-guide/compare/v1.0.0...main
+[1.0.0]: https://github.com/jack-wz/lingyi-dh-guide/releases

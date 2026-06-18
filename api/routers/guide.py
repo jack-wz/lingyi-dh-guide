@@ -1,4 +1,4 @@
-"""Reverse-proxy guide-platform REST API through Pixelle-Video FastAPI."""
+"""Reverse-proxy guide-platform REST API through the FastAPI gateway."""
 
 from __future__ import annotations
 

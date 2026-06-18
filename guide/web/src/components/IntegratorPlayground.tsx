@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { IconFilm, IconZap } from './Icons';
-import { DEFAULT_SMOKE_TEMPLATE_ID } from '../constants/integrator';
+import { DEFAULT_SMOKE_TEMPLATE_ID, INTEGRATOR_QUICKSTART_DOC_URL } from '../constants/integrator';
 import { formatApiErrorMessage, parseApiErrorResponse } from '../utils/apiError';
 import { showApiToast } from './ApiToast';
 import RenderArtifactsPreview from './RenderArtifactsPreview';
@@ -283,7 +283,7 @@ export default function IntegratorPlayground() {
       <p className="text-[11px] text-muted-foreground">
         文档：
         <a
-          href="https://github.com/jack-wz/Pixelle-Video/blob/main/guide/docs/INTEGRATOR_QUICKSTART.md"
+          href={INTEGRATOR_QUICKSTART_DOC_URL}
           target="_blank"
           rel="noreferrer"
           className="text-brand-blue hover:underline ml-1"

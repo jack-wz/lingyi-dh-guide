@@ -1,6 +1,8 @@
 # Lingyi Digital Human Guide Platform
 
-English documentation for the legacy upstream video engine has been archived.  
+**Repository:** https://github.com/jack-wz/lingyi-dh-guide
+
+English documentation for the legacy media engine modules has been archived.  
 **Active product:** brand guide short-video platform under `guide/`.
 
 - [Guide module README](guide/README.md)

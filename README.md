@@ -1,5 +1,7 @@
 # 零一数字人导购平台
 
+**仓库：** https://github.com/jack-wz/lingyi-dh-guide
+
 品牌导购短视频生产平台：模板可视化编辑、数字人形象、分镜场景融合、TTS 配音、口型视频与 FFmpeg 成片组装。
 
 **集成方入口：** [guide/docs/INTEGRATOR_QUICKSTART.md](guide/docs/INTEGRATOR_QUICKSTART.md)  
@@ -67,4 +69,4 @@ make test-guide-fast
 
 ## 关于仓库中的其他代码
 
-仓库根目录仍保留历史视频生成相关模块（`pixelle_video/`、`web/` 旧 UI、`docs/` 英文文档等），**与当前导购平台产品线无关**，日常开发与部署以 `guide/` 为准。
+根目录 `api/` 除导购代理外，还保留部分历史媒体路由；`pixelle_video/`、`web/` 旧 UI、`docs/en/` 等为遗留模块，**与当前导购产品线无关**，日常开发与部署以 `guide/` 为准。

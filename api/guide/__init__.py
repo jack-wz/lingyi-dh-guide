@@ -1,1 +1,1 @@
-"""Guide platform integration for Pixelle-Video."""
+"""Guide platform integration for the Lingyi digital-human guide stack."""
