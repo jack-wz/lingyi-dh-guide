@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
 
-// Pixelle-Video FastAPI 统一后端（代理导购 API + 静态资源）
+// FastAPI 网关（代理导购 API + 静态资源）
 const apiTarget = process.env.VITE_API_TARGET || 'http://localhost:8000'
 
 export default defineConfig({

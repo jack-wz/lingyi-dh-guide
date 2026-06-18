@@ -1,4 +1,4 @@
-# Pixelle-Video — top-level Makefile (delegates guide targets)
+# 零一数字人导购平台 — 根 Makefile（委托 guide 目标）
 #
 # Examples:
 #   make test-guide

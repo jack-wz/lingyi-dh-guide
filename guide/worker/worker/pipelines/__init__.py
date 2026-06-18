@@ -1,4 +1,4 @@
-"""Pipeline base class using Template Method pattern (inspired by Pixelle-Video).
+"""Pipeline base class using Template Method pattern.
 
 Subclasses override specific steps to customize behavior.
 The base class defines the lifecycle:
@@ -117,7 +117,7 @@ class BasePipeline(ABC):
 
 
 class PipelineRegistry:
-    """Registry for pipeline implementations (inspired by Pixelle-Video)."""
+    """Registry for pipeline implementations."""
 
     def __init__(self):
         self._pipelines: dict[str, BasePipeline] = {}

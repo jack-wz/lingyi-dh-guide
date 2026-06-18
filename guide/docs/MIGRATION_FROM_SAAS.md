@@ -1,10 +1,10 @@
-# 从数字人 SaaS 迁移到 Pixelle 导购平台
+# 从数字人 SaaS 迁移到零一数字人导购平台
 
 面向从 **HeyGen、D-ID、蝉镜** 等托管 SaaS 迁到自研 **零一数字人导购平台** 的集成方。
 
 ## 能力对照（高层）
 
-| 能力 | HeyGen / 同类 SaaS | Pixelle Guide |
+| 能力 | HeyGen / 同类 SaaS | 零一导购平台 |
 |------|-------------------|---------------|
 | 单 API Key 出片 | ✅ 通常 1 把 Key | ❌ KIE + 云声(YunTTS) + WaveSpeed + 本地 FFmpeg |
 | 浏览器 Playground | ✅ developers 门户 | ✅ http://127.0.0.1:5173/debug（集成 Playground） |
@@ -16,7 +16,7 @@
 
 ## 概念映射
 
-| SaaS 概念 | Pixelle Guide |
+| SaaS 概念 | 零一导购平台 |
 |-----------|---------------|
 | Avatar / Presenter | `digital_human`（`/api/digital-humans`） |
 | Video / Project | `template`（`/api/templates`）+ `render_job` |

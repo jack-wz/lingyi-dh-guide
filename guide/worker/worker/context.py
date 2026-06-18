@@ -33,7 +33,7 @@ class ProcessedSegment:
 
 @dataclass
 class PipelineContext:
-    """Shared state across pipeline stages (inspired by Pixelle-Video)."""
+    """Shared state across pipeline stages."""
     task_id: str
     dsl: Dict[str, Any]
     variables: Dict[str, Any]

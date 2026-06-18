@@ -362,7 +362,7 @@ def generate_ass(
         style_defs.append(build_ass_style_line("Default", ass_font, base_font_size, "default"))
 
     header = f"""[Script Info]
-Title: Pixelle-Video Subtitles
+Title: Guide Platform Subtitles
 ScriptType: v4.00+
 PlayResX: {canvas_w}
 PlayResY: {canvas_h}

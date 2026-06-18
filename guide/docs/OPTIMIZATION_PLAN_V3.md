@@ -330,7 +330,7 @@ BrandPack.tokens
 
 ```bash
 # 索引（若未索引）
-npx gitnexus analyze /path/to/Pixelle-Video
+npx gitnexus analyze /path/to/<项目根目录>
 
 # 探索品牌/HF 链
 /gitnexus-exploring    # brandPack, hyperframesComposer, import-external-catalog

@@ -1,10 +1,14 @@
 # Guide 模块变更日志
 
-本文件记录 **零一数字人导购平台**（`guide/`）面向集成方与运维的变更。根仓库 Pixelle-Video 总变更见根目录 `README.md` 更新节。
+本文件记录 **零一数字人导购平台**（`guide/`）面向集成方与运维的变更。
 
 格式基于 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.0.0/)。
 
 ## [Unreleased]
+
+### Changed
+
+- 文档与启动脚本：剔除 Pixelle-Video 产品说明，统一以「零一数字人导购平台」表述；根 `README.md` 重写为导购平台入口
 
 ### Added
 
@@ -52,5 +56,5 @@
 - HyperFrames 编辑器实时预览
 - 飞鹤/剪映模板数据资产与 E2E 脚本
 
-[Unreleased]: https://github.com/AIDC-AI/Pixelle-Video/compare/main...feat/guide-platform-merge
-[1.0.0]: https://github.com/AIDC-AI/Pixelle-Video/releases
+[Unreleased]: https://github.com/jack-wz/Pixelle-Video/compare/main...feat/guide-platform-merge
+[1.0.0]: https://github.com/jack-wz/Pixelle-Video/releases

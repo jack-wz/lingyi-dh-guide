@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Pixelle-Video 统一启动：FastAPI 后端（含导购 API）+ 导购前端
+# 零一数字人导购平台统一启动：FastAPI 网关（含导购 API）+ 导购前端
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 cd "$ROOT"
@@ -22,7 +22,7 @@ guide_health_ok() {
 }
 
 if pixelle_api_up; then
-  echo "==> Pixelle API already on ${PIXELLE_PUBLIC_URL} (skip start_api.sh)"
+  echo "==> API 网关已在 ${PIXELLE_PUBLIC_URL} 运行（跳过 start_api.sh）"
   if ! guide_health_ok; then
     echo "==> Guide upstream :${GUIDE_INTERNAL_PORT} down — running make start-guide-internal"
     make -C guide start-guide-internal
@@ -30,7 +30,7 @@ if pixelle_api_up; then
     echo "==> Guide API healthy (${PIXELLE_PUBLIC_URL}/api/guide/health)"
   fi
 else
-  echo "==> Pixelle API :8000 (guide API proxied at /api/templates|renders|digital-humans|...)"
+  echo "==> API 网关 :8000（导购 API 代理：/api/templates|renders|digital-humans|...）"
   ./start_api.sh &
   API_PID=$!
   sleep 2

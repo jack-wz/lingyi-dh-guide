@@ -1,6 +1,6 @@
 # 新一轮优化计划 V2
 
-> 调研范围：Pixelle-Video guide、opentalking、FireRed-OpenStoryline、cenker-creation-demo、HyperFrames  
+> 调研范围：零一数字人导购平台（guide）、opentalking、FireRed-OpenStoryline、cenker-creation-demo、HyperFrames
 > 方法：产品主次 / 用户逆向 / 交互简化 / 设计审计 / AI 原生  
 > 日期：2026-06-16
 

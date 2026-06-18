@@ -2,7 +2,7 @@
   "name": "pixelle-guide-platform",
   "version": "1.0.0",
   "private": true,
-  "description": "零一数字人导购平台 — Pixelle-Video 子项目",
+  "description": "零一数字人导购平台",
   "workspaces": [
     "web",
     "server"

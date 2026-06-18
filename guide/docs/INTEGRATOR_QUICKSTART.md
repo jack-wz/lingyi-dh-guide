@@ -12,7 +12,7 @@
 
 | 服务 | 地址 | 说明 |
 |------|------|------|
-| Pixelle API | http://127.0.0.1:8000 | 含导购 API 代理 |
+| 统一 API 网关 | http://127.0.0.1:8000 | 含导购 API 代理 |
 | 导购健康检查 | http://127.0.0.1:8000/api/guide/health | 应返回 `{"status":"ok",...}` |
 | 编辑器 | http://127.0.0.1:5173 | 模板可视化编辑（可选） |
 | Playground | http://127.0.0.1:5173/debug | 浏览器内 smoke 渲染 |
@@ -23,7 +23,7 @@
 ## 1. 预检依赖（~2 分钟）
 
 ```bash
-cd Pixelle-Video
+cd <项目根目录>
 chmod +x guide/scripts/preflight.sh start_platform.sh
 guide/scripts/preflight.sh
 ```

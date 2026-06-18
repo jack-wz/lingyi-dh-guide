@@ -1,7 +1,6 @@
 """Core service facade for pipeline execution.
 
-This keeps provider clients behind one stable surface, following the same
-direction as Pixelle-Video without making Pixelle a runtime dependency.
+This keeps provider clients behind one stable surface for the guide render pipeline.
 """
 
 from dataclasses import dataclass
