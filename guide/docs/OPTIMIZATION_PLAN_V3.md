@@ -1,7 +1,7 @@
 # 零一数字人导购平台 — 新一轮优化计划 V3
 
 > 调研日期：2026-06-16  
-> 基线分支：`feat/guide-platform-merge`  
+> 基线分支：`main`
 > 方法：GitNexus 架构探索 + opentalking / OpenStoryline / cenker-demo 对标 + HyperFrames design 规范 + taste-skill 设计审查框架  
 > 前置文档：`PRODUCT.md`、`DESIGN.md`、`OPTIMIZATION_PLAN_V2.md`
 

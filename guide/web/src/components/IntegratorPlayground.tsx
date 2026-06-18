@@ -283,7 +283,7 @@ export default function IntegratorPlayground() {
       <p className="text-[11px] text-muted-foreground">
         文档：
         <a
-          href="https://github.com/jack-wz/Pixelle-Video/blob/feat/guide-platform-merge/guide/docs/INTEGRATOR_QUICKSTART.md"
+          href="https://github.com/jack-wz/Pixelle-Video/blob/main/guide/docs/INTEGRATOR_QUICKSTART.md"
           target="_blank"
           rel="noreferrer"
           className="text-brand-blue hover:underline ml-1"

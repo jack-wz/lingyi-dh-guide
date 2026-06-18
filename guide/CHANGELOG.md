@@ -56,5 +56,5 @@
 - HyperFrames 编辑器实时预览
 - 飞鹤/剪映模板数据资产与 E2E 脚本
 
-[Unreleased]: https://github.com/jack-wz/Pixelle-Video/compare/main...feat/guide-platform-merge
+[Unreleased]: https://github.com/jack-wz/Pixelle-Video/compare/v1.0.0...main
 [1.0.0]: https://github.com/jack-wz/Pixelle-Video/releases
