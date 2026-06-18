@@ -3,8 +3,27 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 REPO_ROOT="$(cd "$ROOT/.." && pwd)"
-export SERVER_URL="${SERVER_URL:-http://127.0.0.1:8000}"
-export DATA_DIR="${DATA_DIR:-$ROOT/data}"
+DATA_DIR="${DATA_DIR:-$ROOT/data}"
+GUIDE_PORT="${GUIDE_INTERNAL_PORT:-3001}"
+
+resolve_server_url() {
+  if [[ -n "${SERVER_URL:-}" ]]; then
+    echo "$SERVER_URL"
+    return
+  fi
+  if curl -sf "http://127.0.0.1:${GUIDE_PORT}/api/health" >/dev/null 2>&1; then
+    echo "http://127.0.0.1:${GUIDE_PORT}"
+    return
+  fi
+  if curl -sf "http://127.0.0.1:8000/api/guide/health" >/dev/null 2>&1; then
+    echo "http://127.0.0.1:8000"
+    return
+  fi
+  echo "http://127.0.0.1:${GUIDE_PORT}"
+}
+
+export SERVER_URL="$(resolve_server_url)"
+export DATA_DIR
 
 if pkill -f "run_worker.py" 2>/dev/null; then
   echo "Stopped existing worker(s)"

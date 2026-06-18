@@ -15,12 +15,20 @@ def classify_worker_error(exc: BaseException) -> str:
         return "W402"
     if "LLM" in message or "api key" in message.lower():
         return "W301"
-    if "TTS" in message or "配音" in message:
+    if "TTS" in message or "配音" in message or "/TTS]" in message:
         return "W302"
-    if "数字人" in message or "TalkingHead" in message or "InfiniteTalk" in message:
+    if (
+        "数字人" in message
+        or "TalkingHead" in message
+        or "InfiniteTalk" in message
+        or "LipSync" in message
+        or "对口型" in message
+    ):
         return "W303"
-    if "场景" in message or "scene" in message.lower():
+    if "场景" in message or "scene" in message.lower() or "KieFusion" in message:
         return "W304"
+    if "PipelineStepError" in name or "Stage" in message:
+        return "W305"
     return "W500"
 
 

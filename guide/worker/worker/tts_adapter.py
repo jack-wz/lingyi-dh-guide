@@ -51,6 +51,17 @@ class YunTTSAdapter(TTSAdapter):
     ) -> str:
         return self._client.clone_and_synthesize(text, voice_sample_path, output_path, voice_name)
 
+    def clone_and_synthesize_with_voice_id(
+        self,
+        text: str,
+        voice_sample_path: str,
+        output_path: str,
+        voice_name: str = "voice_clone",
+    ) -> tuple[str, str]:
+        return self._client.clone_and_synthesize_with_voice_id(
+            text, voice_sample_path, output_path, voice_name
+        )
+
     def synthesize_fallback(
         self,
         text: str,
@@ -59,11 +70,38 @@ class YunTTSAdapter(TTSAdapter):
     ) -> str:
         import os
 
+        from worker.config import get_prompt
+        from worker.local_edge_tts import synthesize_local_edge_tts
+
+        path, _voice_id = self.synthesize_fallback_with_voice_id(
+            text, output_path, voice_sample_path
+        )
+        return path
+
+    def synthesize_fallback_with_voice_id(
+        self,
+        text: str,
+        output_path: str,
+        voice_sample_path: str = "",
+        voice_name: str = "voice_clone",
+    ) -> tuple[str, str]:
+        import os
+
+        from worker.config import get_prompt
+        from worker.local_edge_tts import synthesize_local_edge_tts
+
         if voice_sample_path and os.path.exists(voice_sample_path):
-            cloned = self._client.clone_and_synthesize(text, voice_sample_path, output_path)
-            if cloned:
-                return cloned
-        return self._client.synthesize_edge_tts(text, output_path)
+            path, voice_id = self._client.clone_and_synthesize_with_voice_id(
+                text, voice_sample_path, output_path, voice_name
+            )
+            if path:
+                return path, voice_id
+        remote = self._client.synthesize_edge_tts(text, output_path)
+        if remote and os.path.exists(remote):
+            return remote, ""
+        voice = get_prompt("edge_tts_voice", "zh-CN-XiaoxiaoNeural")
+        print(f"[TTS] YunTTS unavailable, trying local Edge TTS voice={voice}")
+        return synthesize_local_edge_tts(text, output_path, voice=voice), ""
 
 
 class TTSAdapterRegistry:

@@ -11,6 +11,7 @@ import {
   PIPELINES,
   TERMINAL_STATUSES,
   enrichJob,
+  listRenderArtifacts,
   getPipeline,
   enrichDslWithJobContext,
   materializeRenderDsl,
@@ -55,7 +56,14 @@ function ensureWorkerRunning() {
   workerProcess = spawn(pythonCmd, ['-B', 'run_worker.py'], {
     cwd: workerDir,
     stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env, SERVER_URL: process.env.SERVER_URL || 'http://localhost:3000' },
+    env: {
+      ...process.env,
+      SERVER_URL:
+        process.env.SERVER_URL ||
+        (process.env.GUIDE_INTERNAL_PORT
+          ? `http://127.0.0.1:${process.env.GUIDE_INTERNAL_PORT}`
+          : 'http://127.0.0.1:3001'),
+    },
   });
 
   workerProcess.stdout?.on('data', (data: Buffer) => {
@@ -329,7 +337,7 @@ router.post('/maintenance/timeouts', (req: Request, res: Response) => {
   const requestedTimeoutMs = Number(req.body?.timeout_ms);
   const timeoutMs = Number.isFinite(requestedTimeoutMs)
     ? Math.max(1000, requestedTimeoutMs)
-    : Number(process.env.RENDER_HEARTBEAT_TIMEOUT_MS || 10 * 60 * 1000);
+    : Number(process.env.RENDER_HEARTBEAT_TIMEOUT_MS || 60 * 60 * 1000);
   const nowMs = Date.now();
   const jobs = db.prepare(
     `SELECT id, status, stage, heartbeat_at, worker_id
@@ -630,6 +638,14 @@ router.post('/:id/logs', (req: Request, res: Response) => {
   ).run(req.params.id, normalizedLevel, message || '');
 
   res.json({ success: true });
+});
+
+// GET /api/renders/:id/artifacts - scene images, clips, final video for debugging
+router.get('/:id/artifacts', (req: Request, res: Response) => {
+  const db = getDb();
+  const job = db.prepare('SELECT id FROM render_jobs WHERE id = ?').get(req.params.id) as { id: string } | undefined;
+  if (!job) return apiError(res, ErrorCodes.JOB_NOT_FOUND, 'Render job not found', 404);
+  res.json(listRenderArtifacts(req.params.id, DATA_DIR));
 });
 
 // GET /api/renders/:id/logs - get logs for a render job

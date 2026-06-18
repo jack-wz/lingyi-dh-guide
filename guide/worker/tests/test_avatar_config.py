@@ -3,16 +3,45 @@ import tempfile
 import unittest
 from unittest.mock import patch
 
-from worker.ai_clients.talking_head_client import resolve_wavespeed_submit_url
+from worker.ai_clients.talking_head_client import (
+    build_wavespeed_lipsync_payload,
+    resolve_wavespeed_submit_url,
+)
 from worker.avatar_adapter import KieAvatarAdapter, WaveSpeedAvatarAdapter, avatar_registry
 from worker import config
 from worker.config import get_avatar_provider, get_kie_avatar_config, get_wavespeed_config, _normalize_video_resolution
 
 
 class AvatarConfigTests(unittest.TestCase):
+    def test_resolve_wavespeed_submit_url_infinitetalk_fast(self):
+        url = resolve_wavespeed_submit_url("https://api.wavespeed.ai", "infinitetalk-fast")
+        self.assertEqual(url, "https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk-fast")
+
     def test_resolve_wavespeed_submit_url_known_model(self):
         url = resolve_wavespeed_submit_url("https://api.wavespeed.ai", "infinitetalk")
         self.assertEqual(url, "https://api.wavespeed.ai/api/v3/wavespeed-ai/infinitetalk")
+
+    def test_build_wavespeed_payload_fast_omits_resolution(self):
+        payload = build_wavespeed_lipsync_payload(
+            "infinitetalk-fast",
+            "https://img",
+            "https://audio",
+            "480p",
+            prompt="自然口播",
+        )
+        self.assertEqual(payload["image"], "https://img")
+        self.assertEqual(payload["audio"], "https://audio")
+        self.assertEqual(payload["prompt"], "自然口播")
+        self.assertNotIn("resolution", payload)
+
+    def test_build_wavespeed_payload_classic_includes_resolution(self):
+        payload = build_wavespeed_lipsync_payload(
+            "infinitetalk",
+            "https://img",
+            "https://audio",
+            "720p",
+        )
+        self.assertEqual(payload["resolution"], "720p")
 
     def test_resolve_wavespeed_submit_url_custom_slug(self):
         url = resolve_wavespeed_submit_url("https://api.wavespeed.ai", "my-talk-model")
@@ -77,7 +106,7 @@ class AvatarConfigTests(unittest.TestCase):
             }
         }
         with patch("worker.config.KIE_API_KEY", "key"):
-            _key, _base, model, resolution, _prompt, _timeout = get_kie_avatar_config()
+            _key, _base, model, resolution, _prompt, _timeout, _attempts = get_kie_avatar_config()
         self.assertEqual(model, "infinitalk/from-audio")
         self.assertEqual(resolution, "480p")
 

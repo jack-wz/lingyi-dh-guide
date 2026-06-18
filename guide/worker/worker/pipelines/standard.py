@@ -20,10 +20,15 @@ class StandardPipeline(BasePipeline):
         os.makedirs(ctx.work_dir, exist_ok=True)
 
     async def parse(self, ctx: PipelineContext):
+        log = ctx.job_logger
+        if log:
+            log.stage_begin("Stage1", "解析模板 DSL 与变量")
         result = await asyncio.to_thread(
             parse_template, ctx.dsl, ctx.variables
         )
         ctx.segments = result["segments"]
+        if log:
+            log.info("Stage1", "Parse", f"分镜数={len(ctx.segments)} 总时长={result.get('total_duration', 0)}s")
         ctx.overlays = result["overlays"]
         ctx.total_duration = result["total_duration"]
         ctx.resolved_variables = result["resolved_variables"]
@@ -40,7 +45,8 @@ class StandardPipeline(BasePipeline):
         await asyncio.to_thread(
             generate_scene_images,
             resolved_script, human_photos, ctx.work_dir,
-            ctx.server_base_url, ctx.on_progress
+            ctx.server_base_url, ctx.on_progress,
+            **ctx.stage_kwargs(),
         )
         if human_photos:
             await asyncio.to_thread(
@@ -62,6 +68,8 @@ class StandardPipeline(BasePipeline):
             voice_clone_id, human_photos, ctx.work_dir,
             ctx.server_base_url, ctx.on_progress, voice_sample_url,
             avatar_adapter=adapter,
+            digital_human_id=ctx.digital_human.get("id", ""),
+            **ctx.stage_kwargs(),
         )
 
     async def assemble(self, ctx: PipelineContext) -> str:
@@ -70,7 +78,8 @@ class StandardPipeline(BasePipeline):
             assemble_final_video,
             ctx.segments, ctx.overlays,
             ctx.dsl.get("globalConfig", {}),
-            ctx.work_dir, output_path, ctx.on_progress
+            ctx.work_dir, output_path, ctx.on_progress,
+            job_logger=ctx.job_logger,
         )
         return output_path
 

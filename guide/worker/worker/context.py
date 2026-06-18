@@ -51,7 +51,16 @@ class PipelineContext:
     # Progress callback
     on_progress: Any = None
     core: Any = field(default_factory=create_core_services)
+    job_logger: Any = None
+    pipeline_strict: bool = True
 
     def report_progress(self, stage: str, progress: float, message: str = ""):
         if self.on_progress:
             self.on_progress(stage, progress, message)
+
+    def stage_kwargs(self) -> dict[str, Any]:
+        """Common kwargs for stage1–4 functions."""
+        return {
+            "strict": self.pipeline_strict,
+            "job_logger": self.job_logger,
+        }

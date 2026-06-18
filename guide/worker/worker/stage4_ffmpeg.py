@@ -307,6 +307,8 @@ def assemble_final_video(
     work_dir: str,
     output_path: str,
     on_progress=None,
+    *,
+    job_logger=None,
 ) -> str:
     """Assemble the final video using FFmpeg filter_complex.
 
@@ -317,25 +319,34 @@ def assemble_final_video(
     5. Mix BGM
     6. Encode output
     """
-    if not check_ffmpeg():
-        raise RuntimeError("FFmpeg is not available. Install FFmpeg and ensure `ffmpeg` is on PATH.")
+    from worker.pipeline_log import null_logger
 
+    log = job_logger or null_logger()
+    stage = "Stage4"
+
+    if not check_ffmpeg():
+        log.fail(stage, "FFmpeg", "FFmpeg 不可用，无法组装成片")
+
+    log.info(stage, "BEGIN", f"组装成片 clips={len(segments)} overlays={len(overlays)}")
     if on_progress:
         on_progress("ffmpeg", 80, "正在组装最终视频...")
 
     ensure_dir(os.path.dirname(output_path))
     ensure_dir(work_dir)
 
-    fonts_manifest = prepare_brand_fonts(global_config, work_dir)
+    fonts_manifest = prepare_brand_fonts(global_config, work_dir, segments=segments)
     default_font_family = str(fonts_manifest.get("default_family") or "")
 
     synced = reconcile_timeline(segments, overlays, work_dir=work_dir)
     segments = synced["segments"]
     overlays = synced["overlays"]
-    for issue in validate_segments_for_assembly(segments, work_dir=work_dir, strict=False):
-        print(f"[Stage4] Timeline warning: {issue}")
+    from worker.config import get_pipeline_config
+
+    assembly_strict = get_pipeline_config()["pipeline_strict"]
+    for issue in validate_segments_for_assembly(segments, work_dir=work_dir, strict=assembly_strict):
+        log.warn(stage, "Validate", issue)
     manifest_path = write_segments_manifest(segments, overlays, work_dir)
-    print(f"[Stage4] Timeline manifest: {manifest_path} (total={synced['total_duration']}s)")
+    log.info(stage, "Timeline", f"manifest={manifest_path} total={synced['total_duration']}s")
 
     canvas_w = global_config.get("canvas_width", 1080)
     canvas_h = global_config.get("canvas_height", 1920)
@@ -578,9 +589,7 @@ def assemble_final_video(
         output_path,
     ]
 
-    print(f"[Stage4] Running FFmpeg with {base_count} clips, {overlay_count} overlays...")
-    print(f"[Stage4] Filter: {';'.join(filters)}")
-    print(f"[Stage4] Cmd: {' '.join(cmd)}")
+    log.info(stage, "FFmpeg", f"开始编码 clips={base_count} overlays={overlay_count}")
     result = subprocess.run(cmd, capture_output=True, text=True, timeout=600,
                            encoding='utf-8', errors='replace', cwd=work_dir)
 
@@ -598,11 +607,11 @@ def assemble_final_video(
                 _shutil.copy2(ass_result, os.path.join(debug_dir, "subtitles.ass"))
         except Exception:
             pass
-        print(f"[Stage4] FFmpeg FULL stderr:\n{result.stderr}")
+        log.error(stage, "FFmpeg", f"编码失败 code={result.returncode}: {result.stderr[:500]}")
         raise RuntimeError(f"FFmpeg failed with code {result.returncode}")
 
     if on_progress:
         on_progress("ffmpeg", 95, "视频组装完成")
 
-    print(f"[Stage4] Output: {output_path}")
+    log.info(stage, "END", f"成片输出 → {output_path}")
     return output_path

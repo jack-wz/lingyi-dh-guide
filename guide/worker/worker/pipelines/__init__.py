@@ -25,12 +25,21 @@ class BasePipeline(ABC):
         """Execute the full pipeline lifecycle."""
         start_time = time.time()
 
+        log = ctx.job_logger
         try:
             ctx.report_progress("setup", 2, "初始化任务环境...")
+            if log:
+                log.stage_begin("Pipeline", f"setup — {self.name}")
             await self.setup(ctx)
+            if log:
+                log.stage_end("Pipeline", "setup 完成")
 
             ctx.report_progress("parsing", 5, "解析模板...")
+            if log:
+                log.stage_begin("Stage1", "解析模板与变量")
             await self.parse(ctx)
+            if log:
+                log.stage_end("Stage1", f"解析完成，{len(ctx.segments)} 个分镜")
 
             ctx.report_progress("scene_gen", 15, "生成场景图...")
             await self.generate_scenes(ctx)
@@ -39,19 +48,31 @@ class BasePipeline(ABC):
             await self.generate_videos(ctx)
 
             ctx.report_progress("assemble", 80, "组装最终视频...")
+            if log:
+                log.stage_begin("Stage4", "FFmpeg 组装与字幕烧录")
             output = await self.assemble(ctx)
+            if log:
+                log.stage_end("Stage4", f"成片输出 → {output}")
 
             ctx.report_progress("validate", 96, "校验字幕/TTS/贴纸时间轴...")
+            if log:
+                log.stage_begin("Validate", "时间轴校验")
             await self.validate_timeline(ctx, output)
+            if log:
+                log.stage_end("Validate", "时间轴校验通过")
 
             ctx.report_progress("completed", 100, "视频生成完成!")
 
             elapsed = time.time() - start_time
+            if log:
+                log.info("Pipeline", "END", f"流水线完成，耗时 {elapsed:.1f}s")
             await self.finalize(ctx, output, elapsed)
 
             return output
 
         except Exception as e:
+            if log:
+                log.error("Pipeline", "FAILED", str(e))
             ctx.report_progress("failed", 0, f"失败: {str(e)}")
             raise
 

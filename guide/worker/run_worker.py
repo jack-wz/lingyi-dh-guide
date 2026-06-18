@@ -10,8 +10,9 @@ import threading
 import traceback
 import requests
 
-from worker.config import SERVER_URL, get_pipeline_config, set_job_config_snapshot
+from worker.config import SERVER_URL, get_pipeline_config, get_render_heartbeat_timeout_ms, set_job_config_snapshot
 from worker.context import PipelineContext
+from worker.pipeline_log import PipelineLogger
 from worker.pipelines import pipeline_registry
 
 # Import pipelines to trigger registration
@@ -23,7 +24,8 @@ import worker.pipelines.asset_driven  # noqa: F401
 import worker.pipelines.avatar_talk  # noqa: F401
 
 WORKER_ID = f"{socket.gethostname()}-{os.getpid()}"
-HEARTBEAT_TIMEOUT_MS = int(os.getenv("RENDER_HEARTBEAT_TIMEOUT_MS", str(10 * 60 * 1000)))
+def _heartbeat_timeout_ms() -> int:
+    return get_render_heartbeat_timeout_ms()
 TIMEOUT_MAINTENANCE_INTERVAL = float(os.getenv("RENDER_TIMEOUT_SWEEP_INTERVAL", "30"))
 
 
@@ -38,7 +40,9 @@ def poll_job():
         return None
 
 
-def run_timeout_maintenance(timeout_ms=HEARTBEAT_TIMEOUT_MS):
+def run_timeout_maintenance(timeout_ms=None):
+    if timeout_ms is None:
+        timeout_ms = _heartbeat_timeout_ms()
     """Ask the server to fail jobs whose worker heartbeat has gone stale."""
     try:
         res = requests.post(
@@ -100,6 +104,11 @@ def post_log(job_id, message, level="info"):
         pass
 
 
+def _emit_job_log(job_id: str, level: str, message: str) -> None:
+    print(message, flush=True)
+    post_log(job_id, message, level=level)
+
+
 def process_job(job):
     """Process a render job using the appropriate pipeline."""
     job_id = job["id"]
@@ -146,6 +155,13 @@ def process_job(job):
     from worker.config import RENDERS_DIR
     work_dir = os.path.join(RENDERS_DIR, f"job_{job_id}")
 
+    pipeline_cfg = get_pipeline_config()
+    job_logger = PipelineLogger(
+        job_id,
+        emit=lambda level, msg: (_emit_job_log(job_id, level, msg)),
+    )
+    job_logger.info("Worker", "BEGIN", f"认领任务 pipeline={pipeline_key} strict={pipeline_cfg['pipeline_strict']}")
+
     ctx = PipelineContext(
         task_id=job_id,
         dsl=template_dsl,
@@ -154,13 +170,15 @@ def process_job(job):
         work_dir=work_dir,
         server_base_url=SERVER_URL,
         on_progress=lambda stage, progress, msg="": _handle_progress(job_id, stage, progress, msg),
+        job_logger=job_logger,
+        pipeline_strict=pipeline_cfg["pipeline_strict"],
     )
 
     set_job_config_snapshot(provider_config_snapshot)
     stop_heartbeat = threading.Event()
 
     def _heartbeat_loop():
-        while not stop_heartbeat.wait(15):
+        while not stop_heartbeat.wait(10):
             if heartbeat(job_id):
                 stop_heartbeat.set()
                 return

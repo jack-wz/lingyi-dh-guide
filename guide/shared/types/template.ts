@@ -51,6 +51,8 @@ export interface GlobalConfig {
   aspect_ratio: AspectRatio;
   /** Default subtitle font size (ASS px at 1080×1920). Segments may override via subtitle.font_size. */
   subtitle_font_size?: number;
+  /** Default subtitle font family (CSS / ASS Fontname). Segments may override via subtitle.font_family. */
+  subtitle_font_family?: string;
 }
 
 export interface Segment {
@@ -133,6 +135,8 @@ export interface SubtitleConfig {
   animation: SubtitleAnimation;
   /** ASS/render font size (px baseline at 1080×1920). Omit to use globalConfig.subtitle_font_size or style preset. */
   font_size?: number;
+  /** Font family for burned-in subtitles. Omit to use globalConfig.subtitle_font_family / default_font_family. */
+  font_family?: string;
 }
 
 export interface TransitionConfig {

@@ -132,6 +132,7 @@ class AIFullAutoPipeline(BasePipeline):
             ctx.work_dir,
             ctx.server_base_url,
             lambda stage, progress, msg="": ctx.on_progress(stage, progress, msg),
+            **ctx.stage_kwargs(),
         )
         await asyncio.to_thread(
             resolve_human_assets_on_segments,
@@ -157,6 +158,8 @@ class AIFullAutoPipeline(BasePipeline):
             lambda stage, progress, msg="": ctx.on_progress(stage, progress, msg),
             voice_sample_url,
             avatar_adapter=adapter,
+            digital_human_id=ctx.digital_human.get("id", ""),
+            **ctx.stage_kwargs(),
         )
 
     async def assemble(self, ctx: PipelineContext) -> str:
@@ -169,6 +172,7 @@ class AIFullAutoPipeline(BasePipeline):
             ctx.work_dir,
             output_path,
             lambda stage, progress, msg="": ctx.on_progress(stage, progress, msg),
+            job_logger=ctx.job_logger,
         )
         return output_path
 

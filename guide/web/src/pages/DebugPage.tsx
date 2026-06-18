@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { IconZap, IconPlay, IconSettings, IconMic, IconImage, IconFilm, IconType, IconSave, IconChevronRight } from '../components/Icons';
 import IntegratorPlayground from '../components/IntegratorPlayground';
+import RenderArtifactsPreview from '../components/RenderArtifactsPreview';
 
 const API_BASE = '/api';
 
@@ -49,6 +50,8 @@ interface Config {
     ken_burns_zoom_start: number;
     ken_burns_zoom_end: number;
     avatar_provider: 'wavespeed' | 'kie';
+    avatar_fallback_wavespeed?: boolean;
+    scene_fusion_input_order?: 'scene_first' | 'human_first';
     timeline_validate: boolean;
     timeline_validate_strict: boolean;
     subtitle_aligner: 'whisper' | 'heuristic';
@@ -299,8 +302,14 @@ function PromptsPanel({ log }: { log: (l: LogEntry['level'], m: string) => void 
           </button>
         </div>
         <div className="space-y-4">
-          <Field label="场景图生成默认提示词" value={config.prompts.scene_image_default}
-            onChange={v => setConfig({ ...config, prompts: { ...config.prompts, scene_image_default: v } })} rows={3} />
+          <Field label="场景融合默认提示词（KIE 双图融合，非口播文案）" value={config.prompts.scene_image_default}
+            onChange={v => setConfig({ ...config, prompts: { ...config.prompts, scene_image_default: v } })} rows={4} />
+          <p className="text-[11px] text-muted-foreground -mt-2">
+            KIE 接收两张图（默认 input_urls[0]=编辑器资产库分镜、input_urls[1]=数字人资源库）；提示词图1/图2与下标对齐。
+            系统会自动在提示词前补充双图角色说明；可在「模型配置」切换融合顺序做 A/B 对比。
+            分镜填写 scene_description 时作为「分镜补充」追加。
+            口播 narration_text 不会作为场景图提示词。
+          </p>
           <Field label="人物形象生成提示词" value={config.prompts.human_model}
             onChange={v => setConfig({ ...config, prompts: { ...config.prompts, human_model: v } })} rows={2} />
           <Field label="Edge TTS 默认声音" value={config.prompts.edge_tts_voice}
@@ -355,23 +364,9 @@ function PromptsPanel({ log }: { log: (l: LogEntry['level'], m: string) => void 
               <option value="heuristic">启发式（按字数分配时长）</option>
             </select>
           </div>
-          <div className="col-span-2">
-            <label className="text-[12px] text-muted-foreground block mb-1">口型/数字人后端</label>
-            <select
-              value={config.pipeline.avatar_provider || 'wavespeed'}
-              onChange={e => setConfig({
-                ...config,
-                pipeline: { ...config.pipeline, avatar_provider: e.target.value as 'wavespeed' | 'kie' },
-              })}
-              className="w-full h-9 bg-secondary border border-border rounded-md px-2 text-sm"
-            >
-              <option value="wavespeed">WaveSpeed（InfiniteTalk 等，推荐）</option>
-              <option value="kie">KIE InfiniteTalk（infinitalk/from-audio）</option>
-            </select>
-            <p className="mt-1 text-[11px] text-muted-foreground">
-              KIE 用于场景图生成；口型视频由本项选择 WaveSpeed 或未来的 KIE 口型 API。
-            </p>
-          </div>
+          <p className="col-span-2 text-[11px] text-muted-foreground">
+            口型视频供应商与场景融合顺序已移至「模型配置」页，便于随时切换对比。
+          </p>
           <div className="col-span-2">
             <label className="text-[12px] text-muted-foreground block mb-1">Whisper 模型</label>
             <input
@@ -398,6 +393,8 @@ interface AvatarDiagnostics {
   kie_avatar_model: string;
   resolution: string;
   configured: boolean;
+  scene_fusion_input_order?: string;
+  avatar_fallback_wavespeed?: boolean;
   hint: string;
 }
 
@@ -462,8 +459,8 @@ function ModelsPanel({ log }: { log: (l: LogEntry['level'], m: string) => void }
     { key: 'wavespeed', label: 'WaveSpeed 唇形同步', icon: IconFilm, fields: [
       { key: 'base_url', label: '基础 URL' },
       { key: 'api_key', label: 'API 密钥', sensitive: true },
-      { key: 'model', label: '口型模型 (infinitetalk / infinitetalk-multi)' },
-      { key: 'resolution', label: '分辨率 (480p / 720p)' },
+      { key: 'model', label: '口型模型 (infinitetalk-fast / infinitetalk / infinitetalk-multi)' },
+      { key: 'resolution', label: '分辨率 (480p / 720p，infinitetalk-fast 不使用)' },
     ]},
     { key: 'ffmpeg', label: 'FFmpeg 编码参数', icon: IconSettings, fields: [
       { key: 'codec', label: '编码器' },
@@ -475,6 +472,79 @@ function ModelsPanel({ log }: { log: (l: LogEntry['level'], m: string) => void }
 
   return (
     <div className="space-y-4">
+      <div className="bg-card border border-primary/30 rounded-lg p-4 space-y-3">
+        <h3 className="text-[14px] font-medium">视频供应商与场景融合（调试对比）</h3>
+        <p className="text-[11px] text-muted-foreground">
+          保存后请重启 Worker；请用<strong>新提交</strong>的渲染任务验证（复制任务会沿用旧的 provider 快照）。
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="text-[12px] text-muted-foreground block mb-1">口型视频供应商（Stage3）</label>
+            <select
+              value={config.pipeline.avatar_provider || 'kie'}
+              onChange={e => setConfig({
+                ...config,
+                pipeline: { ...config.pipeline, avatar_provider: e.target.value as 'wavespeed' | 'kie' },
+              })}
+              className="w-full h-9 bg-secondary border border-border rounded-md px-2 text-sm"
+            >
+              <option value="kie">KIE InfiniteTalk</option>
+              <option value="wavespeed">WaveSpeed InfiniteTalk</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-[12px] text-muted-foreground block mb-1">场景融合 input_urls 顺序</label>
+            <select
+              value={config.pipeline.scene_fusion_input_order || 'scene_first'}
+              onChange={e => setConfig({
+                ...config,
+                pipeline: {
+                  ...config.pipeline,
+                  scene_fusion_input_order: e.target.value as 'scene_first' | 'human_first',
+                },
+              })}
+              className="w-full h-9 bg-secondary border border-border rounded-md px-2 text-sm"
+            >
+              <option value="scene_first">图1=资产库分镜 · 图2=数字人（推荐）</option>
+              <option value="human_first">图1=数字人 · 图2=资产库分镜（对比）</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label className="text-[12px] text-muted-foreground block mb-1">WaveSpeed 口型模型</label>
+          <select
+            value={config.models.wavespeed.model || 'infinitetalk-fast'}
+            onChange={e => setConfig({
+              ...config,
+              models: {
+                ...config.models,
+                wavespeed: { ...config.models.wavespeed, model: e.target.value },
+              },
+            })}
+            className="w-full h-9 bg-secondary border border-border rounded-md px-2 text-sm font-mono"
+          >
+            <option value="infinitetalk-fast">infinitetalk-fast（默认，更快）</option>
+            <option value="infinitetalk">infinitetalk</option>
+            <option value="infinitetalk-multi">infinitetalk-multi</option>
+            <option value="infinite-talk">infinite-talk（别名）</option>
+          </select>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            对应 API：<span className="font-mono">POST /api/v3/wavespeed-ai/{config.models.wavespeed.model || 'infinitetalk-fast'}</span>
+          </p>
+        </div>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={config.pipeline.avatar_fallback_wavespeed ?? true}
+            onChange={e => setConfig({
+              ...config,
+              pipeline: { ...config.pipeline, avatar_fallback_wavespeed: e.target.checked },
+            })}
+          />
+          KIE 口型失败时自动回退 WaveSpeed（使用上方模型）
+        </label>
+      </div>
+
       {avatarDiag && (
         <div className="bg-card border border-border rounded-lg p-4">
           <h3 className="text-[14px] font-medium mb-2">口型/数字人运行时</h3>
@@ -487,6 +557,10 @@ function ModelsPanel({ log }: { log: (l: LogEntry['level'], m: string) => void }
             <div className="font-mono">{avatarDiag.resolution}</div>
             <div className="text-muted-foreground">密钥状态</div>
             <div>{avatarDiag.configured ? '已配置' : '未配置'}</div>
+            <div className="text-muted-foreground">场景融合顺序</div>
+            <div className="font-mono">{avatarDiag.scene_fusion_input_order || 'scene_first'}</div>
+            <div className="text-muted-foreground">KIE 失败回退</div>
+            <div>{avatarDiag.avatar_fallback_wavespeed ? '开启' : '关闭'}</div>
           </div>
           <p className="mt-3 text-[11px] text-muted-foreground">{avatarDiag.hint}</p>
         </div>
@@ -558,9 +632,19 @@ function ModelsPanel({ log }: { log: (l: LogEntry['level'], m: string) => void }
 function OpsPanel({ apiCall, loading }: { apiCall: (m: string, p: string, b?: any) => Promise<any>; loading: boolean }) {
   const [templateId, setTemplateId] = useState('');
   const [jobIds, setJobIds] = useState('');
+  const [previewJobId, setPreviewJobId] = useState('');
 
   return (
     <div className="space-y-4">
+      <div className="bg-card border border-border rounded-lg p-4 space-y-3">
+        <h3 className="text-[14px] font-medium">分镜产物预览</h3>
+        <p className="text-[12px] text-muted-foreground">
+          输入渲染 Job ID，查看 `scene_*.png`、`clip_*.mp4`、TTS 与成片，便于对照口型/场景融合效果。
+        </p>
+        <Field label="Job ID" value={previewJobId} onChange={setPreviewJobId} />
+        {previewJobId.trim() && <RenderArtifactsPreview jobId={previewJobId.trim()} />}
+      </div>
+
       <div className="bg-card border border-border rounded-lg p-4 space-y-3">
         <h3 className="text-[14px] font-medium">渲染任务审计</h3>
         <p className="text-[12px] text-muted-foreground">扫描 `data/renders/job_*`，输出 TTS/字幕/贴纸时间轴问题清单。</p>

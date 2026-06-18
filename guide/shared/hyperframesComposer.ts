@@ -12,6 +12,7 @@ import {
   buildSubtitleTextShadow,
   normalizeSubtitleStyleId,
   type SubtitleStyleRender,
+  resolveSubtitleFontFamily,
   resolveSubtitleFontSize,
 } from './subtitleStyles';
 
@@ -135,9 +136,13 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
     if (seg.subtitle.enabled && seg.narration_text) {
       const styleId = normalizeSubtitleStyleId(seg.subtitle.style_id);
       const style = styleMap[styleId] || styleMap.default;
-      const subFont = brandInjection.subtitleStyleMap[styleId]?.fontFamily
-        || brandInjection.subtitleStyleMap[seg.subtitle.style_id]?.fontFamily
-        || defaultFont;
+      const subFont = resolveSubtitleFontFamily({
+        fontFamily: (seg.subtitle as { font_family?: string }).font_family,
+        globalSubtitleFontFamily: (dsl.globalConfig as { subtitle_font_family?: string }).subtitle_font_family,
+        defaultFontFamily: brandInjection.subtitleStyleMap[styleId]?.fontFamily
+          || brandInjection.subtitleStyleMap[seg.subtitle.style_id]?.fontFamily
+          || defaultFont,
+      });
       const posY = seg.subtitle.position === 'top' ? '8%' : seg.subtitle.position === 'center' ? '45%' : '82%';
       const animClass = seg.subtitle.animation === 'typewriter' ? 'typewriter' : seg.subtitle.animation === 'fadeIn' ? 'fade-in' : '';
       const textShadow = buildSubtitleTextShadow(style.outline, style.weight >= 700 ? 2 : 1);

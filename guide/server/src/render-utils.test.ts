@@ -11,6 +11,7 @@ import {
   isHeartbeatStale,
   enrichDslWithJobContext,
   materializeRenderDsl,
+  listRenderArtifacts,
   outputExists,
   parseHeartbeatMs,
   redactProviderConfigSnapshot,
@@ -74,6 +75,24 @@ describe('render-utils', () => {
     assert.equal(statusFromStage('ffmpeg'), 'ffmpeg');
     assert.equal(statusFromStage('completed'), undefined);
     assert.equal(statusFromStage('failed'), undefined);
+  });
+
+  it('lists render job artifacts for debug preview', () => {
+    const dataDir = mkdtempSync(join(tmpdir(), 'render-artifacts-'));
+    const jobId = 'abc-123';
+    const workDir = join(dataDir, 'renders', `job_${jobId}`);
+    mkdirSync(workDir, { recursive: true });
+    writeFileSync(join(workDir, 'scene_0.png'), 'png');
+    writeFileSync(join(workDir, 'clip_0.mp4'), 'mp4');
+    writeFileSync(join(workDir, 'tts_0.wav'), 'wav');
+    writeFileSync(join(workDir, 'final.mp4'), 'final');
+
+    const payload = listRenderArtifacts(jobId, dataDir);
+    assert.equal(payload.work_dir_exists, true);
+    assert.equal(payload.segments.length, 1);
+    assert.equal(payload.segments[0].scene?.url, `/renders/job_${jobId}/scene_0.png`);
+    assert.equal(payload.segments[0].clip?.url, `/renders/job_${jobId}/clip_0.mp4`);
+    assert.equal(payload.final?.url, `/renders/job_${jobId}/final.mp4`);
   });
 
   it('detects local and remote render outputs without throwing on missing files', () => {

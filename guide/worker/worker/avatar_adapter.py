@@ -52,12 +52,28 @@ class KieAvatarAdapter(AvatarAdapter):
 
     def __init__(self, server_base_url: str = ""):
         self._client = KieAvatarClient(server_base_url=server_base_url)
+        self._fallback = WaveSpeedAvatarAdapter(server_base_url=server_base_url)
 
     def generate(self, audio_path: str, image_path: str, human_config: dict[str, Any], output_path: str) -> str:
+        from worker.config import get_pipeline_config
+
         image_source = image_path or human_config.get("face_photo_url", "")
-        return self._client.generate(
+        result = self._client.generate(
             audio_path=audio_path,
             image_url=image_source,
+            output_path=output_path,
+        )
+        if result:
+            return result
+
+        if not get_pipeline_config().get("avatar_fallback_wavespeed", True):
+            return ""
+
+        print("[KieAvatar] KIE failed, falling back to WaveSpeed InfiniteTalk")
+        return self._fallback.generate(
+            audio_path=audio_path,
+            image_path=image_source,
+            human_config=human_config,
             output_path=output_path,
         )
 

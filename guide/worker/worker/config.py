@@ -94,7 +94,12 @@ def get_kie_avatar_config():
         poll_timeout = int(cfg.get("avatar_poll_timeout") or cfg.get("poll_timeout") or 300)
     except (TypeError, ValueError):
         poll_timeout = 300
-    return api_key, base_url, raw_model, resolution, prompt, poll_timeout
+    try:
+        max_attempts = int(cfg.get("avatar_max_attempts") or 2)
+    except (TypeError, ValueError):
+        max_attempts = 2
+    max_attempts = max(1, min(max_attempts, 5))
+    return api_key, base_url, raw_model, resolution, prompt, poll_timeout, max_attempts
 
 
 def get_yuntts_config():
@@ -108,7 +113,7 @@ def get_yuntts_config():
     return api_key, base_url, default_voice
 
 
-WAVESPEED_DEFAULT_MODEL = os.getenv("WAVESPEED_MODEL", "infinitetalk")
+WAVESPEED_DEFAULT_MODEL = os.getenv("WAVESPEED_MODEL", "infinitetalk-fast")
 WAVESPEED_DEFAULT_RESOLUTION = os.getenv("WAVESPEED_RESOLUTION", "480p")
 AVATAR_PROVIDER_DEFAULT = os.getenv("AVATAR_PROVIDER", "wavespeed")
 
@@ -120,7 +125,7 @@ def get_wavespeed_config():
     if not api_key or "***" in api_key:
         api_key = WAVESPEED_API_KEY
     base_url = cfg.get("base_url") or WAVESPEED_BASE_URL
-    model = (cfg.get("model") or WAVESPEED_DEFAULT_MODEL or "infinitetalk").strip()
+    model = (cfg.get("model") or WAVESPEED_DEFAULT_MODEL or "infinitetalk-fast").strip()
     resolution = (cfg.get("resolution") or WAVESPEED_DEFAULT_RESOLUTION or "480p").strip()
     return api_key, base_url, model, resolution
 
@@ -132,6 +137,34 @@ def get_avatar_provider() -> str:
     return str(provider).strip().lower() or "wavespeed"
 
 
+def get_scene_fusion_input_order() -> str:
+    """KIE scene fusion input_urls order: scene_first (图1=资产库分镜) or human_first."""
+    cfg = _load_json().get("pipeline", {})
+    raw = str(
+        os.getenv("SCENE_FUSION_INPUT_ORDER") or cfg.get("scene_fusion_input_order") or "scene_first"
+    ).strip().lower()
+    return "human_first" if raw in {"human_first", "human-first", "dh_first"} else "scene_first"
+
+
+def get_render_heartbeat_timeout_ms() -> int:
+    """How long an active render may run without a worker heartbeat before the server fails it."""
+    cfg = _load_json().get("pipeline", {})
+    env_raw = os.getenv("RENDER_HEARTBEAT_TIMEOUT_MS")
+    if env_raw:
+        try:
+            return max(60_000, int(env_raw))
+        except (TypeError, ValueError):
+            pass
+    try:
+        configured = int(cfg.get("render_heartbeat_timeout_ms") or 0)
+    except (TypeError, ValueError):
+        configured = 0
+    if configured > 0:
+        return max(60_000, configured)
+    # Default: cover long KIE polls (scene + avatar retries).
+    return 60 * 60 * 1000
+
+
 def get_pipeline_config():
     """Get pipeline config with hot-reload from config.json."""
     cfg = _load_json().get("pipeline", {})
@@ -141,6 +174,7 @@ def get_pipeline_config():
         "ken_burns_zoom_start": cfg.get("ken_burns_zoom_start") or 1.0,
         "ken_burns_zoom_end": cfg.get("ken_burns_zoom_end") or 1.15,
         "avatar_provider": get_avatar_provider(),
+        "scene_fusion_input_order": get_scene_fusion_input_order(),
         "timeline_validate": _env_bool(
             "RENDER_TIMELINE_VALIDATE",
             cfg.get("timeline_validate", True),
@@ -149,6 +183,15 @@ def get_pipeline_config():
             "RENDER_TIMELINE_STRICT",
             cfg.get("timeline_validate_strict", False),
         ),
+        "pipeline_strict": _env_bool(
+            "PIPELINE_STRICT",
+            cfg.get("pipeline_strict", True),
+        ),
+        "avatar_fallback_wavespeed": _env_bool(
+            "AVATAR_FALLBACK_WAVESPEED",
+            cfg.get("avatar_fallback_wavespeed", True),
+        ),
+        "render_heartbeat_timeout_ms": get_render_heartbeat_timeout_ms(),
     }
 
 

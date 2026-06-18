@@ -286,6 +286,27 @@ export const SUBTITLE_FONT_SIZE_MIN = 32;
 export const SUBTITLE_FONT_SIZE_MAX = 120;
 export const SUBTITLE_FONT_SIZE_DEFAULT = 72;
 
+/** Parse first family from a CSS font-family stack. */
+export function parseFontFamilyName(raw: string | undefined): string {
+  if (!raw) return '';
+  return String(raw).split(',')[0].trim().replace(/^['"]|['"]$/g, '');
+}
+
+/** Resolve subtitle font: segment → global subtitle_font_family → default_font_family → 苹方. */
+export function resolveSubtitleFontFamily(options: {
+  fontFamily?: string;
+  globalSubtitleFontFamily?: string;
+  defaultFontFamily?: string;
+}): string {
+  const fromSeg = parseFontFamilyName(options.fontFamily);
+  if (fromSeg) return fromSeg;
+  const fromGlobal = parseFontFamilyName(options.globalSubtitleFontFamily);
+  if (fromGlobal) return fromGlobal;
+  const fromDefault = parseFontFamilyName(options.defaultFontFamily);
+  if (fromDefault) return fromDefault;
+  return 'PingFang SC';
+}
+
 export function parseSubtitleRenderSizePx(size: string): number {
   const match = String(size || '').match(/(\d+(?:\.\d+)?)/);
   return match ? Math.round(Number(match[1])) : 28;

@@ -4,6 +4,7 @@ import { IconFilm, IconZap } from './Icons';
 import { DEFAULT_SMOKE_TEMPLATE_ID } from '../constants/integrator';
 import { formatApiErrorMessage, parseApiErrorResponse } from '../utils/apiError';
 import { showApiToast } from './ApiToast';
+import RenderArtifactsPreview from './RenderArtifactsPreview';
 
 type HealthState = 'checking' | 'ok' | 'down';
 type SmokePhase = 'idle' | 'submitting' | 'polling' | 'completed' | 'failed';
@@ -40,6 +41,7 @@ export default function IntegratorPlayground() {
   const [phase, setPhase] = useState<SmokePhase>('idle');
   const [job, setJob] = useState<RenderJob | null>(null);
   const [elapsedSec, setElapsedSec] = useState<number | null>(null);
+  const [artifactRefreshKey, setArtifactRefreshKey] = useState(0);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const startedAtRef = useRef<number | null>(null);
 
@@ -81,6 +83,7 @@ export default function IntegratorPlayground() {
         const res = await fetch(`/api/renders/${jobId}`);
         const data = (await res.json()) as RenderJob;
         setJob(data);
+        setArtifactRefreshKey((k) => k + 1);
         if (data.status === 'completed') {
           stopPolling();
           setPhase('completed');
@@ -268,6 +271,10 @@ export default function IntegratorPlayground() {
 
             {phase === 'failed' && job.error_message && (
               <p className="text-[12px] text-destructive whitespace-pre-wrap">{job.error_message}</p>
+            )}
+
+            {(phase === 'polling' || phase === 'completed' || phase === 'failed') && (
+              <RenderArtifactsPreview jobId={job.id} refreshKey={artifactRefreshKey} />
             )}
           </div>
         )}

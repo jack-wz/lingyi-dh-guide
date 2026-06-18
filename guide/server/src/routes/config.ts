@@ -39,6 +39,8 @@ interface Config {
     ken_burns_zoom_start: number;
     ken_burns_zoom_end: number;
     avatar_provider: 'wavespeed' | 'kie';
+    avatar_fallback_wavespeed?: boolean;
+    scene_fusion_input_order?: 'scene_first' | 'human_first';
     timeline_validate: boolean;
     timeline_validate_strict: boolean;
     subtitle_aligner: 'whisper' | 'heuristic';
@@ -60,7 +62,7 @@ const DEFAULT_CONFIG: Config = {
       avatar_prompt: '',
     },
     yuntts: { base_url: 'https://www.yuntts.com/api/v1', api_key: 'sk-', default_voice: 'zh-CN-XiaoxiaoNeural', max_audio_duration: 28 },
-    wavespeed: { base_url: 'https://api.wavespeed.ai', api_key: '', model: 'infinitetalk', resolution: '480p' },
+    wavespeed: { base_url: 'https://api.wavespeed.ai', api_key: '', model: 'infinitetalk-fast', resolution: '480p' },
     ffmpeg: { codec: 'libx264', preset: 'veryfast', crf: 18, audio_bitrate: '192k' },
     llm: {
       base_url: 'https://api.deepseek.com',
@@ -70,7 +72,8 @@ const DEFAULT_CONFIG: Config = {
     },
   },
   prompts: {
-    scene_image_default: '将这张场景参考图与人物融合，生成一个真实自然的导购场景图',
+    scene_image_default:
+      '将数字人融入分镜场景：严格保持数字人五官与服装与参考图完全一致；参照分镜场景图的镜头视角、景别、表情、场景环境与人物姿势生成新图；移除水印、多余人物、贴纸及与口播无关的元素，输出干净自然的单人场景图',
     human_model: '生成一张高质量的人物形象照，背景干净，适合作为数字人形象',
     edge_tts_voice: 'zh-CN-XiaoxiaoNeural',
   },
@@ -80,6 +83,8 @@ const DEFAULT_CONFIG: Config = {
     ken_burns_zoom_start: 1.0,
     ken_burns_zoom_end: 1.15,
     avatar_provider: 'wavespeed',
+    avatar_fallback_wavespeed: true,
+    scene_fusion_input_order: 'scene_first',
     timeline_validate: true,
     timeline_validate_strict: false,
     subtitle_aligner: 'whisper',
@@ -143,7 +148,7 @@ function buildDiagnostics(config: Config) {
       name: 'WaveSpeed 口型/数字人视频',
       configured: hasUsableApiKey(config.models.wavespeed.api_key),
       base_url: config.models.wavespeed.base_url,
-      model: config.models.wavespeed.model || 'infinitetalk',
+      model: config.models.wavespeed.model || 'infinitetalk-fast',
       resolution: config.models.wavespeed.resolution || '480p',
       used_for: ['lip_sync'],
       fallback: '缺失时会跳过口型视频，退回图片动效或占位视频。',
@@ -193,7 +198,7 @@ function buildDiagnostics(config: Config) {
   };
 
   const avatarProvider = (config.pipeline?.avatar_provider || 'wavespeed').toLowerCase();
-  const wavespeedModel = config.models.wavespeed.model || 'infinitetalk';
+  const wavespeedModel = config.models.wavespeed.model || 'infinitetalk-fast';
   const kieAvatarModel = config.models.kie.avatar_model || 'infinitalk/from-audio';
   const avatarModel = avatarProvider === 'kie' ? kieAvatarModel : wavespeedModel;
   const avatarResolution =
@@ -219,8 +224,15 @@ function buildDiagnostics(config: Config) {
         { id: 'wavespeed', label: 'WaveSpeed（InfiniteTalk 等）', ready: true },
         { id: 'kie', label: 'KIE InfiniteTalk（infinitalk/from-audio）', ready: true },
       ],
-      available_wavespeed_models: ['infinitetalk', 'infinitetalk-multi', 'infinite-talk'],
+      available_wavespeed_models: [
+        'infinitetalk-fast',
+        'infinitetalk',
+        'infinitetalk-multi',
+        'infinite-talk',
+      ],
       available_kie_avatar_models: ['infinitalk/from-audio', 'infinitetalk', 'infinite-talk'],
+      scene_fusion_input_order: config.pipeline?.scene_fusion_input_order || 'scene_first',
+      avatar_fallback_wavespeed: config.pipeline?.avatar_fallback_wavespeed ?? true,
       hint:
         avatarProvider === 'kie'
           ? `当前口型后端：KIE / ${kieAvatarModel}`

@@ -1,4 +1,4 @@
-import { existsSync } from 'fs';
+import { existsSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
 
 export interface PipelineOption {
@@ -49,6 +49,107 @@ export function statusFromStage(stage: unknown): string | undefined {
     return stage;
   }
   return undefined;
+}
+
+export type RenderArtifactFile = {
+  name: string;
+  url: string;
+  exists: boolean;
+  size_bytes: number;
+  kind: 'scene' | 'clip' | 'tts' | 'final' | 'manifest' | 'other';
+};
+
+export type RenderSegmentArtifacts = {
+  index: number;
+  scene: RenderArtifactFile | null;
+  clip: RenderArtifactFile | null;
+  tts: RenderArtifactFile | null;
+};
+
+export type RenderArtifactsPayload = {
+  job_id: string;
+  work_dir: string;
+  work_dir_exists: boolean;
+  final: RenderArtifactFile | null;
+  manifest: RenderArtifactFile | null;
+  segments: RenderSegmentArtifacts[];
+  other_files: RenderArtifactFile[];
+};
+
+function artifactKind(name: string): RenderArtifactFile['kind'] {
+  if (/^scene_\d+\.png$/i.test(name)) return 'scene';
+  if (/^clip_\d+\.mp4$/i.test(name)) return 'clip';
+  if (/^tts_\d+\.wav$/i.test(name)) return 'tts';
+  if (name === 'final.mp4') return 'final';
+  if (name === 'segments_manifest.json') return 'manifest';
+  return 'other';
+}
+
+function buildArtifactFile(dataDir: string, workRel: string, name: string): RenderArtifactFile {
+  const rel = `/renders/${workRel}/${name}`;
+  const abs = join(dataDir, 'renders', workRel, name);
+  const exists = existsSync(abs);
+  return {
+    name,
+    url: rel,
+    exists,
+    size_bytes: exists ? statSync(abs).size : 0,
+    kind: artifactKind(name),
+  };
+}
+
+function segmentIndex(name: string): number | null {
+  const match = name.match(/^(?:scene|clip|tts)_(\d+)\./i);
+  return match ? Number(match[1]) : null;
+}
+
+export function listRenderArtifacts(jobId: string, dataDir: string): RenderArtifactsPayload {
+  const workRel = `job_${jobId}`;
+  const workAbs = join(dataDir, 'renders', workRel);
+  const workDirExists = existsSync(workAbs);
+  const empty: RenderArtifactsPayload = {
+    job_id: jobId,
+    work_dir: `/renders/${workRel}`,
+    work_dir_exists: workDirExists,
+    final: null,
+    manifest: null,
+    segments: [],
+    other_files: [],
+  };
+  if (!workDirExists) return empty;
+
+  const names = readdirSync(workAbs).filter((name) => !name.startsWith('.'));
+  const files = names.map((name) => buildArtifactFile(dataDir, workRel, name));
+
+  const byIndex = new Map<number, RenderSegmentArtifacts>();
+  const otherFiles: RenderArtifactFile[] = [];
+
+  for (const file of files) {
+    const idx = segmentIndex(file.name);
+    if (idx !== null) {
+      const row = byIndex.get(idx) || { index: idx, scene: null, clip: null, tts: null };
+      if (file.kind === 'scene') row.scene = file;
+      else if (file.kind === 'clip') row.clip = file;
+      else if (file.kind === 'tts') row.tts = file;
+      else otherFiles.push(file);
+      byIndex.set(idx, row);
+      continue;
+    }
+    if (file.kind === 'final' || file.kind === 'manifest') continue;
+    otherFiles.push(file);
+  }
+
+  const segments = [...byIndex.values()].sort((a, b) => a.index - b.index);
+  const final = files.find((f) => f.kind === 'final') || null;
+  const manifest = files.find((f) => f.kind === 'manifest') || null;
+
+  return {
+    ...empty,
+    final,
+    manifest,
+    segments,
+    other_files: otherFiles,
+  };
 }
 
 export function outputExists(outputUrl: string | null | undefined, dataDir: string): boolean {

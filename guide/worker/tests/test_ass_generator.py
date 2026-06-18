@@ -3,6 +3,7 @@ import unittest
 from worker.ass_generator import (
     _ass_to_sec,
     _resolve_ass_font,
+    _resolve_subtitle_font_family,
     _resolve_subtitle_font_size,
     _sec_to_ass,
     allocate_phrase_timings,
@@ -95,6 +96,41 @@ class TestAssGenerator(unittest.TestCase):
             _resolve_ass_font({"default_font_family": "'PingFang SC', sans-serif"}),
             "PingFang SC",
         )
+
+    def test_resolve_subtitle_font_family_priority(self):
+        self.assertEqual(
+            _resolve_subtitle_font_family(
+                {"font_family": "Noto Sans SC"},
+                {"subtitle_font_family": "Source Han Sans SC", "default_font_family": "PingFang SC"},
+            ),
+            "Noto Sans SC",
+        )
+        self.assertEqual(
+            _resolve_subtitle_font_family(
+                {},
+                {"subtitle_font_family": "Source Han Sans SC", "default_font_family": "PingFang SC"},
+            ),
+            "Source Han Sans SC",
+        )
+
+    def test_generate_ass_uses_segment_subtitle_font_family(self):
+        segments = [
+            {
+                "narration_text": "自定义字体。",
+                "duration_sec": 4.0,
+                "subtitle": {
+                    "enabled": True,
+                    "style_id": "default",
+                    "font_family": "Noto Sans SC",
+                    "animation": "fadeIn",
+                },
+            }
+        ]
+        path = "/tmp/test_subtitles_font_family.ass"
+        generate_ass(segments, {"canvas_width": 1080, "canvas_height": 1920}, path)
+        with open(path, encoding="utf-8-sig") as f:
+            content = f.read()
+        self.assertIn("Style: Style_0,Noto Sans SC,", content)
 
 
 if __name__ == "__main__":

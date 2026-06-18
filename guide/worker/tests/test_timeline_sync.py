@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 from worker.timeline_sync import reconcile_timeline, validate_segments_for_assembly
 
@@ -34,6 +35,23 @@ class TestTimelineSync(unittest.TestCase):
     def test_validate_requires_clip(self):
         with self.assertRaises(RuntimeError):
             validate_segments_for_assembly([{"duration_sec": 5}], strict=True)
+
+    def test_strict_requires_tts_wav_for_narration(self):
+        clip = "/tmp/fake.mp4"
+        with patch("worker.timeline_sync.os.path.exists", side_effect=lambda p: p == clip):
+            with patch("worker.timeline_sync.get_duration", return_value=5.0):
+                with self.assertRaises(RuntimeError) as ctx:
+                    validate_segments_for_assembly(
+                        [
+                            {
+                                "narration_text": "有旁白",
+                                "duration_sec": 5,
+                                "clip_path": clip,
+                            }
+                        ],
+                        strict=True,
+                    )
+        self.assertIn("TTS wav missing", str(ctx.exception))
 
 
 if __name__ == "__main__":

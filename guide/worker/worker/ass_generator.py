@@ -257,13 +257,28 @@ def _resolve_subtitle_font_size(
     return _clamp_subtitle_font_size(max(_SUBTITLE_FONT_DEFAULT, scaled))
 
 
-def _resolve_ass_font(global_config: dict) -> str:
-    """Use brand pack default font when present; ASS Fontname is a single family."""
-    raw = global_config.get("default_font_family") or ""
+def _parse_font_family_name(raw: str) -> str:
     if not raw:
-        return "PingFang SC"
-    first = str(raw).split(",")[0].strip().strip("'\"")
-    return first or "PingFang SC"
+        return ""
+    return str(raw).split(",")[0].strip().strip("'\"")
+
+
+def _resolve_subtitle_font_family(subtitle_cfg: dict, global_config: dict) -> str:
+    """Segment font_family → global subtitle_font_family → default_font_family."""
+    for source in (
+        subtitle_cfg.get("font_family"),
+        global_config.get("subtitle_font_family"),
+        global_config.get("default_font_family"),
+    ):
+        parsed = _parse_font_family_name(str(source or ""))
+        if parsed:
+            return parsed
+    return "PingFang SC"
+
+
+def _resolve_ass_font(global_config: dict) -> str:
+    """Brand default font for overlays; subtitles use _resolve_subtitle_font_family."""
+    return _resolve_subtitle_font_family({}, global_config)
 
 
 def generate_ass(
@@ -276,8 +291,6 @@ def generate_ass(
     """Generate ASS subtitle file with phrase-level timing and entrance animations."""
     canvas_w = global_config.get("canvas_width", 1080)
     canvas_h = global_config.get("canvas_height", 1920)
-    ass_font = _resolve_ass_font(global_config)
-
     base_font_size = _resolve_subtitle_font_size({}, global_config, canvas_h=canvas_h)
     default_animation = "fadeIn"
 
@@ -286,12 +299,12 @@ def generate_ass(
     events: list[str] = []
     timeline = _segment_timeline(segments)
 
-    def _style_name_for(canonical_style: str, font_size: int) -> str:
-        key = f"{canonical_style}_{font_size}"
+    def _style_name_for(canonical_style: str, font_size: int, font_name: str) -> str:
+        key = f"{canonical_style}_{font_size}_{font_name}"
         if key in style_registry:
             return style_registry[key]
         name = f"Style_{len(style_registry)}"
-        style_defs.append(build_ass_style_line(name, ass_font, font_size, canonical_style))
+        style_defs.append(build_ass_style_line(name, font_name, font_size, canonical_style))
         style_registry[key] = name
         return name
 
@@ -316,7 +329,8 @@ def generate_ass(
             canvas_h=canvas_h,
         )
 
-        use_style = _style_name_for(canonical_style, seg_font_size)
+        seg_font = _resolve_subtitle_font_family(subtitle_cfg, global_config)
+        use_style = _style_name_for(canonical_style, seg_font_size, seg_font)
 
         phrases = split_narration_phrases(text, max_chars=max_chars)
         preset_timings = seg.get("subtitle_phrase_timings") or []

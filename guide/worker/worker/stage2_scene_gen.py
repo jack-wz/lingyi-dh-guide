@@ -2,10 +2,42 @@
 
 import json
 import os
+from typing import Optional
+
 from worker.ai_clients.kie_client import KieClient
 from worker.kie_input_resolver import resolve_kie_input_url
+from worker.pipeline_log import PipelineLogger, null_logger
 from worker.utils import download_file, ensure_dir
-from worker.config import UPLOADS_DIR
+from worker.config import UPLOADS_DIR, get_prompt
+from worker.scene_fusion import describe_fusion_urls, scene_fusion_role_prefix
+
+
+_SCENE_FUSION_CONSTRAINTS = (
+    "移除水印、多余人物、贴纸及与口播无关的干扰元素；"
+    "输出干净自然的单人场景图，适合竖屏口播视频。"
+)
+
+_SCENE_IMAGE_DEFAULT_FALLBACK = (
+    "将数字人融入分镜场景：保持数字人五官与服装与参考图完全一致；"
+    "参照分镜场景图的镜头视角、表情、场景环境与人物姿势生成新图；"
+    "移除不必要的元素，画面简洁自然。"
+)
+
+
+def _scene_fusion_prompt(seg: dict) -> str:
+    """KIE 场景融合提示词：说明双图角色 + 分镜 scene_description 或调试台默认文案。"""
+    custom = (seg.get("scene_description") or "").strip()
+    default = get_prompt("scene_image_default", _SCENE_IMAGE_DEFAULT_FALLBACK).strip()
+
+    role_prefix = scene_fusion_role_prefix()
+    if custom:
+        parts = [role_prefix, f"分镜补充：{custom}"]
+        if _SCENE_FUSION_CONSTRAINTS not in custom:
+            parts.append(_SCENE_FUSION_CONSTRAINTS)
+        return "\n".join(parts)
+
+    body = default or _SCENE_IMAGE_DEFAULT_FALLBACK
+    return f"{role_prefix}\n{body}\n{_SCENE_FUSION_CONSTRAINTS}"
 
 
 def _load_persona_angle(image_model_id: str, angle: str) -> str:
@@ -30,6 +62,9 @@ def generate_scene_images(
     work_dir: str,
     server_base_url: str = "",
     on_progress=None,
+    *,
+    strict: bool = True,
+    job_logger: Optional[PipelineLogger] = None,
 ) -> list[dict]:
     """Generate scene images for each segment.
 
@@ -45,6 +80,9 @@ def generate_scene_images(
     """
     ensure_dir(work_dir)
     segments = resolved_script.get("segments", [])
+    log = job_logger or null_logger()
+    stage = "Stage2"
+    log.stage_begin(stage, f"开始生成场景图，共 {len(segments)} 段，strict={strict}")
     kie = KieClient()
     human_face_url = human_photos.get("face_photo_url", "")
     human_half_url = (
@@ -91,36 +129,54 @@ def generate_scene_images(
             human_kie = resolve_kie_input_url(human_ref_url, kie, server_base_url) if human_ref_url else ""
             ref_kie = resolve_kie_input_url(scene_url, kie, server_base_url) if scene_url else ""
             if ref_kie and human_kie:
-                print(f"[Stage2] Segment {i+1}: generating digital-human scene via KIE fusion...")
+                fusion_prompt = _scene_fusion_prompt(seg)
+                log.info(stage, "KieFusion", "数字人场景融合开始", segment=i)
+                log.info(
+                    stage,
+                    "KieFusion",
+                    describe_fusion_urls(ref_kie, human_kie),
+                    segment=i,
+                )
+                log.info(
+                    stage,
+                    "KieFusion",
+                    f"prompt={fusion_prompt[:240]}{'…' if len(fusion_prompt) > 240 else ''}",
+                    segment=i,
+                )
                 generated_url = kie.generate_scene_image(
-                    reference_image_url=ref_kie,
-                    human_image_url=human_kie,
-                    prompt=seg.get("scene_description") or seg.get("narration_text", ""),
+                    scene_image_url=ref_kie,
+                    digital_human_image_url=human_kie,
+                    prompt=fusion_prompt,
                 )
                 if generated_url:
                     scene_path = os.path.join(work_dir, f"scene_{i}.png")
                     try:
                         download_file(generated_url, scene_path)
-                    except Exception as e:
-                        print(f"[Stage2] Download fused scene failed: {e}")
+                        log.info(stage, "KieFusion", f"融合成功 → {scene_path}", segment=i)
+                    except Exception as exc:
+                        log.error(stage, "KieFusion", f"下载融合场景失败: {exc}", segment=i)
                         scene_path = ""
+                elif strict:
+                    log.fail(stage, "KieFusion", "KIE 场景融合未返回结果", segment=i)
             if not scene_path:
-                print(f"[Stage2] Segment {i+1}: using digital human half-body as scene")
+                if strict and ref_kie and human_kie:
+                    log.fail(stage, "SceneImage", "融合场景缺失且 strict 模式禁止半身回退", segment=i)
+                log.warn(stage, "SceneImage", "使用数字人半身照作为场景", segment=i)
                 scene_path = human_half_path
             seg["scene_image_path"] = scene_path
             seg["human_face_path"] = human_face_path or human_half_path
-            print(f"[Stage2] Segment {i+1}: scene = {scene_path or '(none)'}")
+            log.info(stage, "SceneImage", f"场景就绪 → {scene_path or '(none)'}", segment=i)
             continue
 
         ref_kie = resolve_kie_input_url(scene_url, kie, server_base_url) if scene_url else ""
         human_kie = resolve_kie_input_url(human_face_url, kie, server_base_url) if human_face_url else ""
 
         if ref_kie:
-            print(f"[Stage2] Segment {i+1}: generating scene image via KIE...")
+            log.info(stage, "KieFusion", "普通场景图生成开始", segment=i)
             generated_url = kie.generate_scene_image(
-                reference_image_url=ref_kie,
-                human_image_url=human_kie,
-                prompt=seg.get("narration_text", ""),
+                scene_image_url=ref_kie,
+                digital_human_image_url=human_kie,
+                prompt=_scene_fusion_prompt(seg),
             )
             if generated_url:
                 scene_path = os.path.join(work_dir, f"scene_{i}.png")
@@ -152,12 +208,33 @@ def generate_scene_images(
 
         seg["scene_image_path"] = scene_path
         seg["human_face_path"] = human_face_path  # Store for stage3
-        print(f"[Stage2] Segment {i+1}: scene = {scene_path or '(none)'}")
+        log.info(stage, "SceneImage", f"场景就绪 → {scene_path or '(none)'}", segment=i)
 
+    _validate_scene_outputs(segments, strict=strict, log=log, stage=stage)
+
+    log.stage_end(stage, "场景图阶段完成")
     if on_progress:
         on_progress("scene_gen", 50, "场景图生成完成")
 
     return segments
+
+
+def _validate_scene_outputs(
+    segments: list[dict],
+    *,
+    strict: bool,
+    log: PipelineLogger,
+    stage: str,
+) -> None:
+    if not strict:
+        return
+    for i, seg in enumerate(segments):
+        narration = (seg.get("narration_text") or "").strip()
+        if not narration:
+            continue
+        path = seg.get("scene_image_path") or ""
+        if not path or not os.path.exists(path):
+            log.fail(stage, "SceneImage", "口播分镜缺少可用场景图", segment=i)
 
 
 def _resolve(url: str, base_url: str) -> str:

@@ -8,6 +8,7 @@ import {
   buildSubtitleTextShadow,
   getSubtitleStyleDefinition,
   normalizeSubtitleStyleId,
+  resolveSubtitleFontFamily,
   resolveSubtitlePreviewFontSizePx,
 } from '@shared/subtitleStyles';
 
@@ -222,6 +223,11 @@ export default function PreviewInteractionLayer({ layout }: { layout: Layout }) 
           top: segment.subtitle.position === 'top' ? '6%' : undefined,
         } as const;
         const previewText = (segment.narration_text || '字幕预览').slice(0, 24);
+        const subtitleFont = resolveSubtitleFontFamily({
+          fontFamily: segment.subtitle.font_family,
+          globalSubtitleFontFamily: dsl.globalConfig.subtitle_font_family,
+          defaultFontFamily: dsl.globalConfig.default_font_family,
+        });
         return (
           <button
             type="button"
@@ -235,6 +241,7 @@ export default function PreviewInteractionLayer({ layout }: { layout: Layout }) 
               color: render?.color || '#fff',
               background: render?.bg === 'transparent' ? 'transparent' : (render?.bg || 'rgba(0,0,0,0.45)'),
               fontSize: previewFont,
+              fontFamily: subtitleFont,
               fontWeight: render?.weight || 600,
               textShadow: buildSubtitleTextShadow(render?.outline, (render?.weight || 600) >= 700 ? 2 : 1),
               borderRadius: render?.borderRadius ?? 6,

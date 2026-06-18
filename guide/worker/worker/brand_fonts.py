@@ -7,7 +7,8 @@ import os
 import shutil
 from typing import Any
 
-from worker.ass_generator import _resolve_ass_font
+from worker.ass_generator import _parse_font_family_name, _resolve_ass_font, _resolve_subtitle_font_family
+from worker.config import DATA_DIR
 
 
 def _resolve_uploads_path(url: str) -> str:
@@ -31,7 +32,51 @@ def _iter_brand_font_entries(global_config: dict) -> list[dict[str, Any]]:
     return [f for f in fonts if isinstance(f, dict)]
 
 
-def prepare_brand_fonts(global_config: dict, work_dir: str) -> dict[str, Any]:
+def _brand_system_fonts_root() -> str:
+    return os.path.join(DATA_DIR, "brand-system", "fonts")
+
+
+def _find_brand_system_font_file(family: str) -> str:
+    if not family:
+        return ""
+    family_dir = os.path.join(_brand_system_fonts_root(), family)
+    if not os.path.isdir(family_dir):
+        return ""
+    for name in sorted(os.listdir(family_dir)):
+        if name.lower().endswith((".ttf", ".otf", ".woff", ".woff2")):
+            return os.path.join(family_dir, name)
+    return ""
+
+
+def _copy_font_to_workdir(family: str, src: str, fonts_dir: str) -> str:
+    ext = os.path.splitext(src)[1] or ".ttf"
+    safe = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in family)
+    dest = os.path.join(fonts_dir, f"{safe}{ext}")
+    if not os.path.exists(dest):
+        shutil.copy2(src, dest)
+    return dest
+
+
+def _collect_subtitle_font_families(global_config: dict, segments: list[dict] | None) -> set[str]:
+    families: set[str] = set()
+    default_family = _resolve_ass_font(global_config)
+    if default_family:
+        families.add(default_family)
+    subtitle_global = _parse_font_family_name(str(global_config.get("subtitle_font_family") or ""))
+    if subtitle_global:
+        families.add(subtitle_global)
+    for seg in segments or []:
+        fam = _resolve_subtitle_font_family(seg.get("subtitle") or {}, global_config)
+        if fam:
+            families.add(fam)
+    return families
+
+
+def prepare_brand_fonts(
+    global_config: dict,
+    work_dir: str,
+    segments: list[dict] | None = None,
+) -> dict[str, Any]:
     """Copy brand font files into work_dir/fonts and write manifest.json."""
     fonts_dir = os.path.join(work_dir, "fonts")
     os.makedirs(fonts_dir, exist_ok=True)
@@ -39,33 +84,26 @@ def prepare_brand_fonts(global_config: dict, work_dir: str) -> dict[str, Any]:
     family_paths: dict[str, str] = {}
     entries = _iter_brand_font_entries(global_config)
     default_family = _resolve_ass_font(global_config)
+    needed_families = _collect_subtitle_font_families(global_config, segments)
 
-    for entry in entries:
-        family = str(entry.get("family") or "").strip()
-        if not family:
-            continue
-        src = _resolve_uploads_path(str(entry.get("url") or ""))
-        if not src:
-            continue
-        ext = os.path.splitext(src)[1] or ".ttf"
-        safe = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in family)
-        dest = os.path.join(fonts_dir, f"{safe}{ext}")
-        if not os.path.exists(dest):
-            shutil.copy2(src, dest)
-        family_paths[family] = dest
+    entry_by_family = {
+        str(entry.get("family") or "").strip(): entry
+        for entry in entries
+        if str(entry.get("family") or "").strip()
+    }
 
-    if default_family and default_family not in family_paths:
-        for entry in entries:
-            if str(entry.get("family") or "").strip() == default_family:
-                src = _resolve_uploads_path(str(entry.get("url") or ""))
-                if src:
-                    ext = os.path.splitext(src)[1] or ".ttf"
-                    safe = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in default_family)
-                    dest = os.path.join(fonts_dir, f"{safe}{ext}")
-                    if not os.path.exists(dest):
-                        shutil.copy2(src, dest)
-                    family_paths[default_family] = dest
-                break
+    for family in needed_families:
+        if family in family_paths:
+            continue
+        entry = entry_by_family.get(family)
+        if entry:
+            src = _resolve_uploads_path(str(entry.get("url") or ""))
+            if src:
+                family_paths[family] = _copy_font_to_workdir(family, src, fonts_dir)
+                continue
+        catalog_src = _find_brand_system_font_file(family)
+        if catalog_src:
+            family_paths[family] = _copy_font_to_workdir(family, catalog_src, fonts_dir)
 
     manifest = {
         "default_family": default_family,

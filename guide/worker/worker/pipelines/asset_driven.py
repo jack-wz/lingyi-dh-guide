@@ -89,7 +89,8 @@ class AssetDrivenPipeline(BasePipeline):
         await asyncio.to_thread(
             generate_scene_images,
             resolved_script, human_photos, ctx.work_dir,
-            ctx.server_base_url, ctx.on_progress
+            ctx.server_base_url, ctx.on_progress,
+            **ctx.stage_kwargs(),
         )
 
     async def generate_videos(self, ctx: PipelineContext):
@@ -103,6 +104,8 @@ class AssetDrivenPipeline(BasePipeline):
             voice_clone_id, human_photos, ctx.work_dir,
             ctx.server_base_url, ctx.on_progress, voice_sample_url,
             avatar_adapter=adapter,
+            digital_human_id=ctx.digital_human.get("id", ""),
+            **ctx.stage_kwargs(),
         )
 
     async def assemble(self, ctx: PipelineContext) -> str:
@@ -111,7 +114,8 @@ class AssetDrivenPipeline(BasePipeline):
             assemble_final_video,
             ctx.segments, ctx.overlays,
             ctx.dsl.get("globalConfig", {}),
-            ctx.work_dir, output_path, ctx.on_progress
+            ctx.work_dir, output_path, ctx.on_progress,
+            job_logger=ctx.job_logger,
         )
         return output_path
 

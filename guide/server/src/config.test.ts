@@ -85,8 +85,8 @@ describe('config diagnostics', () => {
     assert.ok(Array.isArray(body.pipelines.standard.blockers));
     assert.ok(Array.isArray(body.pipelines.digital_human.warnings));
     assert.equal(body.avatar.provider, 'wavespeed');
-    assert.equal(body.avatar.model, 'infinitetalk');
-    assert.equal(body.avatar.wavespeed_model, 'infinitetalk');
+    assert.equal(body.avatar.model, 'infinitetalk-fast');
+    assert.equal(body.avatar.wavespeed_model, 'infinitetalk-fast');
     assert.equal(body.avatar.configured, true);
 
     const kieAvatar = await request('PUT', '/api/config', {

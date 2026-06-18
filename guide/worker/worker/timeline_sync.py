@@ -125,14 +125,18 @@ def validate_segments_for_assembly(
                 or os.path.join(work_dir, f"tts_{i}.wav")
             )
             has_tts_wav = bool(tts_path and os.path.exists(tts_path))
-            has_muxed_audio = (
-                clip_path
-                and os.path.exists(clip_path)
-                and has_audio_stream(clip_path)
-                and get_duration(clip_path, codec_type="audio") > 0
-            )
-            if not has_tts_wav and not has_muxed_audio:
-                issues.append(f"segment[{i}]: narration present but TTS missing")
+            if strict:
+                if not has_tts_wav:
+                    issues.append(f"segment[{i}]: narration present but TTS wav missing")
+            else:
+                has_muxed_audio = (
+                    clip_path
+                    and os.path.exists(clip_path)
+                    and has_audio_stream(clip_path)
+                    and get_duration(clip_path, codec_type="audio") > 0
+                )
+                if not has_tts_wav and not has_muxed_audio:
+                    issues.append(f"segment[{i}]: narration present but TTS missing")
             if has_tts_wav:
                 tts_dur = get_duration(tts_path)
                 if tts_dur > 0 and abs(tts_dur - clip_dur) > _DURATION_TOLERANCE_SEC:
@@ -141,7 +145,10 @@ def validate_segments_for_assembly(
                         f"clip={clip_dur:.2f}s"
                     )
 
-    blocking = [msg for msg in issues if "missing clip" in msg or "unreadable" in msg]
+    if strict:
+        blocking = issues
+    else:
+        blocking = [msg for msg in issues if "missing clip" in msg or "unreadable" in msg]
     if strict and blocking:
         raise RuntimeError("Segment validation failed: " + "; ".join(blocking))
     return issues

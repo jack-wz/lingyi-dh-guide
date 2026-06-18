@@ -262,6 +262,19 @@ class YunTTSClient:
             print(f"[YunTTS] Edge TTS fallback failed: {e}")
             return ""
 
+    def clone_and_synthesize_with_voice_id(
+        self, text: str, voice_sample_path: str, output_path: str, voice_name: str = "voice_clone"
+    ) -> tuple[str, str]:
+        """Clone voice from sample, synthesize speech, return (audio_path, voice_clone_id)."""
+        print(f"[YunTTS] clone_and_synthesize: sample={voice_sample_path}")
+        new_voice_id = self.clone_voice(voice_sample_path, voice_name)
+        if not new_voice_id:
+            print("[YunTTS] Clone failed, trying Edge TTS fallback")
+            path = self.synthesize_edge_tts(text, output_path)
+            return path, ""
+        path = self.synthesize_speech(text, new_voice_id, output_path)
+        return path, new_voice_id
+
     def clone_and_synthesize(
         self, text: str, voice_sample_path: str, output_path: str, voice_name: str = "voice_clone"
     ) -> str:
@@ -279,13 +292,7 @@ class YunTTSClient:
         Returns:
             Path to the generated audio file, or empty string on failure
         """
-        print(f"[YunTTS] clone_and_synthesize: sample={voice_sample_path}")
-        
-        # Step 1: Clone voice
-        new_voice_id = self.clone_voice(voice_sample_path, voice_name)
-        if not new_voice_id:
-            print("[YunTTS] Clone failed, trying Edge TTS fallback")
-            return self.synthesize_edge_tts(text, output_path)
-
-        # Step 2: Synthesize with new voice
-        return self.synthesize_speech(text, new_voice_id, output_path)
+        path, _voice_id = self.clone_and_synthesize_with_voice_id(
+            text, voice_sample_path, output_path, voice_name
+        )
+        return path

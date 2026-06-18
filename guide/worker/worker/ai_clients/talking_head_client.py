@@ -3,20 +3,46 @@
 import os
 import time
 import requests
-from worker.config import get_wavespeed_config
+from worker.config import get_prompt, get_wavespeed_config
 from worker.provider_errors import ProviderTimeoutError, raise_if_timeout
 
 # WaveSpeed-hosted talking-head models (extend as new endpoints ship).
 WAVESPEED_TALKING_MODEL_PATHS: dict[str, str] = {
+    "infinitetalk-fast": "/api/v3/wavespeed-ai/infinitetalk-fast",
     "infinitetalk": "/api/v3/wavespeed-ai/infinitetalk",
     "infinite-talk": "/api/v3/wavespeed-ai/infinitetalk",
     "infinitetalk-multi": "/api/v3/wavespeed-ai/infinitetalk-multi",
 }
 
+# Models whose API accepts image/audio/prompt/seed only (no resolution param).
+WAVESPEED_MODELS_WITHOUT_RESOLUTION = frozenset({"infinitetalk-fast"})
+
+
+def build_wavespeed_lipsync_payload(
+    model: str,
+    image_url: str,
+    audio_url: str,
+    resolution: str,
+    prompt: str = "",
+) -> dict:
+    """Build submit payload for WaveSpeed talking-head endpoints."""
+    model_id = (model or "infinitetalk-fast").strip().lower()
+    payload: dict = {
+        "image": image_url,
+        "audio": audio_url,
+        "seed": -1,
+    }
+    if model_id in WAVESPEED_MODELS_WITHOUT_RESOLUTION:
+        if prompt:
+            payload["prompt"] = prompt
+        return payload
+    payload["resolution"] = resolution or "480p"
+    return payload
+
 
 def resolve_wavespeed_submit_url(base_url: str, model: str) -> str:
     """Map configured model id to WaveSpeed submit URL."""
-    raw = (model or "infinitetalk").strip()
+    raw = (model or "infinitetalk-fast").strip()
     if raw.startswith("http://") or raw.startswith("https://"):
         return raw
     if raw.startswith("/api/"):
@@ -212,14 +238,20 @@ class TalkingHeadClient:
                 print("[TalkingHead] Audio upload failed")
                 return ""
 
-        payload = {
-            "image": image_url,
-            "audio": audio_url,
-            "resolution": self.resolution or "480p",
-            "seed": -1,
-        }
+        avatar_prompt = get_prompt(
+            "avatar_infinitetalk",
+            "自然口播，轻微头部动作和表情，电商导购短视频风格",
+        )
+        payload = build_wavespeed_lipsync_payload(
+            self.model,
+            image_url,
+            audio_url,
+            self.resolution or "480p",
+            prompt=avatar_prompt,
+        )
         submit_url = resolve_wavespeed_submit_url(self.base_url, self.model)
-        print(f"[TalkingHead] Model={self.model} resolution={payload['resolution']}")
+        res_note = payload.get("resolution", "n/a")
+        print(f"[TalkingHead] Model={self.model} resolution={res_note}")
         print(f"[TalkingHead] Submitting task to {submit_url}")
         print(f"[TalkingHead] Payload: {payload}")
         timeout_s = 60

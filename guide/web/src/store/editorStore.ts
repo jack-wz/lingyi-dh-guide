@@ -17,6 +17,7 @@ export interface Segment {
     position: 'top' | 'center' | 'bottom';
     animation: 'none' | 'fadeIn' | 'typewriter';
     font_size?: number;
+    font_family?: string;
   };
   transition: { type: string; duration: number };
   digital_human: { enabled: boolean; position: { x: number; y: number }; scale: number };
@@ -109,6 +110,7 @@ export interface GlobalConfig {
   output_resolution?: string;
   aspect_ratio?: '9:16' | '16:9' | '1:1';
   subtitle_font_size?: number;
+  subtitle_font_family?: string;
   asset_map?: Record<string, string>;
   digital_human_catalog?: DigitalHumanCatalog;
 }

@@ -7,8 +7,11 @@ Task query: https://docs.kie.ai/cn/market/common/get-task-detail
 import json
 import os
 import time
+from collections.abc import Callable
+
 import requests
 from worker.config import _load_json, get_kie_config, get_prompt
+from worker.scene_fusion import build_scene_fusion_input_urls
 from worker.provider_errors import ProviderTimeoutError, raise_if_timeout
 
 KIE_UPLOAD_BASE = os.getenv("KIE_UPLOAD_BASE", "https://kieai.redpandaai.co")
@@ -141,32 +144,47 @@ class KieClient:
 
     def generate_scene_image(
         self,
-        reference_image_url: str,
-        human_image_url: str,
+        reference_image_url: str = "",
+        human_image_url: str = "",
+        *,
+        scene_image_url: str = "",
+        digital_human_image_url: str = "",
         prompt: str = "",
         aspect_ratio: str = "9:16",
         resolution: str = "2K",
     ) -> str:
         """Generate scene image via KIE GPT Image 2 图生图.
 
+        input_urls order follows pipeline.scene_fusion_input_order (default scene_first):
+          scene_first → [0] 编辑器资产库分镜, [1] 数字人资源库
+          human_first → [0] 数字人资源库, [1] 编辑器资产库分镜
+        Prompt 图1/图2 labels are kept in sync via scene_fusion_role_prefix().
+
         Endpoint: POST /api/v1/jobs/createTask
         """
+        scene_url = (scene_image_url or reference_image_url or "").strip()
+        dh_url = (digital_human_image_url or human_image_url or "").strip()
+
         if not self.api_key:
             print("[KIE] No API key configured, skipping scene generation")
             return ""
-        if not reference_image_url:
-            print("[KIE] No reference image provided, skipping")
+        if not scene_url:
+            print("[KIE] No scene image provided, skipping")
             return ""
 
         try:
-            input_urls = [reference_image_url]
-            if human_image_url:
-                input_urls.append(human_image_url)
+            input_urls = build_scene_fusion_input_urls(scene_url, dh_url)
+            if not input_urls:
+                return ""
 
             payload = {
                 "model": "gpt-image-2-image-to-image",
                 "input": {
-                    "prompt": prompt or get_prompt("scene_image_default", "将这张场景参考图与人物融合，生成一个真实自然的导购场景图"),
+                    "prompt": prompt or get_prompt(
+                        "scene_image_default",
+                        "将数字人融入分镜场景：严格保持数字人五官与服装一致；"
+                        "参照分镜场景图的镜头视角、表情、场景与姿势生成新图；移除不必要元素。",
+                    ),
                     "input_urls": input_urls,
                     "aspect_ratio": aspect_ratio,
                     "resolution": resolution,
@@ -214,14 +232,19 @@ class KieClient:
 
         model_id = _resolve_kie_avatar_model_id(model)
         try:
+            avatar_prompt = (prompt or get_prompt(
+                "avatar_infinitetalk",
+                "自然口播，轻微头部动作和表情，电商导购短视频风格",
+            )).strip()
+            if len(avatar_prompt) > 5000:
+                avatar_prompt = avatar_prompt[:5000]
+                print("[KIE] InfiniteTalk prompt truncated to 5000 chars")
+
             input_payload: dict[str, object] = {
                 "image_url": image_url,
                 "audio_url": audio_url,
                 "resolution": resolution or "480p",
-                "prompt": prompt or get_prompt(
-                    "avatar_infinitetalk",
-                    "自然口播，轻微头部动作和表情，电商导购短视频风格",
-                ),
+                "prompt": avatar_prompt,
             }
             if seed is not None and seed >= 0:
                 input_payload["seed"] = seed
@@ -230,10 +253,26 @@ class KieClient:
                 "model": model_id,
                 "input": input_payload,
             }
-            result = self._post("/api/v1/jobs/createTask", json=payload)
+            result = None
+            for create_attempt in range(1, 4):
+                result = self._post("/api/v1/jobs/createTask", json=payload)
+                code = result.get("code", 0)
+                if code == 200:
+                    break
+                msg = str(result.get("msg", ""))
+                print(
+                    f"[KIE] InfiniteTalk createTask attempt {create_attempt}/3 "
+                    f"failed: code={code}, msg={msg}"
+                )
+                retriable = code >= 500 or "timeout" in msg.lower() or "try again" in msg.lower()
+                if not retriable or create_attempt >= 3:
+                    return ""
+                time.sleep(5 * create_attempt)
+            else:
+                return ""
+
             code = result.get("code", 0)
             if code != 200:
-                print(f"[KIE] InfiniteTalk task failed: code={code}, msg={result.get('msg', '')}")
                 return ""
 
             task_id = result.get("data", {}).get("taskId", "")
@@ -290,7 +329,13 @@ class KieClient:
             print(f"[KIE] Human model creation failed: {e}")
             return ""
 
-    def _poll_task(self, task_id: str, timeout: int = 300) -> str:
+    def _poll_task(
+        self,
+        task_id: str,
+        timeout: int = 300,
+        *,
+        on_tick: Callable[[], None] | None = None,
+    ) -> str:
         """Poll KIE task via GET /api/v1/jobs/recordInfo?taskId={taskId}.
 
         States: waiting -> queuing -> generating -> success/fail
@@ -301,12 +346,20 @@ class KieClient:
 
         while time.time() - start < timeout:
             time.sleep(interval)
+            if on_tick:
+                try:
+                    on_tick()
+                except Exception:
+                    pass
             try:
                 result = self._get("/api/v1/jobs/recordInfo", params={"taskId": task_id})
 
                 code = result.get("code", 0)
                 if code != 200:
-                    print(f"[KIE] Poll code={code}: {result.get('msg', '')}")
+                    msg = str(result.get("msg", ""))
+                    print(f"[KIE] Poll code={code}: {msg}")
+                    if code >= 500 or "timeout" in msg.lower():
+                        interval = min(interval * 1.2, 15)
                     continue
 
                 data = result.get("data", {})

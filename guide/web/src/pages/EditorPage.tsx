@@ -27,7 +27,10 @@ import {
   SUBTITLE_FONT_SIZE_DEFAULT,
   SUBTITLE_FONT_SIZE_MAX,
   SUBTITLE_FONT_SIZE_MIN,
+  resolveSubtitleFontFamily,
 } from '@shared/subtitleStyles';
+import FontFamilyPicker from '../components/brand-editor/FontFamilyPicker';
+import { useFontCatalog } from '../utils/brandFonts';
 import { libraryPayloadToBrandPack } from '@shared/brandPack';
 import EditorCoachmark from '../components/EditorCoachmark';
 import { formatApiErrorMessage, parseApiErrorResponse } from '../utils/apiError';
@@ -165,6 +168,7 @@ export default function EditorPage() {
             position: seg.subtitle?.position || 'bottom',
             animation: seg.subtitle?.animation || 'fadeIn',
             font_size: typeof seg.subtitle?.font_size === 'number' ? seg.subtitle.font_size : undefined,
+            font_family: typeof seg.subtitle?.font_family === 'string' ? seg.subtitle.font_family : undefined,
           },
           transition: seg.transition || { type: 'none', duration: 0.5 },
           digital_human: seg.digital_human || opentalkingDigitalHumanDefaults(false),
@@ -1488,6 +1492,9 @@ function DesignPanel({
     ? { id: cfg.brand_pack_id || 'inline', name: '已应用品牌包', payload: cfg.brand_pack } as LibraryItem
     : null;
   const activePackView = activeBrandPack ? libraryPayloadToBrandPack(activeBrandPack) : null;
+  const { catalog: fontCatalog } = useFontCatalog();
+  const packFonts = (cfg.brand_pack as { tokens?: { typography?: { fonts?: Array<{ name: string; family: string; url?: string }> } } } | undefined)
+    ?.tokens?.typography?.fonts || [];
   const updateGlobal = (partial: Partial<DSL['globalConfig']>) => {
     updateDsl((draft) => ({ ...draft, globalConfig: { ...draft.globalConfig, ...partial } }));
   };
@@ -1661,6 +1668,14 @@ function DesignPanel({
             <option key={style.id} value={style.id}>{style.name}</option>
           ))}
         </select>
+        <FontFamilyPicker
+          label="字幕默认字体"
+          value={cfg.subtitle_font_family || cfg.default_font_family || ''}
+          onChange={(v) => updateGlobal({ subtitle_font_family: v })}
+          catalog={fontCatalog}
+          packFonts={packFonts}
+          previewText="字幕字体预览"
+        />
         <NumberField
           label="字幕默认字号"
           value={cfg.subtitle_font_size ?? SUBTITLE_FONT_SIZE_DEFAULT}
@@ -1668,7 +1683,7 @@ function DesignPanel({
           max={SUBTITLE_FONT_SIZE_MAX}
           onChange={(value) => updateGlobal({ subtitle_font_size: value })}
         />
-        <p className="text-[11px] text-muted-foreground">作用于全模板；单分镜可在右侧「字幕」面板单独覆盖。</p>
+        <p className="text-[11px] text-muted-foreground">作用于全模板；单分镜可在右侧「字幕」面板单独覆盖字体与字号。</p>
       </PanelSection>
 
       <PanelSection title="输出规格" icon={<IconFilm size={15} />}>
@@ -1725,6 +1740,9 @@ function ObjectPanel({
 }) {
   const seg = dsl.segments[currentSegIndex];
   const setSelectedElement = useEditorStore(s => s.setSelectedElement);
+  const { catalog: fontCatalog } = useFontCatalog();
+  const packFonts = (dsl.globalConfig.brand_pack as { tokens?: { typography?: { fonts?: Array<{ name: string; family: string; url?: string }> } } } | undefined)
+    ?.tokens?.typography?.fonts || [];
   const updateSeg = (partial: Partial<Segment>) => {
     updateDsl((draft) => {
       const segments = [...draft.segments];
@@ -1756,6 +1774,11 @@ function ObjectPanel({
       fontSize: seg.subtitle.font_size,
       globalFontSize: dsl.globalConfig.subtitle_font_size,
     });
+    const resolvedFont = resolveSubtitleFontFamily({
+      fontFamily: seg.subtitle.font_family,
+      globalSubtitleFontFamily: dsl.globalConfig.subtitle_font_family,
+      defaultFontFamily: dsl.globalConfig.default_font_family,
+    });
     return (
       <div className="p-4 space-y-4">
         <PanelSection title="字幕" icon={<IconType size={15} />}>
@@ -1772,6 +1795,24 @@ function ObjectPanel({
               <option key={style.id} value={style.id}>{style.name}</option>
             ))}
           </select>
+          <div className="mt-3">
+            <FontFamilyPicker
+              label="字幕字体"
+              value={seg.subtitle.font_family || dsl.globalConfig.subtitle_font_family || dsl.globalConfig.default_font_family || ''}
+              onChange={(v) => updateSeg({ subtitle: { ...seg.subtitle, font_family: v } })}
+              catalog={fontCatalog}
+              packFonts={packFonts}
+              previewText="字幕字体"
+            />
+          </div>
+          <p className="text-[11px] text-muted-foreground">当前渲染字体：{resolvedFont}</p>
+          <button
+            type="button"
+            className="text-xs text-muted-foreground underline"
+            onClick={() => updateSeg({ subtitle: { ...seg.subtitle, font_family: undefined } })}
+          >
+            恢复为模板默认字体
+          </button>
           <NumberField
             label="字号"
             value={seg.subtitle.font_size ?? dsl.globalConfig.subtitle_font_size ?? SUBTITLE_FONT_SIZE_DEFAULT}

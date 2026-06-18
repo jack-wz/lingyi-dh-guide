@@ -123,6 +123,7 @@ def run_pipeline(
             on_progress,
             voice_sample_url=voice_sample_url,
             avatar_adapter=adapter,
+            digital_human_id=digital_human.get("id", ""),
         )
 
         # === Stage 4: FFmpeg assembly ===
