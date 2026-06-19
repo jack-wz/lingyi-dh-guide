@@ -7,6 +7,7 @@ import {
   type CaptionWordTiming,
 } from './captionWordTimings.js';
 import { getHfStyleBinding } from './hfStyleRegistry.js';
+import { hfLayoutMetrics, scaleHfCaptionFontSize } from './hfVerticalScale.js';
 
 export { buildCaptionWordTimings, splitCaptionWords } from './captionWordTimings.js';
 
@@ -45,6 +46,7 @@ interface CaptionTiming {
   timelineId: string;
   posStyle: string;
   fontSize: number;
+  layout: ReturnType<typeof hfLayoutMetrics>;
 }
 
 function escapeHtml(text: string): string {
@@ -66,13 +68,15 @@ function buildCaptionTiming(ctx: HfCaptionRenderContext, component: string): Cap
     wordTimings: ctx.wordTimings,
     phraseTimings: ctx.phraseTimings,
   });
+  const layout = hfLayoutMetrics(ctx.canvasWidth, ctx.canvasHeight);
   return {
     visibleStart: resolved.visibleStart,
     visibleDuration: resolved.visibleDuration,
     words: resolved.words,
     timelineId: `${component}-${ctx.segmentId}`,
     posStyle: captionPositionStyle(ctx.position, ctx.canvasHeight),
-    fontSize: Math.max(28, Math.min(96, Math.round(ctx.fontSizePx * 0.9))),
+    fontSize: scaleHfCaptionFontSize(ctx.fontSizePx, ctx.canvasWidth, ctx.canvasHeight),
+    layout,
   };
 }
 
@@ -152,8 +156,9 @@ export function renderCaptionHighlightClip(ctx: HfCaptionRenderContext): HfCapti
     </span>`;
   }).join('');
 
+  const { layout } = timing;
   const html = wrapCaptionClip('caption-highlight', 'hf-caption-highlight', ctx, timing, `
-      <div class="hl-group" id="hl-grp-${timing.timelineId}" style="display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:center;gap:8px;padding:0 5%;max-width:100%;opacity:0;visibility:hidden;">
+      <div class="hl-group" id="hl-grp-${timing.timelineId}" style="display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:center;gap:${layout.gap}px;padding:0 ${layout.sideInsetPct}%;max-width:${layout.maxWidthPct}%;opacity:0;visibility:hidden;">
         ${wordHtml}
       </div>`);
 
@@ -161,10 +166,10 @@ export function renderCaptionHighlightClip(ctx: HfCaptionRenderContext): HfCapti
     .hf-caption-highlight .hl-word {
       font-family: ${ctx.fontFamily}, 'PingFang SC', 'Microsoft YaHei', sans-serif;
       font-weight: 800; display: inline-block; line-height: 1.1; position: relative;
-      padding: 6px 12px 8px; text-shadow: 0 6px 18px rgba(0,0,0,0.45); transform-origin: 50% 58%;
+      padding: ${layout.padY}px ${layout.padX}px ${layout.padY + 2}px; text-shadow: 0 6px 18px rgba(0,0,0,0.45); transform-origin: 50% 58%;
     }
     .hf-caption-highlight .hl-word-bg {
-      position: absolute; inset: 0; border-radius: 10px; box-shadow: 0 12px 30px rgba(0,0,0,0.22);
+      position: absolute; inset: 0; border-radius: ${layout.borderRadius}px; box-shadow: 0 12px 30px rgba(0,0,0,0.22);
       opacity: 0; transform: scaleX(0); transform-origin: 0% 50%; z-index: -1;
     }
     .hf-caption-highlight .hl-word-text { position: relative; z-index: 1; }
@@ -210,6 +215,7 @@ export function renderCaptionPillClip(ctx: HfCaptionRenderContext): HfCaptionCli
     `<span class="pill-word" id="pill-w-${timing.timelineId}-${wi}" style="font-size:${timing.fontSize}px;color:${idleColor};">${escapeHtml(w.text)}</span>`
   )).join('<span class="pill-gap"></span>');
 
+  const { layout } = timing;
   const html = wrapCaptionClip('caption-pill-karaoke', 'hf-caption-pill', ctx, timing, `
       <div class="pill-shell" id="pill-${timing.timelineId}" style="opacity:0;transform:scale(0.92);">
         <div class="pill-box" style="background:${pillBg};">
@@ -218,13 +224,13 @@ export function renderCaptionPillClip(ctx: HfCaptionRenderContext): HfCaptionCli
       </div>`);
 
   const css = `
-    .hf-caption-pill .pill-shell { max-width: 92%; }
+    .hf-caption-pill .pill-shell { max-width: ${layout.maxWidthPct}%; }
     .hf-caption-pill .pill-box {
-      padding: 14px 28px 16px; border-radius: 22px;
+      padding: ${layout.padY + 6}px ${layout.padX * 2 + 4}px ${layout.padY + 8}px; border-radius: ${layout.shellRadius}px;
       box-shadow: 0 8px 24px rgba(0,0,0,0.18);
     }
     .hf-caption-pill .pill-copy {
-      display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px;
+      display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: ${layout.gap + 2}px;
       font-family: ${ctx.fontFamily}, 'PingFang SC', sans-serif; font-weight: 700; line-height: 1.2;
     }
     .hf-caption-pill .pill-word { transition: color 0.1s; display: inline-block; }
@@ -257,8 +263,9 @@ export function renderCaptionNeonClip(ctx: HfCaptionRenderContext): HfCaptionCli
     `<span class="neon-word" id="neon-w-${timing.timelineId}-${wi}" style="font-size:${timing.fontSize}px;">${escapeHtml(w.text)}</span>`
   )).join('');
 
+  const { layout } = timing;
   const html = wrapCaptionClip('caption-neon-glow', 'hf-caption-neon', ctx, timing, `
-      <div class="neon-group" id="neon-grp-${timing.timelineId}" style="display:flex;flex-wrap:wrap;justify-content:center;gap:12px;padding:0 5%;opacity:0;">
+      <div class="neon-group" id="neon-grp-${timing.timelineId}" style="display:flex;flex-wrap:wrap;justify-content:center;gap:${layout.gap + 4}px;padding:0 ${layout.sideInsetPct}%;max-width:${layout.maxWidthPct}%;opacity:0;">
         ${wordHtml}
       </div>`);
 
@@ -299,14 +306,15 @@ export function renderCaptionEditorialClip(ctx: HfCaptionRenderContext): HfCapti
     return `<span class="${klass}" id="ed-w-${timing.timelineId}-${wi}" style="font-size:${size}px;">${escapeHtml(w.text)}</span>`;
   }).join('');
 
+  const { layout } = timing;
   const html = wrapCaptionClip('caption-editorial-emphasis', 'hf-caption-editorial', ctx, timing, `
-      <div class="ed-block" id="ed-${timing.timelineId}" style="opacity:0;max-width:90%;padding:0 5%;">
+      <div class="ed-block" id="ed-${timing.timelineId}" style="opacity:0;max-width:${layout.maxWidthPct}%;padding:0 ${layout.sideInsetPct}%;">
         <div class="ed-line">${wordHtml}</div>
       </div>`);
 
   const css = `
     .hf-caption-editorial .ed-line {
-      display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 10px;
+      display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: ${layout.gap + 2}px;
       font-family: ${ctx.fontFamily}, 'PingFang SC', 'Songti SC', serif; line-height: 1.15;
     }
     .hf-caption-editorial .ed-word--normal { color: ${ctx.textColor}; font-weight: 500; }
@@ -341,8 +349,9 @@ export function renderCaptionGradientClip(ctx: HfCaptionRenderContext): HfCaptio
     `<span class="gr-word" id="gr-w-${timing.timelineId}-${wi}" style="font-size:${timing.fontSize}px;background-image:${grad};">${escapeHtml(w.text)}</span>`
   )).join('');
 
+  const { layout } = timing;
   const html = wrapCaptionClip('caption-gradient-fill', 'hf-caption-gradient', ctx, timing, `
-      <div class="gr-group" id="gr-grp-${timing.timelineId}" style="display:flex;flex-wrap:wrap;justify-content:center;gap:14px;padding:0 5%;opacity:0;">
+      <div class="gr-group" id="gr-grp-${timing.timelineId}" style="display:flex;flex-wrap:wrap;justify-content:center;gap:${layout.gap + 6}px;padding:0 ${layout.sideInsetPct}%;max-width:${layout.maxWidthPct}%;opacity:0;">
         ${wordHtml}
       </div>`);
 

@@ -12,12 +12,14 @@ import {
 } from '../utils/hyperframesBridge';
 import PreviewInteractionLayer from './PreviewInteractionLayer';
 import { usePreviewLayout } from './VideoCanvas/hooks/usePreviewLayout';
+import { useSegmentPreviewAudio } from '../hooks/useSegmentPreviewAudio';
 
 export default function VideoCanvas() {
   const dsl = useEditorStore(s => s.dsl);
   const currentSegIndex = useEditorStore(s => s.currentSegIndex);
   const currentTime = useEditorStore(s => s.currentTime);
   const playing = useEditorStore(s => s.playing);
+  const mutedTracks = useEditorStore(s => s.mutedTracks);
   const previewVariables = useEditorStore(s => s.previewVariables);
   const getSegmentStartTime = useEditorStore(s => s.getSegmentStartTime);
   const selectedElement = useEditorStore(s => s.selectedElement);
@@ -47,6 +49,14 @@ export default function VideoCanvas() {
   const segment = dsl?.segments[currentSegIndex];
   const segmentStart = getSegmentStartTime(currentSegIndex);
   const localTime = getSegmentLocalTime(currentTime, segmentStart);
+  const previewAudioUrl = segment?.subtitle?.hf_params?.preview_audio_url;
+
+  useSegmentPreviewAudio({
+    previewUrl: previewAudioUrl,
+    localTime,
+    playing: isPreviewMode && playing,
+    muted: mutedTracks.has('audio'),
+  });
 
   const markPreviewReady = useCallback(() => {
     const iframe = iframeRef.current;

@@ -5,6 +5,7 @@ import { HF_STYLE_BINDINGS } from './hfStyleRegistry.js';
 import {
   buildCaptionWordTimings,
   renderCaptionHighlightClip,
+  renderCaptionPillClip,
   renderHfCaptionClip,
   splitCaptionWords,
 } from './hfCaptionRenderer.js';
@@ -47,6 +48,22 @@ describe('hfCaptionRenderer', () => {
     assert.ok(clip);
     assert.match(clip!.html, /data-hf-component="caption-highlight"/);
     assert.match(clip!.script, /caption-highlight-s1/);
+  });
+
+  it('scales caption layout for narrow vertical canvases', () => {
+    const ref = renderCaptionPillClip({ ...BASE_CTX, styleId: 'hf-caption-pill' });
+    const narrow = renderCaptionPillClip({
+      ...BASE_CTX,
+      styleId: 'hf-caption-pill',
+      canvasWidth: 720,
+      canvasHeight: 1280,
+      fontSizePx: 36,
+    });
+    assert.ok(ref && narrow);
+    const refPad = ref!.css.match(/padding: (\d+)px/)?.[1];
+    const narrowPad = narrow!.css.match(/padding: (\d+)px/)?.[1];
+    assert.ok(refPad && narrowPad);
+    assert.ok(Number(narrowPad) < Number(refPad));
   });
 });
 

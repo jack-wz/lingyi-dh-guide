@@ -57,6 +57,7 @@ test-guide-timeline:
 		guide/worker/tests/test_audit_render_job.py \
 		guide/worker/tests/test_timeline_validate_pipeline.py \
 		guide/worker/tests/test_whisper_aligner.py \
+		guide/worker/tests/test_preview_tts_align.py \
 		-q
 
 test-guide-fast: test-guide-timeline

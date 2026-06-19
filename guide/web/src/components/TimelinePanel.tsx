@@ -73,7 +73,12 @@ export default function TimelinePanel() {
       };
       video.push({ id: `clip-${seg.id}`, ...base });
       if (seg.segment_bgm_url || seg.narration_text) {
-        audio.push({ id: `clip-audio-${seg.id}`, ...base, text: seg.segment_bgm_url ? 'BGM' : '语音' });
+        const hasPreviewTts = Boolean(seg.subtitle?.hf_params?.preview_audio_url);
+        audio.push({
+          id: `clip-audio-${seg.id}`,
+          ...base,
+          text: seg.segment_bgm_url ? 'BGM' : hasPreviewTts ? '预览配音' : '语音',
+        });
       }
       if (seg.subtitle.enabled && seg.narration_text) {
         caption.push({ id: `clip-sub-${seg.id}`, ...base });
