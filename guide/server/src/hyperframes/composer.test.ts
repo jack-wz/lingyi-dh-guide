@@ -65,4 +65,45 @@ describe('hyperframes composer', () => {
     assert.match(html, /data-track-index="10"/);
     assert.match(html, /导购标题/);
   });
+
+  it('embeds HF captions, transitions, and global overlays', () => {
+    const dsl = makeDsl();
+    dsl.globalConfig = {
+      ...dsl.globalConfig,
+      brand_color: '#2563eb',
+      transition_enabled: true,
+      hf_overlays: [
+        { type: 'hf-grain', enabled: true, opacity: 0.15 },
+        { type: 'hf-vignette', enabled: true, intensity: 0.6, vignette_size: 42 },
+      ],
+    };
+    dsl.segments[0].narration_text = '限时特惠 立即抢购';
+    dsl.segments[0].subtitle = {
+      enabled: true,
+      style_id: 'hf-caption-pill',
+      position: 'bottom',
+      animation: 'fadeIn',
+      hf_params: {
+        word_timings: [
+          { text: '限时', start: 0.2, end: 0.8 },
+          { text: '特惠', start: 0.85, end: 1.4 },
+        ],
+        word_timing_source: 'heuristic',
+      },
+    };
+    dsl.segments[0].transition = { type: 'hf-zoom', duration: 0.6 };
+    dsl.segments.push({
+      ...dsl.segments[0],
+      id: 'seg-2',
+      narration_text: '第二段口播',
+      transition: { type: 'none', duration: 0.5 },
+    });
+
+    const html = generateHyperframesHTML(dsl);
+    assert.match(html, /caption-pill-karaoke/);
+    assert.match(html, /hf-trans-zoom/);
+    assert.match(html, /grain-overlay/);
+    assert.match(html, /vignette/);
+    assert.match(html, /gsap@3\.14\.2/);
+  });
 });

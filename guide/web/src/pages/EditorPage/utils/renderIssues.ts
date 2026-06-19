@@ -3,12 +3,7 @@ import {
   getSegmentVoiceIdWarnings,
   narrationRequiresDigitalHumanIssue,
 } from '@shared/renderGuards';
-import {
-  dslUsesHyperframesSubtitles,
-  getHyperframesSubtitlePipelineWarning,
-} from '@shared/subtitleStyles';
-import { dslUsesHyperframesTransitions } from '@shared/hfTransitionRenderer';
-import { dslUsesHyperframesGlobalOverlays } from '@shared/hfGlobalOverlayRenderer';
+import { getHyperframesPipelineWarnings } from '@shared/hfPipelineWarnings';
 import type { ConfigDiagnostics, DSL } from '@shared/types/editor';
 
 export function getRenderWarnings(
@@ -22,17 +17,7 @@ export function getRenderWarnings(
   }
   const dhId = selectedDhId || dsl.meta?.digital_human_id || '';
   warnings.push(...getSegmentVoiceIdWarnings(dsl, dhId));
-  const activePipeline = pipelineKey || dsl.meta?.pipeline_key;
-  if (dslUsesHyperframesSubtitles(dsl)) {
-    const hfWarning = getHyperframesSubtitlePipelineWarning(activePipeline);
-    if (hfWarning) warnings.push(hfWarning);
-  }
-  if (dslUsesHyperframesTransitions(dsl) && activePipeline !== 'hyperframes_template') {
-    warnings.push('模板含 HyperFrames 动效转场；当前流水线将忽略转场动效，完整效果请选「HyperFrames 模板」流水线');
-  }
-  if (dslUsesHyperframesGlobalOverlays(dsl) && activePipeline !== 'hyperframes_template') {
-    warnings.push('模板启用了 HyperFrames 全局质感叠加（颗粒/暗角）；当前流水线将忽略，完整效果请选「HyperFrames 模板」流水线');
-  }
+  warnings.push(...getHyperframesPipelineWarnings(dsl, pipelineKey || dsl.meta?.pipeline_key));
   return warnings;
 }
 
