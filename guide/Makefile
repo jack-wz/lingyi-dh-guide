@@ -114,7 +114,7 @@ validate-renders-strict: validate-renders
 		--json-out "$(AUDIT_JSON)" \
 		--fail-on-warn
 
-validate-renders-ci: test-guide-timeline
+validate-renders-ci: setup-worker-venv test-guide-timeline
 	@echo "validate-renders-ci: timeline unit tests passed"
 
 validate-render-job:

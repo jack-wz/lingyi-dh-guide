@@ -137,6 +137,9 @@ jobs:
       - name: Integrator preflight + smoke script CI gate
         run: make smoke-integrator-ci
 
+      - name: Setup worker venv (pytest paths assume repo root cwd)
+        run: make -C guide setup-worker-venv
+
       - name: Timeline QA gate (subtitle/TTS alignment unit tests)
         run: make validate-renders-ci
 
