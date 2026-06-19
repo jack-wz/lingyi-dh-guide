@@ -18,6 +18,7 @@ import {
 } from './subtitleStyles';
 import { anySegmentUsesHyperframesCaptions } from './hfStyleRegistry.js';
 import { buildHfCaptionSeekBootstrap, renderHfCaptionClip } from './hfCaptionRenderer.js';
+import { isHyperframesTransitionType, renderHfTransitionClip, buildHfTransitionSeekBootstrap } from './hfTransitionRenderer.js';
 
 const GSAP_RUNTIME_URL = 'https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js';
 
@@ -205,6 +206,10 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
   const segmentEntries: string[] = [];
   const hfCaptionCss: string[] = [];
   const hfCaptionScripts: string[] = [];
+  const hfTransitionCss: string[] = [];
+  const hfTransitionScripts: string[] = [];
+  const transitionEntries: string[] = [];
+  const transitionsEnabled = dsl.globalConfig.transition_enabled !== false;
   const accentColor = resolveAccentColor(dsl, brandInjection);
 
   segs.forEach((seg, i) => {
@@ -369,6 +374,29 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
     }
 
     segmentEntries.push(sceneHtml + dhHtml + subtitleHtml + overlaysHtml + objectsHtml);
+
+    if (transitionsEnabled && i < segs.length - 1) {
+      const transType = String(seg.transition?.type || 'none');
+      if (transType !== 'none' && isHyperframesTransitionType(transType)) {
+        const transDur = Math.max(0.2, Math.min(Number(seg.transition.duration) || 0.5, dur * 0.45));
+        const transStart = start + dur - transDur;
+        const transClip = renderHfTransitionClip({
+          segmentId: String(seg.id || `seg-${i}`),
+          transitionType: transType,
+          clipStart: transStart,
+          clipDuration: transDur,
+          canvasWidth: w,
+          canvasHeight: h,
+          accentColor,
+          direction: (seg.transition as { direction?: 'left' | 'right' | 'up' | 'down' }).direction,
+        });
+        if (transClip) {
+          transitionEntries.push(transClip.html);
+          hfTransitionCss.push(transClip.css);
+          hfTransitionScripts.push(transClip.script);
+        }
+      }
+    }
   });
 
   const bgmHtml = bgm_url ? `
@@ -376,10 +404,13 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
            data-volume="${bgm_volume}" src="${escapeHtml(bgm_url)}"></audio>
   ` : '';
 
-  const needsGsap = anySegmentUsesHyperframesCaptions(segs) || hfCaptionScripts.length > 0;
+  const needsGsap = anySegmentUsesHyperframesCaptions(segs)
+    || hfCaptionScripts.length > 0
+    || hfTransitionScripts.length > 0;
   const gsapScriptTag = needsGsap ? `<script src="${GSAP_RUNTIME_URL}"></script>` : '';
-  const hfCaptionScriptBlock = hfCaptionScripts.length
-    ? `<script>${hfCaptionScripts.join('\n')}${buildHfCaptionSeekBootstrap()}</script>`
+  const hfMotionScripts = [...hfCaptionScripts, ...hfTransitionScripts];
+  const hfMotionScriptBlock = hfMotionScripts.length
+    ? `<script>${hfMotionScripts.join('\n')}${buildHfCaptionSeekBootstrap()}${buildHfTransitionSeekBootstrap()}</script>`
     : '';
 
   return `<!DOCTYPE html>
@@ -416,6 +447,7 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
     }
     @keyframes typing { to { width: 100%; } }
     ${hfCaptionCss.join('\n')}
+    ${hfTransitionCss.join('\n')}
   </style>
   ${gsapScriptTag}
 </head>
@@ -428,10 +460,11 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
        data-height="${h}"
        data-fps="${fps}">
     ${segmentEntries.join('\n')}
+    ${transitionEntries.join('\n')}
     ${bgmHtml}
   </div>
   <script src="${HYPERFRAMES_RUNTIME_URL}"></script>
-  ${hfCaptionScriptBlock}
+  ${hfMotionScriptBlock}
 </body>
 </html>`;
 }

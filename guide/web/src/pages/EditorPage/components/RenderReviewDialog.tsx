@@ -1,6 +1,7 @@
 import type { PipelineOption } from '@shared/data/pipelines';
 import type { ConfigDiagnostics, DSL } from '@shared/types/editor';
 import { dslUsesHyperframesSubtitles } from '@shared/subtitleStyles';
+import { dslUsesHyperframesTransitions } from '@shared/hfTransitionRenderer';
 import { IconAlertCircle, IconCheck, IconZap } from '../../../components/Icons';
 import { estimateRenderCostRisk } from '../utils/renderIssues';
 import { getPreviewRenderAlignment } from '../../../utils/previewRenderAlignment';
@@ -72,7 +73,8 @@ export default function RenderReviewDialog({
   const estimate = estimateRenderCostRisk(dsl, pipeline, diagnostics);
   const alignment = getPreviewRenderAlignment(pipeline?.key);
   const usesHfSubtitles = dslUsesHyperframesSubtitles(dsl);
-  const showHfPipelineCta = usesHfSubtitles
+  const usesHfTransitions = dslUsesHyperframesTransitions(dsl);
+  const showHfPipelineCta = (usesHfSubtitles || usesHfTransitions)
     && pipeline?.key !== 'hyperframes_template'
     && hfPipelineAvailable
     && Boolean(onSwitchToHfPipeline);
@@ -171,9 +173,10 @@ export default function RenderReviewDialog({
           )}
           {showHfPipelineCta && (
             <div className="rounded-md border border-brand-blue/35 bg-brand-blue/10 p-3">
-              <div className="text-xs font-medium text-foreground mb-1">动效字幕需 HyperFrames 流水线</div>
+              <div className="text-xs font-medium text-foreground mb-1">动效样式需 HyperFrames 流水线</div>
               <p className="text-xs text-muted-foreground leading-5 mb-3">
-                当前模板使用了 HyperFrames 动效字幕。切换到「HyperFrames 模板」流水线可保留预览中的逐词动效；否则成片将降级为静态字幕。
+                当前模板使用了 HyperFrames 动效{usesHfSubtitles && usesHfTransitions ? '字幕与转场' : usesHfSubtitles ? '字幕' : '转场'}。
+                切换到「HyperFrames 模板」流水线可保留预览中的动效；否则成片将降级或忽略相关效果。
               </p>
               <button
                 type="button"

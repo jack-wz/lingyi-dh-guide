@@ -6,6 +6,8 @@ import FileUploader from '../../../../components/FileUploader';
 import FontFamilyPicker from '../../../../components/brand-editor/FontFamilyPicker';
 import { IconFilm, IconMusic, IconPalette, IconSettings2, IconType } from '../../../../components/Icons';
 import { SubtitleStyleHint, SubtitleStyleSelect } from '../../../../components/SubtitleStylePicker';
+import { TransitionStyleHint, TransitionStyleSelect } from '../../../../components/TransitionStylePicker';
+import { isHyperframesTransitionType } from '@shared/hfTransitionRenderer';
 import {
   SUBTITLE_FONT_SIZE_DEFAULT,
   SUBTITLE_FONT_SIZE_MAX,
@@ -150,16 +152,37 @@ export default function DesignPanel({
             }}
           />
         </label>
-        <select
-          value={seg.transition.type}
-          onChange={(e) => updateSeg({ transition: { ...seg.transition, type: e.target.value } })}
-          className="mt-3 w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
-        >
-          <option value="none">无</option>
-          <option value="fade">淡入淡出</option>
-          <option value="slideup">上滑</option>
-          <option value="zoomin">缩放进入</option>
-        </select>
+        <div className="mt-3">
+          <TransitionStyleSelect
+            value={seg.transition.type}
+            onChange={(type) => updateSeg({
+              transition: {
+                ...seg.transition,
+                type,
+                duration: isHyperframesTransitionType(type)
+                  ? Math.max(0.4, Number(seg.transition.duration) || 0.6)
+                  : seg.transition.duration,
+              },
+            })}
+          />
+        </div>
+        <TransitionStyleHint type={seg.transition.type} />
+        {seg.transition.type !== 'none' && (
+          <div className="mt-3">
+            <label className="block text-xs text-muted-foreground mb-1">转场时长（秒）</label>
+            <input
+              type="number"
+              min={0.2}
+              max={2}
+              step={0.1}
+              value={seg.transition.duration}
+              onChange={(e) => updateSeg({
+                transition: { ...seg.transition, duration: Math.max(0.2, Number(e.target.value) || 0.5) },
+              })}
+              className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
+            />
+          </div>
+        )}
       </PanelSection>
 
       <PanelSection title="品牌与字幕" icon={<IconType size={15} />}>
