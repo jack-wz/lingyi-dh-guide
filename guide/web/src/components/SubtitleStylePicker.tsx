@@ -1,5 +1,6 @@
 import {
   CLASSIC_SUBTITLE_STYLES,
+  getAssSubtitleFallbackName,
   HF_SUBTITLE_STYLES,
   isHyperframesSubtitleStyle,
   normalizeSubtitleStyleId,
@@ -72,9 +73,11 @@ export function SubtitleStyleSelect({
 
 export function SubtitleStyleHint({ styleId }: { styleId: string }) {
   if (!isHyperframesSubtitleStyle(styleId)) return null;
+  const fallbackName = getAssSubtitleFallbackName(styleId);
   return (
     <p className="mt-2 text-[11px] text-brand-blue/90 leading-relaxed">
-      动效字幕由 HyperFrames 渲染。编辑器预览可看到逐词高亮；标准 FFmpeg 流水线将使用近似静态字幕。
+      动效字幕由 HyperFrames 渲染。编辑器预览可看到逐词高亮；标准 FFmpeg 流水线将降级为
+      {fallbackName ? `「${fallbackName}」` : '近似'} ASS 样式，并在有 TTS 时输出词级卡拉 OK。
     </p>
   );
 }

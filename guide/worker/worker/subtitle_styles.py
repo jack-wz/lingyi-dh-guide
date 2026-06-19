@@ -166,6 +166,14 @@ _STYLE_RENDER_PX = {
     for _def in SUBTITLE_STYLE_DEFINITIONS
 }
 
+HF_ASS_FALLBACKS: dict[str, str] = {
+    "hf-caption-highlight": "bold-yellow",
+    "hf-caption-pill": "subtitle-card",
+    "hf-caption-neon": "gradient-glow",
+    "hf-caption-editorial": "brand-elegant",
+    "hf-caption-gradient": "gradient-glow",
+}
+
 
 def normalize_subtitle_style_id(style_id: str) -> str:
     raw = str(style_id or "").strip()
@@ -177,6 +185,26 @@ def normalize_subtitle_style_id(style_id: str) -> str:
 def get_subtitle_style_definition(style_id: str) -> SubtitleStyleDefinition | None:
     canonical = normalize_subtitle_style_id(style_id)
     return _DEFINITION_BY_ID.get(canonical)
+
+
+def is_hyperframes_subtitle_style(style_id: str) -> bool:
+    raw = str(style_id or "").strip()
+    return raw in HF_ASS_FALLBACKS
+
+
+def resolve_ass_subtitle_style_id(style_id: str) -> str:
+    raw = str(style_id or "").strip()
+    if raw in HF_ASS_FALLBACKS:
+        return HF_ASS_FALLBACKS[raw]
+    return normalize_subtitle_style_id(style_id)
+
+
+def get_ass_subtitle_fallback_name(style_id: str) -> str | None:
+    fallback_id = HF_ASS_FALLBACKS.get(str(style_id or "").strip())
+    if not fallback_id:
+        return None
+    definition = get_subtitle_style_definition(fallback_id)
+    return definition.get("name") if definition else None
 
 
 def parse_subtitle_render_size_px(size: str) -> int:
@@ -229,11 +257,13 @@ def build_ass_style_line(
     font: str,
     font_size: int,
     style_id: str,
+    *,
+    primary_override: str | None = None,
 ) -> str:
     """Build one ASS Style: line from registry definition."""
     definition = get_subtitle_style_definition(style_id)
     render = (definition or {}).get("render") or {}
-    primary = rgba_to_ass_color(render.get("color", "#ffffff"))
+    primary = rgba_to_ass_color(primary_override or render.get("color", "#ffffff"))
     outline_color = rgba_to_ass_color(render.get("outline", "#000000"))
     bg = render.get("bg", "transparent")
     has_box = bg and str(bg).lower() != "transparent"

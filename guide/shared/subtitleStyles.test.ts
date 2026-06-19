@@ -2,10 +2,13 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   CLASSIC_SUBTITLE_STYLES,
+  buildSubtitleStyleRenderMap,
   dslUsesHyperframesSubtitles,
+  getAssSubtitleFallbackName,
   getHyperframesSubtitlePipelineWarning,
   HF_SUBTITLE_STYLES,
   isHyperframesSubtitleStyle,
+  resolveAssSubtitleStyleId,
 } from './subtitleStyles.js';
 
 describe('subtitleStyles hf grouping', () => {
@@ -32,6 +35,15 @@ describe('subtitleStyles hf grouping', () => {
   it('warns when non-hf pipeline uses hyperframes subtitles', () => {
     const warning = getHyperframesSubtitlePipelineWarning('standard');
     assert.ok(warning?.includes('HyperFrames'));
+    assert.ok(warning?.includes('ASS'));
     assert.equal(getHyperframesSubtitlePipelineWarning('hyperframes_template'), null);
+  });
+
+  it('maps hyperframes styles to ASS fallbacks', () => {
+    assert.equal(resolveAssSubtitleStyleId('hf-caption-pill'), 'subtitle-card');
+    assert.equal(resolveAssSubtitleStyleId('hf-caption-highlight'), 'bold-yellow');
+    assert.equal(getAssSubtitleFallbackName('hf-caption-pill'), '卡片式');
+    const map = buildSubtitleStyleRenderMap();
+    assert.equal(map['hf-caption-pill'].bg, map['subtitle-card'].bg);
   });
 });

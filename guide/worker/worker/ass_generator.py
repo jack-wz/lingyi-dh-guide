@@ -8,7 +8,9 @@ from typing import Iterable
 from worker.subtitle_styles import (
     build_ass_style_line,
     get_style_render_px,
+    is_hyperframes_subtitle_style,
     normalize_subtitle_style_id,
+    resolve_ass_subtitle_style_id,
 )
 
 # ASS time format: H:MM:SS.cc (centiseconds)
@@ -195,6 +197,44 @@ def _animation_prefix(animation: str) -> str:
     return rf"{{\fad({_FADE_IN_MS},{_FADE_OUT_MS})}}"
 
 
+def _format_karaoke_from_word_timings(
+    phrase: str,
+    phrase_start: float,
+    phrase_end: float,
+    seg_start: float,
+    word_timings: list[dict],
+) -> str | None:
+    """Build ASS karaoke tags from segment-local word timings when available."""
+    if not word_timings:
+        return None
+
+    local_start = phrase_start - seg_start
+    local_end = phrase_end - seg_start
+    units: list[dict] = []
+    for item in word_timings:
+        text = str(item.get("text", "")).strip()
+        if not text:
+            continue
+        start = float(item.get("start", 0.0))
+        end = float(item.get("end", start))
+        if end <= local_start or start >= local_end:
+            continue
+        clip_start = max(start, local_start)
+        clip_end = min(end, local_end)
+        if clip_end <= clip_start:
+            clip_end = clip_start + 0.05
+        units.append({"text": text, "start": clip_start, "end": clip_end})
+
+    if len(units) < 2:
+        return None
+
+    parts: list[str] = []
+    for unit in units:
+        dur_cs = max(1, round((unit["end"] - unit["start"]) * 100))
+        parts.append(rf"{{\k{dur_cs}}}{_escape_ass_text(unit['text'])}")
+    return "".join(parts) if parts else None
+
+
 def _format_phrase_text(text: str, animation: str, phrase_dur_sec: float) -> str:
     escaped = _escape_ass_text(text)
     if animation != "typewriter" or len(text) <= 1:
@@ -299,12 +339,26 @@ def generate_ass(
     events: list[str] = []
     timeline = _segment_timeline(segments)
 
-    def _style_name_for(canonical_style: str, font_size: int, font_name: str) -> str:
-        key = f"{canonical_style}_{font_size}_{font_name}"
+    def _style_name_for(
+        canonical_style: str,
+        font_size: int,
+        font_name: str,
+        *,
+        primary_override: str | None = None,
+    ) -> str:
+        key = f"{canonical_style}_{font_size}_{font_name}_{primary_override or ''}"
         if key in style_registry:
             return style_registry[key]
         name = f"Style_{len(style_registry)}"
-        style_defs.append(build_ass_style_line(name, font_name, font_size, canonical_style))
+        style_defs.append(
+            build_ass_style_line(
+                name,
+                font_name,
+                font_size,
+                canonical_style,
+                primary_override=primary_override,
+            )
+        )
         style_registry[key] = name
         return name
 
@@ -318,9 +372,13 @@ def generate_ass(
             continue
 
         style_key = subtitle_cfg.get("style_id") or subtitle_cfg.get("style", "default")
-        canonical_style = normalize_subtitle_style_id(style_key)
+        canonical_style = resolve_ass_subtitle_style_id(style_key)
+        ass_degraded_hf = is_hyperframes_subtitle_style(style_key)
         animation = subtitle_cfg.get("animation", default_animation)
         max_chars = int(subtitle_cfg.get("max_chars_per_line") or max_chars_per_phrase)
+        hf_params = subtitle_cfg.get("hf_params") or {}
+        word_timings = hf_params.get("word_timings") or []
+        primary_override = str(hf_params.get("accent_color") or global_config.get("brand_color") or "").strip() or None
 
         seg_font_size = _resolve_subtitle_font_size(
             subtitle_cfg,
@@ -330,7 +388,12 @@ def generate_ass(
         )
 
         seg_font = _resolve_subtitle_font_family(subtitle_cfg, global_config)
-        use_style = _style_name_for(canonical_style, seg_font_size, seg_font)
+        use_style = _style_name_for(
+            canonical_style,
+            seg_font_size,
+            seg_font,
+            primary_override=primary_override if ass_degraded_hf else None,
+        )
 
         phrases = split_narration_phrases(text, max_chars=max_chars)
         preset_timings = seg.get("subtitle_phrase_timings") or []
@@ -351,7 +414,16 @@ def generate_ass(
             if end <= start:
                 end = start + _MIN_PHRASE_SEC
             prefix = _animation_prefix(animation)
-            body = _format_phrase_text(phrase, animation, end - start)
+            karaoke_body = None
+            if ass_degraded_hf and word_timings:
+                karaoke_body = _format_karaoke_from_word_timings(
+                    phrase,
+                    start,
+                    end,
+                    seg_start,
+                    word_timings,
+                )
+            body = karaoke_body or _format_phrase_text(phrase, animation, end - start)
             dialogue_text = f"{prefix}{body}"
             events.append(
                 f"Dialogue: 0,{_sec_to_ass(start)},{_sec_to_ass(end)},"

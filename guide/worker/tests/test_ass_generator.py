@@ -2,6 +2,7 @@ import unittest
 
 from worker.ass_generator import (
     _ass_to_sec,
+    _format_karaoke_from_word_timings,
     _resolve_ass_font,
     _resolve_subtitle_font_family,
     _resolve_subtitle_font_size,
@@ -10,6 +11,7 @@ from worker.ass_generator import (
     generate_ass,
     split_narration_phrases,
 )
+from worker.subtitle_styles import resolve_ass_subtitle_style_id
 
 
 class TestAssGenerator(unittest.TestCase):
@@ -112,6 +114,58 @@ class TestAssGenerator(unittest.TestCase):
             ),
             "Source Han Sans SC",
         )
+
+    def test_resolve_ass_subtitle_style_hf_fallback(self):
+        self.assertEqual(resolve_ass_subtitle_style_id("hf-caption-pill"), "subtitle-card")
+        self.assertEqual(resolve_ass_subtitle_style_id("hf-caption-highlight"), "bold-yellow")
+
+    def test_format_karaoke_from_word_timings(self):
+        body = _format_karaoke_from_word_timings(
+            "限时特惠",
+            0.2,
+            1.8,
+            0.0,
+            [
+                {"text": "限", "start": 0.2, "end": 0.5},
+                {"text": "时", "start": 0.55, "end": 0.8},
+                {"text": "特", "start": 0.85, "end": 1.1},
+                {"text": "惠", "start": 1.15, "end": 1.5},
+            ],
+        )
+        self.assertIsNotNone(body)
+        assert body is not None
+        self.assertIn(r"{\k", body)
+        self.assertIn("限", body)
+
+    def test_generate_ass_hf_style_with_karaoke(self):
+        segments = [
+            {
+                "narration_text": "限时特惠",
+                "duration_sec": 4.0,
+                "subtitle": {
+                    "enabled": True,
+                    "style_id": "hf-caption-pill",
+                    "animation": "fadeIn",
+                    "hf_params": {
+                        "word_timings": [
+                            {"text": "限", "start": 0.2, "end": 0.5},
+                            {"text": "时", "start": 0.55, "end": 0.8},
+                            {"text": "特", "start": 0.85, "end": 1.1},
+                            {"text": "惠", "start": 1.15, "end": 1.5},
+                        ],
+                        "accent_color": "#2563eb",
+                    },
+                },
+            }
+        ]
+        path = "/tmp/test_subtitles_hf_karaoke.ass"
+        generate_ass(segments, {"canvas_width": 1080, "canvas_height": 1920}, path)
+        with open(path, encoding="utf-8-sig") as f:
+            content = f.read()
+        self.assertIn("Dialogue:", content)
+        self.assertIn(r"{\k", content)
+        self.assertIn("&H00EB6325", content)  # #2563eb primary override BGR
+        self.assertIn(",3,2,2,2,10,10,120,1", content)  # subtitle-card boxed ASS style
 
     def test_generate_ass_uses_segment_subtitle_font_family(self):
         segments = [

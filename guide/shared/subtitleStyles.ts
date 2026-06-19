@@ -394,8 +394,33 @@ export function buildSubtitleStyleRenderMap(): Record<string, SubtitleStyleRende
     for (const alias of def.aliases || []) {
       map[alias] = def.render;
     }
+    if (def.engine === 'hyperframes' && def.hf_fallback_id) {
+      const fallback = definitionById.get(def.hf_fallback_id);
+      if (fallback) {
+        map[def.id] = fallback.render;
+      }
+    }
   }
   return map;
+}
+
+/** Map HyperFrames subtitle style to closest classic ASS/CSS fallback. */
+export function resolveAssSubtitleStyleId(styleId: string): string {
+  const def = getSubtitleStyleDefinition(styleId);
+  if (def?.engine === 'hyperframes' && def.hf_fallback_id) {
+    return normalizeSubtitleStyleId(def.hf_fallback_id);
+  }
+  return normalizeSubtitleStyleId(styleId);
+}
+
+export function getAssSubtitleFallbackName(styleId: string): string | undefined {
+  const def = getSubtitleStyleDefinition(styleId);
+  if (def?.engine !== 'hyperframes' || !def.hf_fallback_id) return undefined;
+  return getSubtitleStyleDefinition(def.hf_fallback_id)?.name;
+}
+
+export function supportsAssKaraokeFallback(styleId: string): boolean {
+  return isHyperframesSubtitleStyle(styleId);
 }
 
 export function buildSubtitleTextShadow(outline?: string, width = 2): string {
@@ -506,5 +531,5 @@ export function dslUsesHyperframesSubtitles(dsl: {
 
 export function getHyperframesSubtitlePipelineWarning(pipelineKey?: string): string | null {
   if (!pipelineKey || pipelineKey === 'hyperframes_template') return null;
-  return '模板含 HyperFrames 动效字幕；当前流水线将降级为静态字幕，完整动效请选「HyperFrames 模板」流水线';
+  return '模板含 HyperFrames 动效字幕；标准流水线将降级为近似 ASS 样式（含词级卡拉 OK），完整动效请选「HyperFrames 模板」流水线';
 }

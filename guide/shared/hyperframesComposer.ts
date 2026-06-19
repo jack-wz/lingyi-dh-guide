@@ -12,6 +12,7 @@ import {
   buildSubtitleTextShadow,
   getSubtitleStyleDefinition,
   normalizeSubtitleStyleId,
+  resolveAssSubtitleStyleId,
   type SubtitleStyleRender,
   resolveSubtitleFontFamily,
   resolveSubtitleFontSize,
@@ -228,7 +229,10 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
     if (seg.subtitle.enabled && seg.narration_text) {
       const styleId = normalizeSubtitleStyleId(seg.subtitle.style_id);
       const styleDef = getSubtitleStyleDefinition(styleId);
-      const style = styleMap[styleId] || styleMap.default;
+      const cssStyleId = styleDef?.engine === 'hyperframes'
+        ? resolveAssSubtitleStyleId(styleId)
+        : styleId;
+      const style = styleMap[cssStyleId] || styleMap[styleId] || styleMap.default;
       const subFont = resolveSubtitleFontFamily({
         fontFamily: (seg.subtitle as { font_family?: string }).font_family,
         globalSubtitleFontFamily: (dsl.globalConfig as { subtitle_font_family?: string }).subtitle_font_family,
