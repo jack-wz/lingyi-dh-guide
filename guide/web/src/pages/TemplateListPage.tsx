@@ -18,9 +18,17 @@ interface Template {
   published_at?: string;
   created_at: string;
   updated_at: string;
+  brand_pack_id?: string;
+  brand_pack_name?: string;
 }
 
 type TemplateStatus = 'draft' | 'pending' | 'published' | 'offline';
+type BrandFilter = '' | 'unbound' | string;
+
+interface BrandOption {
+  id: string;
+  name: string;
+}
 
 const STATUS_FILTERS: { id: TemplateStatus | ''; label: string }[] = [
   { id: '', label: '全部' },
@@ -38,8 +46,11 @@ export default function TemplateListPage() {
   const [deleteTarget, setDeleteTarget] = useState<Template | null>(null);
   const [statusTarget, setStatusTarget] = useState<{ template: Template; status: TemplateStatus; label: string } | null>(null);
   const [brandCount, setBrandCount] = useState<number | null>(null);
+  const [brandOptions, setBrandOptions] = useState<BrandOption[]>([]);
+  const [unboundBrandCount, setUnboundBrandCount] = useState(0);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<TemplateStatus | ''>('');
+  const [brandFilter, setBrandFilter] = useState<BrandFilter>('');
   const [showE2e, setShowE2e] = useState(false);
   const navigate = useNavigate();
 
@@ -54,6 +65,11 @@ export default function TemplateListPage() {
       }
       if (search.trim()) params.set('q', search.trim());
       if (statusFilter) params.set('status', statusFilter);
+      if (brandFilter === 'unbound') {
+        params.set('brand_unbound', '1');
+      } else if (brandFilter) {
+        params.set('brand_pack_id', brandFilter);
+      }
 
       const res = await fetch(`/api/templates?${params}`);
       if (!res.ok) {
@@ -67,6 +83,7 @@ export default function TemplateListPage() {
       } else {
         setTemplates(data.items || []);
         setE2eCount(Number(data.meta?.e2e_count ?? 0));
+        setUnboundBrandCount(Number(data.meta?.unbound_brand_count ?? 0));
       }
     } catch (e) {
       console.error('Failed to fetch templates', e);
@@ -74,17 +91,24 @@ export default function TemplateListPage() {
     } finally {
       setLoading(false);
     }
-  }, [search, statusFilter, showE2e]);
+  }, [search, statusFilter, brandFilter, showE2e]);
 
   useEffect(() => {
     fetchTemplates();
   }, [fetchTemplates]);
 
   useEffect(() => {
-    fetch('/api/library?category=brand&limit=1')
+    fetch('/api/library?category=brand&limit=120')
       .then((r) => r.json())
-      .then((d) => setBrandCount(Number(d.total ?? d.items?.length ?? 0)))
-      .catch(() => setBrandCount(null));
+      .then((d) => {
+        const items = (d.items || []) as Array<{ id: string; name: string }>;
+        setBrandCount(Number(d.total ?? items.length ?? 0));
+        setBrandOptions(items.map((item) => ({ id: item.id, name: item.name })));
+      })
+      .catch(() => {
+        setBrandCount(null);
+        setBrandOptions([]);
+      });
   }, []);
 
   const createTemplate = async (name: string) => {
@@ -100,7 +124,22 @@ export default function TemplateListPage() {
       }
       const t = await res.json();
       setShowCreateDialog(false);
-      navigate(`/editor/${t.id}`);
+      let editorPath = `/editor/${t.id}`;
+      if (brandCount && brandCount > 0) {
+        try {
+          const brandRes = await fetch('/api/library?category=brand&limit=1');
+          if (brandRes.ok) {
+            const brandData = await brandRes.json();
+            const firstBrand = brandData.items?.[0];
+            if (firstBrand?.id) {
+              editorPath = `/editor/${t.id}?brand_id=${encodeURIComponent(firstBrand.id)}`;
+            }
+          }
+        } catch {
+          /* keep default path */
+        }
+      }
+      navigate(editorPath);
     } catch (e) {
       console.error('Failed to create template', e);
       showApiToast(e instanceof Error ? e.message : '创建模板失败', { destructive: true });
@@ -208,6 +247,22 @@ export default function TemplateListPage() {
         </button>
       </div>
 
+      {unboundBrandCount > 0 && brandFilter !== 'unbound' && (
+        <div
+          data-testid="unbound-brand-banner"
+          className="mb-4 rounded-lg border border-brand-amber/30 bg-brand-amber/10 px-4 py-3 text-sm text-muted-foreground flex flex-wrap items-center justify-between gap-3"
+        >
+          <span>有 {unboundBrandCount} 个模板未绑定品牌包，渲染前建议先去资产库选用。</span>
+          <button
+            type="button"
+            onClick={() => setBrandFilter('unbound')}
+            className="text-brand-blue hover:underline shrink-0 font-medium"
+          >
+            查看未绑定
+          </button>
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center gap-2 mb-4">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
           <IconSearch size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
@@ -219,6 +274,21 @@ export default function TemplateListPage() {
             className="w-full h-9 pl-9 pr-3 text-sm rounded-md border border-border bg-background"
           />
         </div>
+        <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+          品牌包
+          <select
+            data-testid="template-brand-filter"
+            value={brandFilter}
+            onChange={(e) => setBrandFilter(e.target.value as BrandFilter)}
+            className="h-9 min-w-[140px] rounded-md border border-border bg-background px-2 text-sm text-foreground"
+          >
+            <option value="">全部品牌</option>
+            <option value="unbound">未绑定品牌包</option>
+            {brandOptions.map((brand) => (
+              <option key={brand.id} value={brand.id}>{brand.name}</option>
+            ))}
+          </select>
+        </label>
         <div className="flex flex-wrap gap-1">
           {STATUS_FILTERS.map((f) => (
             <button
@@ -243,7 +313,13 @@ export default function TemplateListPage() {
         <div className="text-center py-20">
           <div className="text-muted-foreground mb-4"><IconFilm size={48} /></div>
           <p className="text-muted-foreground mb-4">
-            {showE2e ? '没有匹配的模板' : '还没有运营模板，点击「新建模板」开始创建'}
+            {brandFilter === 'unbound'
+              ? '没有未绑定品牌包的模板'
+              : brandFilter
+                ? '没有匹配该品牌包的模板'
+                : showE2e
+                  ? '没有匹配的模板'
+                  : '还没有运营模板，点击「新建模板」开始创建'}
           </p>
           <button onClick={() => setShowCreateDialog(true)} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:opacity-90">
             创建第一个模板
@@ -268,6 +344,33 @@ export default function TemplateListPage() {
                   </span>
                 </div>
                 <p className="text-sm text-muted-foreground mb-1">{t.type || '未分类'}</p>
+                <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                  {t.brand_pack_id ? (
+                    <span
+                      data-testid="template-brand-badge"
+                      className="inline-flex items-center rounded-full bg-brand-blue/10 px-2 py-0.5 text-[10px] font-medium text-brand-blue"
+                      title={`品牌包 ID: ${t.brand_pack_id}`}
+                    >
+                      {t.brand_pack_name || '已绑定品牌包'}
+                    </span>
+                  ) : (
+                    <>
+                      <span
+                        data-testid="template-unbound-badge"
+                        className="inline-flex items-center rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground"
+                      >
+                        未绑定品牌包
+                      </span>
+                      <Link
+                        to={`/editor/${t.id}?pick_brand=1`}
+                        data-testid="template-bind-brand-link"
+                        className="inline-flex items-center rounded-full bg-brand-blue/10 px-2 py-0.5 text-[10px] font-medium text-brand-blue hover:bg-brand-blue/20"
+                      >
+                        去选用品牌包
+                      </Link>
+                    </>
+                  )}
+                </div>
                 <p className="text-xs text-muted-foreground mb-1">
                   {t.description || '暂无描述'} · v{t.version}
                 </p>

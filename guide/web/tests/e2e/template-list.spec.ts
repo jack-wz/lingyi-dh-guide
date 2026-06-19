@@ -23,6 +23,36 @@ test('template center hides e2e templates by default and supports search', async
   }
 });
 
+test('template list supports brand pack filter and bind-brand link', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: '模板中心' })).toBeVisible();
+  const brandFilter = page.getByTestId('template-brand-filter');
+  await expect(brandFilter).toBeVisible();
+  await brandFilter.selectOption('unbound');
+
+  const cards = page.locator('[data-testid="template-card"]');
+  const count = await cards.count();
+  if (count === 0) return;
+
+  const unboundBadge = cards.first().getByTestId('template-unbound-badge');
+  if (await unboundBadge.isVisible()) {
+    const bindLink = cards.first().getByTestId('template-bind-brand-link');
+    await expect(bindLink).toBeVisible();
+    await expect(bindLink).toHaveAttribute('href', /\/assets\?tab=brand&from=/);
+  }
+});
+
+test('template cards show brand pack binding status', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: '模板中心' })).toBeVisible();
+  const cards = page.locator('[data-testid="template-card"]');
+  const count = await cards.count();
+  if (count === 0) return;
+  const badge = cards.first().locator('[data-testid="template-brand-badge"]');
+  const unbound = cards.first().getByText('未绑定品牌包');
+  await expect(badge.or(unbound)).toBeVisible();
+});
+
 test('template center shows onboarding wizard for new users', async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.removeItem('guide_onboarding_dismissed');

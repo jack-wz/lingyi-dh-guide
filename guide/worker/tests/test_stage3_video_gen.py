@@ -60,5 +60,58 @@ class Stage3VideoGenTests(unittest.TestCase):
                     )
 
 
+    def test_parallel_lipsync_submits_all_segments(self):
+        segments = [
+            {
+                "narration_text": f"口播{i}",
+                "duration_sec": 3.0,
+                "scene_image_path": f"/tmp/scene_{i}.png",
+            }
+            for i in range(4)
+        ]
+        with tempfile.TemporaryDirectory() as work_dir:
+            with patch("worker.stage3_video_gen.check_ffmpeg", return_value=True):
+                with patch("worker.stage3_video_gen.get_lipsync_parallel_workers", return_value=4):
+                    with patch("worker.stage3_video_gen._prepare_segment_tts") as mock_prep:
+                        with patch("worker.stage3_video_gen._generate_clips_parallel") as mock_parallel:
+                            with patch(
+                                "worker.timeline_sync.validate_segments_for_assembly",
+                                return_value=[],
+                            ):
+                                from worker.stage3_video_gen import _SegmentWork
+
+                                def fake_prep(**kwargs):
+                                    idx = kwargs["index"]
+                                    seg = kwargs["seg"]
+                                    seg["clip_path"] = os.path.join(work_dir, f"clip_{idx}.mp4")
+                                    open(seg["clip_path"], "wb").close()
+                                    return _SegmentWork(
+                                        index=idx,
+                                        seg=seg,
+                                        text=seg["narration_text"],
+                                        duration=3.0,
+                                        scene_path=seg["scene_image_path"],
+                                        human_face_path="",
+                                        tts_path=os.path.join(work_dir, f"tts_{idx}.wav"),
+                                        has_narration=True,
+                                        can_use_talking_head=True,
+                                    )
+
+                                mock_prep.side_effect = fake_prep
+                                generate_segment_videos(
+                                    segments=segments,
+                                    global_config={"canvas_width": 1080, "canvas_height": 1920, "fps": 30},
+                                    voice_clone_id="uspeech:test",
+                                    human_photos={},
+                                    work_dir=work_dir,
+                                    tts_adapter=object(),
+                                    avatar_adapter=object(),
+                                )
+                                mock_parallel.assert_called_once()
+                                call_kwargs = mock_parallel.call_args.kwargs
+                                self.assertEqual(len(call_kwargs["lipsync_jobs"]), 4)
+                                self.assertEqual(call_kwargs["workers"], 4)
+
+
 if __name__ == "__main__":
     unittest.main()

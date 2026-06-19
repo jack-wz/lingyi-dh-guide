@@ -2,14 +2,67 @@
 
 import os
 import subprocess
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
 from typing import Optional
 
+from worker.config import get_lipsync_parallel_workers
 from worker.pipeline_log import PipelineLogger, null_logger
 from worker.timeline_sync import _DURATION_TOLERANCE_SEC
 from worker.utils import ensure_dir, get_duration, download_file, check_ffmpeg
-from worker.config import RENDERS_DIR
 
 _CLIP_ALIGN_TOLERANCE_SEC = _DURATION_TOLERANCE_SEC
+
+
+@dataclass
+class _SegmentWork:
+    index: int
+    seg: dict
+    text: str
+    duration: float
+    scene_path: str
+    human_face_path: str
+    tts_path: str
+    has_narration: bool
+    can_use_talking_head: bool
+
+
+def _warn_segment_voice_id_conflicts(
+    segments: list[dict],
+    *,
+    digital_human_id: str,
+    voice_clone_id: str,
+    log: PipelineLogger,
+    stage: str,
+) -> None:
+    """Warn when per-segment voice_id is set but Stage3 uses job-level digital human voice."""
+    if not (digital_human_id or "").strip():
+        return
+    dh_voice = _normalize_voice_clone_id(voice_clone_id, digital_human_id)
+    for index, seg in enumerate(segments):
+        seg_voice = (seg.get("voice_id") or "").strip()
+        if not seg_voice:
+            continue
+        if dh_voice and seg_voice != dh_voice:
+            log.warn(
+                stage,
+                "TTS",
+                (
+                    f"分镜 voice_id={seg_voice} 与数字人 voice_clone_id 不一致，"
+                    f"将忽略并统一使用 digital_human={digital_human_id}"
+                ),
+                segment=index,
+            )
+        else:
+            log.warn(
+                stage,
+                "TTS",
+                (
+                    f"分镜 voice_id={seg_voice} 将被忽略，"
+                    f"统一使用 digital_human={digital_human_id} 的音色"
+                ),
+                segment=index,
+            )
 
 
 def _normalize_voice_clone_id(voice_clone_id: str, digital_human_id: str = "") -> str:
@@ -42,8 +95,8 @@ def generate_segment_videos(
 ) -> list[dict]:
     """Generate video clips for each segment.
 
-    Strict mode (default): narration segments require TTS + lip-sync; no silent/Ken Burns fallbacks.
-    Non-strict: legacy fallbacks for smoke tests and degraded preview only.
+    Phase 1: TTS sequentially (voice clone id must be established on first segment).
+    Phase 2: lip-sync clips in parallel (I/O-bound cloud API polling).
     """
     log = job_logger or null_logger()
     stage = "Stage3"
@@ -52,13 +105,19 @@ def generate_segment_videos(
         log.fail(stage, "FFmpeg", "FFmpeg 不可用，无法生成分镜视频")
 
     ensure_dir(work_dir)
-    from worker.avatar_provider import resolve_avatar_adapter
-    from worker.tts_adapter import tts_registry
 
-    from worker.tts_adapter import YunTTSAdapter
+    if tts_adapter is None:
+        from worker.tts_adapter import tts_registry
+        tts = tts_registry.get("yuntts")
+    else:
+        tts = tts_adapter
 
-    tts = tts_adapter or tts_registry.get("yuntts")
-    avatar = avatar_adapter or resolve_avatar_adapter(server_base_url)
+    if avatar_adapter is None:
+        from worker.avatar_provider import resolve_avatar_adapter
+        avatar = resolve_avatar_adapter(server_base_url)
+    else:
+        avatar = avatar_adapter
+
     canvas_w = global_config.get("canvas_width", 1080)
     canvas_h = global_config.get("canvas_height", 1920)
     fps = global_config.get("fps", 30)
@@ -66,6 +125,20 @@ def generate_segment_videos(
     log.stage_begin(stage, f"开始生成分镜视频，共 {len(segments)} 段，strict={strict}")
 
     effective_voice_id = _normalize_voice_clone_id(voice_clone_id, digital_human_id)
+    dh_label = (digital_human_id or "").strip() or "(none)"
+    voice_label = effective_voice_id or "(pending clone)"
+    log.info(
+        stage,
+        "TTS",
+        f"数字人={dh_label} voice_clone_id={voice_label}",
+    )
+    _warn_segment_voice_id_conflicts(
+        segments,
+        digital_human_id=digital_human_id,
+        voice_clone_id=voice_clone_id,
+        log=log,
+        stage=stage,
+    )
     voice_persisted = False
 
     def _persist_voice_id(new_id: str, segment_index: int) -> None:
@@ -82,203 +155,87 @@ def generate_segment_videos(
                 log.info(
                     stage,
                     "TTS",
-                    f"已持久化 voice_clone_id={cleaned}",
+                    f"已持久化 digital_human={digital_human_id} voice_clone_id={cleaned}",
                     segment=segment_index,
                 )
 
+    human_config_base = dict(human_photos or {})
+    if voice_sample_url:
+        human_config_base["voice_sample_url"] = voice_sample_url
+
+    # --- Phase 1: TTS (sequential for shared voice_clone_id) ---
+    work_items: list[_SegmentWork] = []
     for i, seg in enumerate(segments):
         if on_progress:
-            pct = 50 + (i / max(len(segments), 1)) * 25
-            on_progress("video_gen", pct, f"生成分镜视频 ({i+1}/{len(segments)})...")
+            pct = 50 + (i / max(len(segments), 1)) * 12
+            on_progress("video_gen", pct, f"合成旁白音频 ({i+1}/{len(segments)})...")
 
-        text = seg.get("narration_text", "").strip()
-        duration = seg.get("duration_sec", 5.0)
-        scene_path = seg.get("scene_image_path", "")
-        human_face_path = seg.get("human_face_path", "")
-        clip_path = ""
-        tts_path = ""
-        has_narration = bool(text)
+        work_items.append(
+            _prepare_segment_tts(
+                seg=seg,
+                index=i,
+                work_dir=work_dir,
+                server_base_url=server_base_url,
+                voice_sample_url=voice_sample_url,
+                digital_human_id=digital_human_id,
+                tts=tts,
+                effective_voice_id=effective_voice_id,
+                persist_voice_id=_persist_voice_id,
+                strict=strict,
+                log=log,
+                stage=stage,
+            )
+        )
+        if effective_voice_id:
+            human_config_base["voice_clone_id"] = effective_voice_id
 
+    lipsync_jobs = [w for w in work_items if w.has_narration and w.can_use_talking_head]
+    parallel_workers = get_lipsync_parallel_workers()
+    if len(lipsync_jobs) > 1 and parallel_workers > 1:
+        workers = min(parallel_workers, len(lipsync_jobs))
         log.info(
             stage,
-            "Segment",
-            f"text_len={len(text)} duration={duration}s scene={scene_path or '(none)'}",
-            segment=i,
+            "LipSync",
+            f"对口型并行提交 {len(lipsync_jobs)} 段，workers={workers}",
         )
-
-        if has_narration and strict:
-            if not scene_path or not os.path.exists(scene_path):
-                log.fail(stage, "SceneImage", "口播分镜缺少有效场景图，无法生成对口型视频", segment=i)
-
-        voice_sample_path = _resolve_voice_sample(
-            voice_sample_url, server_base_url, work_dir, log, stage, i,
+        _generate_clips_parallel(
+            work_items=work_items,
+            lipsync_jobs=lipsync_jobs,
+            workers=workers,
+            work_dir=work_dir,
+            server_base_url=server_base_url,
+            human_config_base=human_config_base,
+            canvas_w=canvas_w,
+            canvas_h=canvas_h,
+            fps=fps,
+            strict=strict,
+            log=log,
+            stage=stage,
+            on_progress=on_progress,
+            total_segments=len(segments),
         )
-
-        if has_narration:
-            log.info(stage, "TTS", "开始合成旁白音频", segment=i)
-            audio_path = os.path.join(work_dir, f"tts_{i}.wav")
-            if digital_human_id:
-                voice_name = (
-                    digital_human_id[:16]
-                    if digital_human_id.startswith("dh_")
-                    else f"dh_{digital_human_id[:12]}"
-                )
-            else:
-                voice_name = f"vh_{i}"
-            discovered_voice_id = ""
-
-            if effective_voice_id:
-                log.info(stage, "TTS", f"使用已存储 voice_id={effective_voice_id}", segment=i)
-                tts_path = tts.synthesize(text, effective_voice_id, audio_path)
-                if not tts_path:
-                    log.warn(stage, "TTS", "存储 voice_id 合成失败，尝试重新克隆", segment=i)
-            else:
-                log.info(stage, "TTS", "无可用 voice_clone_id，使用音色样本克隆/回退合成", segment=i)
-                tts_path = ""
-
-            if not tts_path and voice_sample_path and os.path.exists(voice_sample_path):
-                if isinstance(tts, YunTTSAdapter):
-                    tts_path, discovered_voice_id = tts.clone_and_synthesize_with_voice_id(
-                        text, voice_sample_path, audio_path, voice_name=voice_name
-                    )
-                else:
-                    tts_path = tts.clone_and_synthesize(
-                        text, voice_sample_path, audio_path, voice_name=voice_name
-                    )
-                _persist_voice_id(discovered_voice_id, i)
-
-            if not tts_path:
-                if isinstance(tts, YunTTSAdapter):
-                    tts_path, discovered_voice_id = tts.synthesize_fallback_with_voice_id(
-                        text, audio_path, voice_sample_path, voice_name=voice_name
-                    )
-                else:
-                    tts_path = tts.synthesize_fallback(text, audio_path, voice_sample_path)
-                _persist_voice_id(discovered_voice_id, i)
-
-            if tts_path and os.path.exists(tts_path):
-                try:
-                    audio_dur = get_duration(tts_path)
-                    log.info(
-                        stage,
-                        "TTS",
-                        f"合成成功 path={tts_path} duration={audio_dur:.2f}s target={duration:.1f}s",
-                        segment=i,
-                    )
-                    if abs(audio_dur - duration) > 0.5:
-                        seg["duration_sec"] = round(audio_dur, 2)
-                        duration = seg["duration_sec"]
-                        log.info(stage, "TTS", f"按音频时长同步分镜时长 → {duration:.2f}s", segment=i)
-
-                    if audio_dur > duration * 1.1:
-                        speed_factor = min(audio_dur / duration, 2.0)
-                        log.info(stage, "TTS", f"音频过长，加速 {speed_factor:.2f}x", segment=i)
-                        tts_path = _speedup_audio(tts_path, speed_factor, work_dir, i, log, stage, i)
-                        if tts_path:
-                            audio_dur = get_duration(tts_path)
-                            seg["duration_sec"] = round(audio_dur, 2)
-                            duration = seg["duration_sec"]
-                except Exception as exc:
-                    log.warn(stage, "TTS", f"读取音频时长失败: {exc}", segment=i)
-            elif strict:
-                log.fail(
-                    stage,
-                    "TTS",
-                    "旁白 TTS 合成失败（请检查 YunTTS 网络/API Key/音色样本）",
-                    segment=i,
-                )
-            else:
-                log.warn(stage, "TTS", "合成失败，非 strict 模式将尝试无音频回退", segment=i)
-                tts_path = ""
-
-        avatar_image = ""
-        if scene_path and os.path.exists(scene_path):
-            avatar_image = scene_path
-        elif human_face_path and os.path.exists(human_face_path):
-            avatar_image = human_face_path
-
-        human_config = dict(human_photos or {})
-        if effective_voice_id:
-            human_config["voice_clone_id"] = effective_voice_id
-        if voice_sample_url:
-            human_config["voice_sample_url"] = voice_sample_url
-
-        can_use_talking_head = bool(
-            avatar_image and tts_path and os.path.exists(tts_path)
-        )
-
-        if has_narration:
-            if not can_use_talking_head:
-                if strict:
-                    log.fail(
-                        stage,
-                        "LipSync",
-                        f"无法启动对口型（scene={bool(avatar_image)} tts={bool(tts_path)}）",
-                        segment=i,
-                    )
-            else:
-                log.info(stage, "LipSync", "开始 InfiniteTalk 对口型生成", segment=i)
-                clip_path = _generate_narration_clip(
-                    seg,
-                    i,
-                    text,
-                    duration,
-                    avatar_image,
-                    tts_path,
-                    work_dir,
-                    canvas_w,
-                    canvas_h,
-                    fps,
-                    server_base_url,
-                    avatar,
-                    human_config,
-                    strict=strict,
-                    log=log,
-                )
-                if clip_path:
-                    aligned_dur = _align_lipsync_clip_to_tts(
-                        clip_path,
-                        tts_path,
-                        log=log,
-                        stage=stage,
-                        segment=i,
-                    )
-                    if aligned_dur > 0:
-                        seg["duration_sec"] = round(aligned_dur, 2)
-                    log.info(stage, "LipSync", f"对口型成功 → {clip_path}", segment=i)
-                elif strict:
-                    log.fail(stage, "LipSync", "对口型视频生成失败", segment=i)
-        elif scene_path and os.path.exists(scene_path):
-            log.info(stage, "Broll", "无旁白文本，生成 Ken Burns 空镜", segment=i)
-            clip_path = _generate_ken_burns_clip(
-                i, scene_path, duration, work_dir, canvas_w, canvas_h, fps,
+    else:
+        for i, work in enumerate(work_items):
+            if on_progress:
+                pct = 62 + (i / max(len(segments), 1)) * 13
+                on_progress("video_gen", pct, f"生成分镜视频 ({i+1}/{len(segments)})...")
+            _generate_clip_for_segment(
+                work=work,
+                work_dir=work_dir,
+                server_base_url=server_base_url,
+                avatar=avatar,
+                human_config_base=human_config_base,
+                canvas_w=canvas_w,
+                canvas_h=canvas_h,
+                fps=fps,
+                strict=strict,
+                log=log,
+                stage=stage,
             )
-        elif strict:
-            log.fail(stage, "Clip", "无旁白且无场景图，无法生成分镜视频", segment=i)
 
-        if not clip_path and not strict:
-            if scene_path and os.path.exists(scene_path) and tts_path and os.path.exists(tts_path):
-                log.warn(stage, "Fallback", "对口型失败，回退为静图+音频", segment=i)
-                clip_path = _generate_image_audio_clip(
-                    i, scene_path, tts_path, duration, work_dir, canvas_w, canvas_h, fps,
-                )
-            if not clip_path and scene_path and os.path.exists(scene_path):
-                log.warn(stage, "Fallback", "回退为 Ken Burns 静图缩放（无旁白音频）", segment=i)
-                clip_path = _generate_ken_burns_clip(
-                    i, scene_path, duration, work_dir, canvas_w, canvas_h, fps,
-                )
-            if not clip_path:
-                log.warn(stage, "Fallback", "回退为占位彩条", segment=i)
-                clip_path = _generate_placeholder_clip(
-                    i, seg, duration, work_dir, canvas_w, canvas_h, fps,
-                )
-
-        if not clip_path:
-            log.fail(stage, "Clip", "分镜视频生成失败", segment=i)
-
-        seg["clip_path"] = clip_path
-        seg["tts_audio_path"] = tts_path or None
-        log.info(stage, "Clip", f"完成 → {clip_path}", segment=i)
+    for work in work_items:
+        if not work.seg.get("clip_path"):
+            log.fail(stage, "Clip", "分镜视频生成失败", segment=work.index)
 
     from worker.timeline_sync import validate_segments_for_assembly
 
@@ -293,6 +250,326 @@ def generate_segment_videos(
         on_progress("video_gen", 75, "分镜视频生成完成")
 
     return segments
+
+
+def _prepare_segment_tts(
+    *,
+    seg: dict,
+    index: int,
+    work_dir: str,
+    server_base_url: str,
+    voice_sample_url: str,
+    digital_human_id: str,
+    tts,
+    effective_voice_id: str,
+    persist_voice_id,
+    strict: bool,
+    log: PipelineLogger,
+    stage: str,
+) -> _SegmentWork:
+    text = seg.get("narration_text", "").strip()
+    duration = seg.get("duration_sec", 5.0)
+    scene_path = seg.get("scene_image_path", "")
+    human_face_path = seg.get("human_face_path", "")
+    tts_path = ""
+    has_narration = bool(text)
+
+    log.info(
+        stage,
+        "Segment",
+        f"text_len={len(text)} duration={duration}s scene={scene_path or '(none)'}",
+        segment=index,
+    )
+
+    if has_narration and strict:
+        if not scene_path or not os.path.exists(scene_path):
+            log.fail(stage, "SceneImage", "口播分镜缺少有效场景图，无法生成对口型视频", segment=index)
+
+    voice_sample_path = _resolve_voice_sample(
+        voice_sample_url, server_base_url, work_dir, log, stage, index,
+    )
+
+    if has_narration:
+        dh_label = (digital_human_id or "").strip() or "(none)"
+        log.info(stage, "TTS", f"开始合成旁白音频 digital_human={dh_label}", segment=index)
+        audio_path = os.path.join(work_dir, f"tts_{index}.wav")
+        if digital_human_id:
+            voice_name = (
+                digital_human_id[:16]
+                if digital_human_id.startswith("dh_")
+                else f"dh_{digital_human_id[:12]}"
+            )
+        else:
+            voice_name = f"vh_{index}"
+        discovered_voice_id = ""
+
+        if effective_voice_id:
+            log.info(stage, "TTS", f"使用已存储 voice_id={effective_voice_id}", segment=index)
+            tts_path = tts.synthesize(text, effective_voice_id, audio_path)
+            if not tts_path:
+                log.warn(stage, "TTS", "存储 voice_id 合成失败，尝试重新克隆", segment=index)
+        else:
+            log.info(stage, "TTS", "无可用 voice_clone_id，使用音色样本克隆/回退合成", segment=index)
+            tts_path = ""
+
+        if not tts_path and voice_sample_path and os.path.exists(voice_sample_path):
+            from worker.tts_adapter import YunTTSAdapter
+
+            if isinstance(tts, YunTTSAdapter):
+                tts_path, discovered_voice_id = tts.clone_and_synthesize_with_voice_id(
+                    text, voice_sample_path, audio_path, voice_name=voice_name
+                )
+            else:
+                tts_path = tts.clone_and_synthesize(
+                    text, voice_sample_path, audio_path, voice_name=voice_name
+                )
+            persist_voice_id(discovered_voice_id, index)
+
+        if not tts_path:
+            from worker.tts_adapter import YunTTSAdapter
+
+            if isinstance(tts, YunTTSAdapter):
+                tts_path, discovered_voice_id = tts.synthesize_fallback_with_voice_id(
+                    text, audio_path, voice_sample_path, voice_name=voice_name
+                )
+            else:
+                tts_path = tts.synthesize_fallback(text, audio_path, voice_sample_path)
+            persist_voice_id(discovered_voice_id, index)
+
+        if tts_path and os.path.exists(tts_path):
+            try:
+                audio_dur = get_duration(tts_path)
+                log.info(
+                    stage,
+                    "TTS",
+                    f"合成成功 path={tts_path} duration={audio_dur:.2f}s target={duration:.1f}s",
+                    segment=index,
+                )
+                if abs(audio_dur - duration) > 0.5:
+                    seg["duration_sec"] = round(audio_dur, 2)
+                    duration = seg["duration_sec"]
+                    log.info(stage, "TTS", f"按音频时长同步分镜时长 → {duration:.2f}s", segment=index)
+
+                if audio_dur > duration * 1.1:
+                    speed_factor = min(audio_dur / duration, 2.0)
+                    log.info(stage, "TTS", f"音频过长，加速 {speed_factor:.2f}x", segment=index)
+                    tts_path = _speedup_audio(tts_path, speed_factor, work_dir, index, log, stage, index)
+                    if tts_path:
+                        audio_dur = get_duration(tts_path)
+                        seg["duration_sec"] = round(audio_dur, 2)
+                        duration = seg["duration_sec"]
+            except Exception as exc:
+                log.warn(stage, "TTS", f"读取音频时长失败: {exc}", segment=index)
+        elif strict:
+            log.fail(
+                stage,
+                "TTS",
+                "旁白 TTS 合成失败（请检查 YunTTS 网络/API Key/音色样本）",
+                segment=index,
+            )
+        else:
+            log.warn(stage, "TTS", "合成失败，非 strict 模式将尝试无音频回退", segment=index)
+            tts_path = ""
+
+    avatar_image = ""
+    if scene_path and os.path.exists(scene_path):
+        avatar_image = scene_path
+    elif human_face_path and os.path.exists(human_face_path):
+        avatar_image = human_face_path
+
+    can_use_talking_head = bool(
+        avatar_image and tts_path and os.path.exists(tts_path)
+    )
+
+    seg["tts_audio_path"] = tts_path or None
+
+    return _SegmentWork(
+        index=index,
+        seg=seg,
+        text=text,
+        duration=duration,
+        scene_path=scene_path,
+        human_face_path=human_face_path,
+        tts_path=tts_path,
+        has_narration=has_narration,
+        can_use_talking_head=can_use_talking_head,
+    )
+
+
+def _generate_clip_for_segment(
+    *,
+    work: _SegmentWork,
+    work_dir: str,
+    server_base_url: str,
+    avatar,
+    human_config_base: dict,
+    canvas_w: int,
+    canvas_h: int,
+    fps: int,
+    strict: bool,
+    log: PipelineLogger,
+    stage: str,
+) -> str:
+    i = work.index
+    seg = work.seg
+    clip_path = ""
+
+    human_config = dict(human_config_base)
+
+    if work.has_narration:
+        if not work.can_use_talking_head:
+            if strict:
+                log.fail(
+                    stage,
+                    "LipSync",
+                    f"无法启动对口型（scene={bool(work.scene_path)} tts={bool(work.tts_path)}）",
+                    segment=i,
+                )
+        else:
+            log.info(stage, "LipSync", "开始 InfiniteTalk 对口型生成", segment=i)
+            avatar_image = work.scene_path if work.scene_path and os.path.exists(work.scene_path) else work.human_face_path
+            clip_path = _generate_narration_clip(
+                seg,
+                i,
+                work.text,
+                work.duration,
+                avatar_image,
+                work.tts_path,
+                work_dir,
+                canvas_w,
+                canvas_h,
+                fps,
+                server_base_url,
+                avatar,
+                human_config,
+                strict=strict,
+                log=log,
+            )
+            if clip_path:
+                aligned_dur = _align_lipsync_clip_to_tts(
+                    clip_path,
+                    work.tts_path,
+                    log=log,
+                    stage=stage,
+                    segment=i,
+                )
+                if aligned_dur > 0:
+                    seg["duration_sec"] = round(aligned_dur, 2)
+                log.info(stage, "LipSync", f"对口型成功 → {clip_path}", segment=i)
+            elif strict:
+                log.fail(stage, "LipSync", "对口型视频生成失败", segment=i)
+    elif work.scene_path and os.path.exists(work.scene_path):
+        log.info(stage, "Broll", "无旁白文本，生成 Ken Burns 空镜", segment=i)
+        clip_path = _generate_ken_burns_clip(
+            i, work.scene_path, work.duration, work_dir, canvas_w, canvas_h, fps,
+        )
+    elif strict:
+        log.fail(stage, "Clip", "无旁白且无场景图，无法生成分镜视频", segment=i)
+
+    if not clip_path and not strict:
+        if (
+            work.scene_path
+            and os.path.exists(work.scene_path)
+            and work.tts_path
+            and os.path.exists(work.tts_path)
+        ):
+            log.warn(stage, "Fallback", "对口型失败，回退为静图+音频", segment=i)
+            clip_path = _generate_image_audio_clip(
+                i, work.scene_path, work.tts_path, work.duration, work_dir, canvas_w, canvas_h, fps,
+            )
+        if not clip_path and work.scene_path and os.path.exists(work.scene_path):
+            log.warn(stage, "Fallback", "回退为 Ken Burns 静图缩放（无旁白音频）", segment=i)
+            clip_path = _generate_ken_burns_clip(
+                i, work.scene_path, work.duration, work_dir, canvas_w, canvas_h, fps,
+            )
+        if not clip_path:
+            log.warn(stage, "Fallback", "回退为占位彩条", segment=i)
+            clip_path = _generate_placeholder_clip(
+                i, seg, work.duration, work_dir, canvas_w, canvas_h, fps,
+            )
+
+    seg["clip_path"] = clip_path
+    if clip_path:
+        log.info(stage, "Clip", f"完成 → {clip_path}", segment=i)
+    return clip_path
+
+
+def _generate_clips_parallel(
+    *,
+    work_items: list[_SegmentWork],
+    lipsync_jobs: list[_SegmentWork],
+    workers: int,
+    work_dir: str,
+    server_base_url: str,
+    human_config_base: dict,
+    canvas_w: int,
+    canvas_h: int,
+    fps: int,
+    strict: bool,
+    log: PipelineLogger,
+    stage: str,
+    on_progress,
+    total_segments: int,
+) -> None:
+    """Run lip-sync for narration segments concurrently; handle non-lipsync segments serially."""
+    lipsync_indices = {w.index for w in lipsync_jobs}
+    completed_lipsync = 0
+
+    def _run_lipsync(work: _SegmentWork) -> tuple[int, str]:
+        from worker.avatar_provider import resolve_avatar_adapter
+
+        avatar = resolve_avatar_adapter(server_base_url)
+        clip_path = _generate_clip_for_segment(
+            work=work,
+            work_dir=work_dir,
+            server_base_url=server_base_url,
+            avatar=avatar,
+            human_config_base=human_config_base,
+            canvas_w=canvas_w,
+            canvas_h=canvas_h,
+            fps=fps,
+            strict=strict,
+            log=log,
+            stage=stage,
+        )
+        return work.index, clip_path
+
+    with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="lipsync") as pool:
+        futures = {pool.submit(_run_lipsync, work): work for work in lipsync_jobs}
+        for future in as_completed(futures):
+            work = futures[future]
+            future.result()
+            completed_lipsync += 1
+            if on_progress:
+                pct = 62 + (completed_lipsync / max(len(lipsync_jobs), 1)) * 13
+                on_progress(
+                    "video_gen",
+                    pct,
+                    f"对口型完成 ({completed_lipsync}/{len(lipsync_jobs)})...",
+                )
+
+    for work in work_items:
+        if work.index in lipsync_indices:
+            continue
+        if on_progress:
+            on_progress(
+                "video_gen",
+                75,
+                f"生成分镜视频 ({work.index + 1}/{total_segments})...",
+            )
+        _generate_clip_for_segment(
+            work=work,
+            work_dir=work_dir,
+            server_base_url=server_base_url,
+            avatar=None,
+            human_config_base=human_config_base,
+            canvas_w=canvas_w,
+            canvas_h=canvas_h,
+            fps=fps,
+            strict=strict,
+            log=log,
+            stage=stage,
+        )
 
 
 def _speedup_audio(

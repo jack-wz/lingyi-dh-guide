@@ -56,6 +56,8 @@ interface Config {
     timeline_validate_strict: boolean;
     subtitle_aligner: 'whisper' | 'heuristic';
     whisper_model: string;
+    lipsync_parallel_workers?: number;
+    scene_fusion_parallel_workers?: number;
   };
 }
 
@@ -328,6 +330,25 @@ function PromptsPanel({ log }: { log: (l: LogEntry['level'], m: string) => void 
             onChange={v => setConfig({ ...config, pipeline: { ...config.pipeline, ken_burns_zoom_start: v } })} />
           <NumField label="Ken Burns 结束缩放" value={config.pipeline.ken_burns_zoom_end} step={0.01}
             onChange={v => setConfig({ ...config, pipeline: { ...config.pipeline, ken_burns_zoom_end: v } })} />
+          <NumField
+            label="Stage2 场景融合并行数"
+            value={config.pipeline.scene_fusion_parallel_workers ?? 4}
+            onChange={v => setConfig({
+              ...config,
+              pipeline: { ...config.pipeline, scene_fusion_parallel_workers: Math.max(1, Math.min(8, v)) },
+            })}
+          />
+          <NumField
+            label="Stage3 对口型并行数"
+            value={config.pipeline.lipsync_parallel_workers ?? 4}
+            onChange={v => setConfig({
+              ...config,
+              pipeline: { ...config.pipeline, lipsync_parallel_workers: Math.max(1, Math.min(8, v)) },
+            })}
+          />
+          <p className="col-span-2 text-[11px] text-muted-foreground">
+            并行数 1 表示串行；默认 4，上限 8。修改后需重启 worker 生效；已入队任务使用创建时的配置快照。
+          </p>
           <label className="flex items-center gap-2 text-sm col-span-2">
             <input
               type="checkbox"
@@ -394,6 +415,8 @@ interface AvatarDiagnostics {
   resolution: string;
   configured: boolean;
   scene_fusion_input_order?: string;
+  lipsync_parallel_workers?: number;
+  scene_fusion_parallel_workers?: number;
   avatar_fallback_wavespeed?: boolean;
   hint: string;
 }
@@ -559,6 +582,10 @@ function ModelsPanel({ log }: { log: (l: LogEntry['level'], m: string) => void }
             <div>{avatarDiag.configured ? '已配置' : '未配置'}</div>
             <div className="text-muted-foreground">场景融合顺序</div>
             <div className="font-mono">{avatarDiag.scene_fusion_input_order || 'scene_first'}</div>
+            <div className="text-muted-foreground">Stage2 融合并行</div>
+            <div className="font-mono">{avatarDiag.scene_fusion_parallel_workers ?? 4}</div>
+            <div className="text-muted-foreground">Stage3 对口型并行</div>
+            <div className="font-mono">{avatarDiag.lipsync_parallel_workers ?? 4}</div>
             <div className="text-muted-foreground">KIE 失败回退</div>
             <div>{avatarDiag.avatar_fallback_wavespeed ? '开启' : '关闭'}</div>
           </div>

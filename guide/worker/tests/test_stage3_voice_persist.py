@@ -3,7 +3,12 @@ import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
 
-from worker.stage3_video_gen import _normalize_voice_clone_id, generate_segment_videos
+from worker.stage3_video_gen import (
+    _normalize_voice_clone_id,
+    _warn_segment_voice_id_conflicts,
+    generate_segment_videos,
+)
+from worker.pipeline_log import null_logger
 
 
 class TestStage3VoicePersist(unittest.TestCase):
@@ -73,6 +78,22 @@ class TestStage3VoicePersist(unittest.TestCase):
         self.assertEqual(adapter.synthesize.call_count, 2)
         adapter.clone_and_synthesize_with_voice_id.assert_not_called()
         mock_persist.assert_not_called()
+
+    def test_warns_when_segment_voice_id_conflicts_with_digital_human(self):
+        log = null_logger()
+        segments = [{"voice_id": "uspeech:other"}, {"voice_id": ""}]
+        with patch.object(log, "warn") as mock_warn:
+            _warn_segment_voice_id_conflicts(
+                segments,
+                digital_human_id="dh_a",
+                voice_clone_id="uspeech:stored",
+                log=log,
+                stage="Stage3",
+            )
+        mock_warn.assert_called_once()
+        message = mock_warn.call_args.args[2]
+        self.assertIn("uspeech:other", message)
+        self.assertIn("dh_a", message)
 
 
 if __name__ == "__main__":

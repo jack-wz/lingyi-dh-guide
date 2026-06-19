@@ -19,6 +19,7 @@ else
   mkdir -p "$DATA_DIR/uploads" "$DATA_DIR/renders"
   cd "$ROOT"
   PORT="$PORT" SERVER_URL="$API" DATA_DIR="$DATA_DIR" DISABLE_RENDER_WORKER=1 \
+    ENABLE_HF_TEMPLATE_PIPELINE="${ENABLE_HF_TEMPLATE_PIPELINE:-1}" \
     nohup npm run dev --workspace=server >>"$DATA_DIR/guide-server.log" 2>&1 &
   echo "Guide server PID $! — tail -f $DATA_DIR/guide-server.log"
 

@@ -19,6 +19,29 @@ import {
 export const HYPERFRAMES_RUNTIME_URL =
   'https://cdn.jsdelivr.net/npm/@hyperframes/core/dist/hyperframe.runtime.iife.js';
 
+interface EditorObject {
+  id: string;
+  type: string;
+  label?: string;
+  text?: string;
+  asset_url?: string;
+  visible?: boolean;
+  position: { x: number; y: number };
+  scale: number;
+  rotation?: number;
+  interaction?: { kind: string };
+  metadata?: { source?: string; shape_type?: string };
+  style?: {
+    fill?: string;
+    textColor?: string;
+    fontSize?: number;
+    fontFamily?: string;
+    fontWeight?: number;
+    background?: string;
+    borderRadius?: number;
+  };
+}
+
 interface Segment {
   id: string;
   type: string;
@@ -32,6 +55,7 @@ interface Segment {
   digital_human: { enabled: boolean; position: { x: number; y: number }; scale: number };
   avatar_id?: string;
   layout?: string;
+  objects?: EditorObject[];
   overlays: Array<{
     id: string;
     asset_url: string;
@@ -93,6 +117,48 @@ function escapeHtml(text: string): string {
 
 function clipStyle(base: string): string {
   return `position:absolute;${base}`;
+}
+
+function renderEditorObjectHtml(obj: EditorObject, segStart: number, segDuration: number, index: number): string {
+  if (obj.visible === false) return '';
+  const id = `obj-${escapeHtml(obj.id || String(index))}`;
+  const duration = Math.max(0.1, segDuration);
+  const left = Number(obj.position?.x ?? 50);
+  const top = Number(obj.position?.y ?? 50);
+  const scale = Number(obj.scale || 100) / 100;
+  const rotation = Number(obj.rotation || 0);
+  const fill = obj.style?.fill || '#ffffff';
+  const textColor = obj.style?.textColor || '#111827';
+  const label = obj.text || obj.label || (obj.metadata?.source === 'record' ? '屏幕录制' : obj.type);
+  const commonStyle = `left:${left}%;top:${top}%;transform:translate(-50%,-50%) scale(${scale}) rotate(${rotation}deg);z-index:${30 + index};`;
+
+  if (obj.asset_url) {
+    const isVideo = obj.asset_url.match(/\.(mp4|mov|webm)$/i);
+    return `
+      <div id="${id}" class="clip hf-object" data-start="${segStart}" data-duration="${duration}" data-track-index="${10 + index}"
+           style="${clipStyle(commonStyle)}">
+        ${isVideo
+          ? `<video src="${escapeHtml(obj.asset_url)}" muted playsinline style="max-width:320px;max-height:320px;border-radius:12px;"></video>`
+          : `<img src="${escapeHtml(obj.asset_url)}" style="max-width:320px;max-height:320px;object-fit:contain;" />`
+        }
+      </div>`;
+  }
+
+  const isInteractive = Boolean(obj.interaction);
+  const isRecord = obj.metadata?.source === 'record';
+  const shapeType = obj.metadata?.shape_type;
+  const radius = obj.type === 'sticker' && shapeType === 'Circle' ? '999px' : isInteractive ? '18px' : '10px';
+  const borderStyle = obj.type === 'sticker' && !isInteractive && !isRecord
+    ? `border:2px solid ${escapeHtml(fill)};background:rgba(255,255,255,0.08);`
+    : `background:${escapeHtml(fill)};`;
+
+  return `
+    <div id="${id}" class="clip hf-object" data-start="${segStart}" data-duration="${duration}" data-track-index="${10 + index}"
+         style="${clipStyle(`${commonStyle}min-width:${isRecord ? 260 : 120}px;max-width:520px;padding:${isRecord ? '28px 36px' : '14px 22px'};${borderStyle}color:${escapeHtml(textColor)};
+                border-radius:${radius};font-family:'PingFang SC','Microsoft YaHei',sans-serif;font-weight:700;text-align:center;
+                box-shadow:0 10px 30px rgba(0,0,0,0.18);`)}">
+      ${escapeHtml(label)}
+    </div>`;
 }
 
 export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]): string {
@@ -178,7 +244,7 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
       );
       if (imageUrl) {
         dhHtml = `
-      <div class="clip" data-start="${start}" data-duration="${dur}" data-track-index="1"
+      <div id="hf-digital-human" class="clip hf-digital-human" data-start="${start}" data-duration="${dur}" data-track-index="1"
            style="${clipStyle(`left:${layout.x}%;top:${layout.y}%;
                   transform:translate(-50%,-50%);
                   width:${layout.width}px;height:${layout.height}px;
@@ -189,7 +255,7 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
       </div>`;
       } else {
         dhHtml = `
-      <div class="clip" data-start="${start}" data-duration="${dur}" data-track-index="1"
+      <div id="hf-digital-human" class="clip hf-digital-human" data-start="${start}" data-duration="${dur}" data-track-index="1"
            style="${clipStyle(`left:${layout.x}%;top:${layout.y}%;
                   transform:translate(-50%,-50%) scale(${seg.digital_human.scale / 100});
                   width:120px;height:120px;border-radius:50%;
@@ -222,7 +288,7 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
         const borderRadius = ov.style?.borderRadius ?? 8;
         const outline = ov.style?.outline ? `text-shadow:0 0 2px ${escapeHtml(ov.style.outline)};` : '';
         overlaysHtml += `
-        <div class="clip ${animClass}" data-start="${ovStart}" data-duration="${ovDur}" data-track-index="3"
+        <div id="overlay-${escapeHtml(ov.id)}" class="clip hf-overlay ${animClass}" data-start="${ovStart}" data-duration="${ovDur}" data-track-index="3"
              style="${clipStyle(`left:${ov.position.x}%;top:${ov.position.y}%;
                     transform:translate(-50%,-50%) scale(${ov.scale / 100})${rot};
                     max-width:${maxW}px;padding:8px 14px;border-radius:${borderRadius}px;
@@ -238,7 +304,7 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
         const isVideo = assetUrl.match(/\.(mp4|mov|webm)$/i);
         const isGif = assetUrl.match(/\.gif$/i);
         overlaysHtml += `
-        <div class="clip ${animClass}" data-start="${ovStart}" data-duration="${ovDur}" data-track-index="3"
+        <div id="overlay-${escapeHtml(ov.id)}" class="clip hf-overlay ${animClass}" data-start="${ovStart}" data-duration="${ovDur}" data-track-index="3"
              style="${clipStyle(`left:${ov.position.x}%;top:${ov.position.y}%;
                     transform:translate(-50%,-50%) scale(${ov.scale / 100})${rot};`)}">
           ${isVideo && !isGif
@@ -249,7 +315,12 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
       }
     });
 
-    segmentEntries.push(sceneHtml + dhHtml + subtitleHtml + overlaysHtml);
+    let objectsHtml = '';
+    (seg.objects || []).forEach((obj, objectIndex) => {
+      objectsHtml += renderEditorObjectHtml(obj, start, dur, objectIndex);
+    });
+
+    segmentEntries.push(sceneHtml + dhHtml + subtitleHtml + overlaysHtml + objectsHtml);
   });
 
   const bgmHtml = bgm_url ? `

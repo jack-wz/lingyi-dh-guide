@@ -32,6 +32,8 @@ export interface TemplateMeta {
   input_mode?: 'template' | 'topic' | 'script';
   topic?: string;
   script_text?: string;
+  /** Persisted brand pack library id for template list / hydration. */
+  brand_pack_id?: string;
 }
 
 export interface GlobalConfig {

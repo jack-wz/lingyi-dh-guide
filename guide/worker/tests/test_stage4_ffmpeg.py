@@ -6,6 +6,7 @@ import sys
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from worker.pipeline_log import PipelineStepError
 from worker.stage4_ffmpeg import _compute_overlay_box, _resolve_overlay_asset, _wrap_text, assemble_final_video
 
 
@@ -14,7 +15,7 @@ class Stage4FFmpegTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as work_dir:
             output_path = str(Path(work_dir) / "final.mp4")
             with patch("worker.stage4_ffmpeg.check_ffmpeg", return_value=False):
-                with self.assertRaisesRegex(RuntimeError, "FFmpeg is not available"):
+                with self.assertRaisesRegex(PipelineStepError, r"FFmpeg 不可用"):
                     assemble_final_video([], [], {}, work_dir, output_path)
 
     def test_editor_object_without_asset_generates_placeholder_png(self):

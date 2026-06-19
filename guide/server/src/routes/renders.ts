@@ -6,9 +6,10 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { existsSync, readFileSync } from 'fs';
 import { removeRenderArtifacts } from '../render-artifacts.js';
+import { narrationRequiresDigitalHumanIssue } from '@shared/renderGuards';
 import {
   ACTIVE_RENDER_STATUSES,
-  PIPELINES,
+  getExposedPipelines,
   TERMINAL_STATUSES,
   enrichJob,
   listRenderArtifacts,
@@ -121,7 +122,7 @@ function getProviderConfigSnapshot() {
 
 // GET /api/renders/pipelines - list available pipelines
 router.get('/pipelines', (_req: Request, res: Response) => {
-  res.json(PIPELINES);
+  res.json(getExposedPipelines());
 });
 
 // POST /api/renders - create a render job
@@ -164,6 +165,26 @@ router.post('/', (req: Request, res: Response) => {
   const selectedPipeline = getPipeline(pipeline_key);
   if (selectedPipeline?.requires_digital_human && !digital_human_id) {
     return apiError(res, ErrorCodes.VALIDATION, 'digital_human_id is required for digital_human pipeline');
+  }
+
+  let templateDsl: Record<string, unknown> = {};
+  try {
+    templateDsl = JSON.parse(template.dsl_json || '{}');
+  } catch {
+    templateDsl = {};
+  }
+  const narrationDhIssue = narrationRequiresDigitalHumanIssue(
+    pipeline_key,
+    templateDsl as { segments?: Array<{ narration_text?: string }> },
+    String(digital_human_id || ''),
+    {
+      inputMode: input_mode,
+      topic: String(topic || ''),
+      scriptText: String(script_text || ''),
+    },
+  );
+  if (narrationDhIssue) {
+    return apiError(res, ErrorCodes.VALIDATION, narrationDhIssue);
   }
 
   if (digital_human_id) {

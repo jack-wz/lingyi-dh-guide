@@ -1,152 +1,30 @@
 import { create } from 'zustand';
-import type { DigitalHumanCatalog } from '@shared/digitalHumanStyle';
+import type {
+  AssetTab,
+  CanvasElement,
+  DSL,
+  EditorObject,
+  Segment,
+  TrackId,
+} from '@shared/types/editor';
 
-export interface Segment {
-  id: string;
-  type: 'narration' | 'product' | 'scene' | 'transition' | 'ending';
-  narration_text: string;
-  duration_sec: number;
-  scene_image_url: string;
-  scene_description: string;
-  camera_shot: string;
-  segment_bgm_url: string;
-  segment_bgm_duration_sec?: number;
-  subtitle: {
-    enabled: boolean;
-    style_id: string;
-    position: 'top' | 'center' | 'bottom';
-    animation: 'none' | 'fadeIn' | 'typewriter';
-    font_size?: number;
-    font_family?: string;
-  };
-  transition: { type: string; duration: number };
-  digital_human: { enabled: boolean; position: { x: number; y: number }; scale: number };
-  overlays: Array<{
-    id: string;
-    asset_url: string;
-    asset_key?: string;
-    position: { x: number; y: number };
-    scale: number;
-    seg_start_time: number;
-    duration: number;
-    animation: 'none' | 'fadeIn' | 'scaleIn';
-    render_width_pct?: number;
-    render_height_pct?: number;
-  }>;
-  thumbnail_url?: string;
-  diagnostics?: string[];
-  layout?: 'avatar-left' | 'avatar-center' | 'avatar-right' | 'media-grid' | 'full-media';
-  avatar_id?: string;
-  voice_id?: string;
-  objects?: EditorObject[];
-}
-
-export type EditorObjectType = 'text' | 'image' | 'logo' | 'sticker' | 'avatar' | 'subtitle';
-
-export interface EditorObject {
-  id: string;
-  type: EditorObjectType;
-  label?: string;
-  asset_url?: string;
-  text?: string;
-  interaction?: {
-    kind: 'cta_button' | 'branch_menu' | 'single_answer' | 'multiple_answers' | 'score_card';
-    target_url?: string;
-    options?: string[];
-  };
-  metadata?: {
-    source?: 'media' | 'motion' | 'shape' | 'record' | 'interactivity';
-    note?: string;
-    duration_sec?: number;
-    provider?: string;
-    shape_type?: string;
-  };
-  seg_start_time?: number;
-  duration?: number;
-  animation?: 'none' | 'fadeIn' | 'scaleIn';
-  style?: {
-    fill?: string;
-    textColor?: string;
-    variant?: string;
-    fontSize?: number;
-    fontFamily?: string;
-    fontWeight?: number;
-    outline?: string;
-    background?: string;
-    borderRadius?: number;
-  };
-  position: { x: number; y: number };
-  scale: number;
-  rotation?: number;
-  visible?: boolean;
-  locked?: boolean;
-}
-
-export interface TemplateVariable {
-  name: string;
-  label: string;
-  description: string;
-  example_value: string;
-  required: boolean;
-  default_value?: string;
-}
-
-export interface GlobalConfig {
-  canvas_width: number;
-  canvas_height: number;
-  fps: number;
-  bgm_url: string;
-  bgm_volume: number;
-  output_format: string;
-  background_color?: string;
-  bgm_enabled?: boolean;
-  bgm_loop?: boolean;
-  transition_enabled?: boolean;
-  brand_logo_url?: string;
-  brand_color?: string;
-  brand_pack_id?: string;
-  brand_pack?: Record<string, unknown>;
-  default_font_family?: string;
-  output_resolution?: string;
-  aspect_ratio?: '9:16' | '16:9' | '1:1';
-  subtitle_font_size?: number;
-  subtitle_font_family?: string;
-  asset_map?: Record<string, string>;
-  digital_human_catalog?: DigitalHumanCatalog;
-}
-
-export interface DSL {
-  meta: {
-    id: string;
-    name: string;
-    type: string;
-    version: number;
-    created_at: string;
-    updated_at: string;
-    pipeline_key?: string;
-    input_mode?: 'template' | 'topic' | 'script';
-    topic?: string;
-    script_text?: string;
-    digital_human_id?: string;
-    asset_map?: Record<string, string>;
-    brand_pack_id?: string;
-    frame_template_id?: string;
-  };
-  globalConfig: GlobalConfig;
-  segments: Segment[];
-  variables: TemplateVariable[];
-}
-
-export type CanvasElement =
-  | { type: 'scene'; segIndex: number }
-  | { type: 'digital_human'; segIndex: number }
-  | { type: 'overlay'; segIndex: number; overlayIndex: number }
-  | { type: 'object'; segIndex: number; objectIndex: number }
-  | { type: 'subtitle'; segIndex: number }
-  | { type: 'none' };
-
-export type TrackId = 'video' | 'audio' | 'subtitle' | 'overlay' | 'object';
-export type AssetTab = 'scene' | 'subtitle' | 'sound' | 'anim' | 'dh' | 'sticker';
+export type {
+  AspectRatio,
+  AssetTab,
+  CanvasElement,
+  ConfigDiagnostics,
+  DSL,
+  EditorObject,
+  EditorObjectType,
+  GlobalConfig,
+  OverlayAnimation,
+  Segment,
+  SegmentType,
+  SubtitleAnimation,
+  SubtitlePosition,
+  TemplateVariable,
+  TrackId,
+} from '@shared/types/editor';
 
 export interface EditorState {
   dsl: DSL | null;

@@ -34,6 +34,24 @@ def _find_sample_brand_font() -> Path | None:
     return None
 
 
+def _make_silent_wav(path: str, duration: float = 2.0) -> None:
+    subprocess.run(
+        [
+            "ffmpeg",
+            "-y",
+            "-f",
+            "lavfi",
+            "-i",
+            "anullsrc=r=44100:cl=mono",
+            "-t",
+            str(duration),
+            path,
+        ],
+        check=True,
+        capture_output=True,
+    )
+
+
 def _make_silent_clip(path: str, duration: float = 2.0, size: str = "1080x1920") -> None:
     subprocess.run(
         [
@@ -84,6 +102,8 @@ class TestBrandRenderSmoke(unittest.TestCase):
                 os.makedirs(work_dir, exist_ok=True)
                 clip_path = os.path.join(work_dir, "clip_0.mp4")
                 _make_silent_clip(clip_path)
+                tts_path = os.path.join(work_dir, "tts_0.wav")
+                _make_silent_wav(tts_path, duration=2.0)
 
                 global_config = {
                     "canvas_width": 1080,
@@ -111,6 +131,7 @@ class TestBrandRenderSmoke(unittest.TestCase):
                         "narration_text": "欢迎了解零一数字人导购平台，品牌字幕测试。",
                         "duration_sec": 2.0,
                         "clip_path": clip_path,
+                        "tts_audio_path": tts_path,
                         "subtitle": {
                             "enabled": True,
                             "style": "default",

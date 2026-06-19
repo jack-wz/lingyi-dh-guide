@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
 import { useEditorStore } from '../store/editorStore';
-import type { EditorObject } from '../store/editorStore';
 import { getSegmentLocalTime } from '../utils/overlayTiming';
+import { duplicateCanvasSelection, removeCanvasSelection } from '../utils/canvasSelectionActions';
 import { buildEditorPreviewHtml } from '../utils/buildPreviewHtml';
 import {
   hasHyperframesRuntime,
@@ -11,41 +11,7 @@ import {
   waitForHyperframesPlayer,
 } from '../utils/hyperframesBridge';
 import PreviewInteractionLayer from './PreviewInteractionLayer';
-
-function usePreviewLayout() {
-  const dsl = useEditorStore(s => s.dsl);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [scale, setScale] = useState(0.3);
-
-  const canvasWidth = dsl?.globalConfig.canvas_width || 1080;
-  const canvasHeight = dsl?.globalConfig.canvas_height || 1920;
-
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const update = () => {
-      const rect = el.getBoundingClientRect();
-      const maxH = Math.max(0, rect.height - 24);
-      const maxW = Math.max(0, rect.width - 24);
-      if (maxH < 1 || maxW < 1) return;
-      const s = Math.min(maxW / canvasWidth, maxH / canvasHeight);
-      setScale(Number.isFinite(s) && s > 0 ? s : 0.2);
-    };
-    update();
-    const ro = new ResizeObserver(update);
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, [canvasWidth, canvasHeight]);
-
-  return {
-    containerRef,
-    canvasWidth,
-    canvasHeight,
-    scale,
-    displayW: canvasWidth * scale,
-    displayH: canvasHeight * scale,
-  };
-}
+import { usePreviewLayout } from './VideoCanvas/hooks/usePreviewLayout';
 
 export default function VideoCanvas() {
   const dsl = useEditorStore(s => s.dsl);
@@ -59,6 +25,7 @@ export default function VideoCanvas() {
   const updateDsl = useEditorStore(s => s.updateDsl);
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
+  const suppressPreviewRebuildRef = useRef(false);
   const htmlGenerationRef = useRef(0);
   const [hfReady, setHfReady] = useState(false);
   const [hfRuntimeFailed, setHfRuntimeFailed] = useState(false);
@@ -73,6 +40,10 @@ export default function VideoCanvas() {
   dslRef.current = dsl;
   previewVariablesRef.current = previewVariables;
 
+  const [previewGeneration, setPreviewGeneration] = useState(0);
+  const [canvasMode, setCanvasMode] = useState<'edit' | 'preview'>('edit');
+  const isPreviewMode = canvasMode === 'preview';
+
   const segment = dsl?.segments[currentSegIndex];
   const segmentStart = getSegmentStartTime(currentSegIndex);
   const localTime = getSegmentLocalTime(currentTime, segmentStart);
@@ -84,6 +55,10 @@ export default function VideoCanvas() {
     setHyperframesPlayback(iframe, false);
     seekHyperframesIframe(iframe, currentTime);
   }, [currentTime]);
+
+  useEffect(() => {
+    if (playing && canvasMode === 'edit') setCanvasMode('preview');
+  }, [playing, canvasMode]);
 
   const rebuildPreview = useCallback(() => {
     if (!dsl) return;
@@ -114,6 +89,10 @@ export default function VideoCanvas() {
 
   useEffect(() => {
     if (!dsl) return;
+    if (suppressPreviewRebuildRef.current) {
+      suppressPreviewRebuildRef.current = false;
+      return;
+    }
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       try {
@@ -142,8 +121,6 @@ export default function VideoCanvas() {
     await waitForHyperframesPlayer(iframe, 4000);
     markPreviewReady();
   }, [markPreviewReady]);
-
-  const [previewGeneration, setPreviewGeneration] = useState(0);
 
   useEffect(() => {
     if (!html) return;
@@ -175,9 +152,25 @@ export default function VideoCanvas() {
 
   useEffect(() => {
     if (!hfReady) return;
-    setHyperframesPlayback(iframeRef.current, false);
-    seekHyperframesIframe(iframeRef.current, currentTime);
-  }, [currentTime, hfReady, playing]);
+    const iframe = iframeRef.current;
+    if (isPreviewMode && playing) {
+      setHyperframesPlayback(iframe, true);
+    } else {
+      setHyperframesPlayback(iframe, false);
+    }
+    seekHyperframesIframe(iframe, currentTime);
+  }, [currentTime, hfReady, playing, isPreviewMode]);
+
+  const switchCanvasMode = (mode: 'edit' | 'preview', event?: MouseEvent) => {
+    event?.stopPropagation();
+    if (mode === 'edit' && playing) {
+      useEditorStore.getState().setPlaying(false);
+    }
+    setCanvasMode(mode);
+    if (mode === 'preview') {
+      setSelectedElement({ type: 'none' });
+    }
+  };
 
   const hasCanvasSelection = selectedElement.type !== 'none' && selectedElement.segIndex === currentSegIndex;
   const selectionLabel =
@@ -192,61 +185,18 @@ export default function VideoCanvas() {
             : '';
 
   const duplicateSelection = () => {
-    if (!segment) return;
-    if (selectedElement.type === 'object') {
-      const object = segment.objects?.[selectedElement.objectIndex];
-      if (!object) return;
-      updateDsl((d) => {
-        const segs = [...d.segments];
-        const seg = segs[currentSegIndex];
-        const objects = [...(seg.objects || [])];
-        const copy: EditorObject = {
-          ...object,
-          id: `obj-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-          label: `${object.label || object.type} 副本`,
-          position: { x: Math.min(100, object.position.x + 4), y: Math.min(100, object.position.y + 4) },
-        };
-        objects.splice(selectedElement.objectIndex + 1, 0, copy);
-        segs[currentSegIndex] = { ...seg, objects };
-        return { ...d, segments: segs };
-      });
-      setSelectedElement({ type: 'object', segIndex: currentSegIndex, objectIndex: selectedElement.objectIndex + 1 });
-    } else if (selectedElement.type === 'overlay') {
-      const overlay = segment.overlays[selectedElement.overlayIndex];
-      if (!overlay) return;
-      updateDsl((d) => {
-        const segs = [...d.segments];
-        const seg = segs[currentSegIndex];
-        const overlays = [...seg.overlays];
-        overlays.splice(selectedElement.overlayIndex + 1, 0, {
-          ...overlay,
-          id: `overlay-${Date.now()}`,
-          position: { x: Math.min(100, overlay.position.x + 4), y: Math.min(100, overlay.position.y + 4) },
-        });
-        segs[currentSegIndex] = { ...seg, overlays };
-        return { ...d, segments: segs };
-      });
-      setSelectedElement({ type: 'overlay', segIndex: currentSegIndex, overlayIndex: selectedElement.overlayIndex + 1 });
-    }
+    if (!dsl || !segment) return;
+    const result = duplicateCanvasSelection(dsl, currentSegIndex, selectedElement);
+    if (!result) return;
+    updateDsl(() => result.dsl);
+    setSelectedElement(result.selection);
   };
 
   const removeSelection = () => {
-    updateDsl((d) => {
-      const segs = [...d.segments];
-      const seg = segs[currentSegIndex];
-      if (selectedElement.type === 'object') {
-        const objects = (seg.objects || []).filter((_, index) => index !== selectedElement.objectIndex);
-        segs[currentSegIndex] = { ...seg, objects };
-      } else if (selectedElement.type === 'overlay') {
-        const overlays = seg.overlays.filter((_, index) => index !== selectedElement.overlayIndex);
-        segs[currentSegIndex] = { ...seg, overlays };
-      } else if (selectedElement.type === 'digital_human') {
-        segs[currentSegIndex] = { ...seg, digital_human: { ...seg.digital_human, enabled: false } };
-      } else if (selectedElement.type === 'subtitle') {
-        segs[currentSegIndex] = { ...seg, subtitle: { ...seg.subtitle, enabled: false } };
-      }
-      return { ...d, segments: segs };
-    });
+    if (!dsl) return;
+    const next = removeCanvasSelection(dsl, currentSegIndex, selectedElement);
+    if (!next) return;
+    updateDsl(() => next);
     setSelectedElement({ type: 'none' });
   };
 
@@ -343,7 +293,36 @@ export default function VideoCanvas() {
           </div>
         )}
 
-        <PreviewInteractionLayer layout={layout} />
+        <PreviewInteractionLayer
+          layout={layout}
+          iframeRef={iframeRef}
+          suppressPreviewRebuildRef={suppressPreviewRebuildRef}
+          interactionEnabled={!isPreviewMode}
+          showSubtitleOverlay={!hfReady || hfRuntimeFailed}
+        />
+
+        <div className="absolute top-2 right-2 z-20 flex rounded-md border border-white/20 bg-black/55 backdrop-blur-sm p-0.5 pointer-events-auto">
+          <button
+            type="button"
+            data-testid="canvas-mode-edit"
+            onClick={(e) => switchCanvasMode('edit', e)}
+            className={`px-2 py-0.5 rounded text-[10px] transition-colors ${
+              !isPreviewMode ? 'bg-white text-black' : 'text-white/80 hover:text-white'
+            }`}
+          >
+            编辑
+          </button>
+          <button
+            type="button"
+            data-testid="canvas-mode-preview"
+            onClick={(e) => switchCanvasMode('preview', e)}
+            className={`px-2 py-0.5 rounded text-[10px] transition-colors ${
+              isPreviewMode ? 'bg-white text-black' : 'text-white/80 hover:text-white'
+            }`}
+          >
+            成片预览
+          </button>
+        </div>
 
         <div className="absolute top-2 left-2 flex gap-1.5 z-20 pointer-events-none">
           <span className="px-2 py-0.5 bg-black/60 backdrop-blur-sm rounded text-white text-[10px]">
@@ -356,11 +335,11 @@ export default function VideoCanvas() {
             {localTime.toFixed(1)}s
           </span>
           <span className="px-2 py-0.5 bg-brand-blue/80 backdrop-blur-sm rounded text-white text-[10px]">
-            实时预览
+            {isPreviewMode ? '成片预览' : '编辑模式'}
           </span>
           {playing && (
-            <span className="px-2 py-0.5 bg-brand-blue/80 backdrop-blur-sm rounded text-white text-[10px]">
-              预览中
+            <span className="px-2 py-0.5 bg-emerald-600/85 backdrop-blur-sm rounded text-white text-[10px]">
+              播放中
             </span>
           )}
         </div>

@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { IconFilm, IconImage, IconMic, IconMusic, IconType, IconUser, IconVideo } from './Icons';
 import BrandPackPanel from './BrandPackPanel';
 import { libraryPayloadToBrandPack } from '@shared/brandPack';
@@ -8,6 +9,10 @@ import type { AssetHubTab, LibraryItem } from '../types/library';
 interface Props {
   tab: AssetHubTab;
   item: LibraryItem | null;
+  /** When set (e.g. /editor/:id), brand tab shows「选用到编辑器」. */
+  returnTo?: string | null;
+  onInsertShot?: (frameId: string) => void;
+  onSetDefaultFont?: (family: string) => void;
 }
 
 function isVideoUrl(url: string) {
@@ -91,7 +96,18 @@ function AudioPreview({ url, label }: { url: string; label: string }) {
   );
 }
 
-export default function AssetPreviewPanel({ tab, item }: Props) {
+function buildReturnToWithBrand(returnTo: string, brandId: string): string {
+  const [path, query = ''] = returnTo.split('?');
+  const params = new URLSearchParams(query);
+  params.set('brand_id', brandId);
+  const qs = params.toString();
+  return qs ? `${path}?${qs}` : path;
+}
+
+export default function AssetPreviewPanel({ tab, item, returnTo, onInsertShot, onSetDefaultFont }: Props & {
+  onInsertShot?: (frameId: string) => void;
+  onSetDefaultFont?: (family: string) => void;
+}) {
   const voiceKind = useMemo(() => {
     if (!item) return 'tts';
     return String(item.payload?.kind || (item.file_url ? 'bgm' : 'tts'));
@@ -157,8 +173,16 @@ export default function AssetPreviewPanel({ tab, item }: Props) {
 
         {tab === 'brand' && (
           <>
+            {returnTo && (
+              <Link
+                to={buildReturnToWithBrand(returnTo, item.id)}
+                className="flex w-full items-center justify-center rounded-md bg-brand-blue px-3 py-2 text-sm font-medium text-white hover:opacity-90"
+              >
+                选用到编辑器
+              </Link>
+            )}
             <BrandPreview item={item} />
-            <BrandPackPanel item={item} />
+            <BrandPackPanel item={item} onInsertShot={onInsertShot} onSetDefaultFont={onSetDefaultFont} />
             {(() => {
               const pack = libraryPayloadToBrandPack(item);
               if (pack.fontCount || pack.frameCount) return null;

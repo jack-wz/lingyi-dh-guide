@@ -106,7 +106,7 @@ describe('brand render smoke integration', () => {
         {
           id: 's1',
           type: 'narration',
-          narration_text: '品牌字幕一致性冒烟测试。',
+          narration_text: '',
           duration_sec: 3,
           subtitle: { enabled: true, style_id: 'default', position: 'bottom', animation: 'fadeIn' },
           transition: { type: 'none', duration: 0.5 },

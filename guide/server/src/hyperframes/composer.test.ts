@@ -1,0 +1,68 @@
+import { describe, it } from 'node:test';
+import assert from 'node:assert/strict';
+import { generateHyperframesHTML } from './composer.js';
+import type { DSL } from '@shared/types/editor';
+
+function makeDsl(): DSL {
+  return {
+    meta: {
+      id: 'template-1',
+      name: 'HyperFrames Preview',
+      type: 'test',
+      version: 1,
+      created_at: '2026-01-01',
+      updated_at: '2026-01-01',
+    },
+    globalConfig: {
+      canvas_width: 1080,
+      canvas_height: 1920,
+      fps: 30,
+      bgm_url: '',
+      bgm_volume: 0.3,
+      output_format: 'mp4',
+      background_color: '#f5f1ec',
+    },
+    variables: [],
+    segments: [
+      {
+        id: 'seg-1',
+        type: 'narration',
+        narration_text: '欢迎了解产品',
+        duration_sec: 5,
+        scene_image_url: '',
+        scene_description: '',
+        camera_shot: '',
+        segment_bgm_url: '',
+        subtitle: { enabled: true, style_id: 'default', position: 'bottom', animation: 'fadeIn' },
+        transition: { type: 'none', duration: 0.5 },
+        digital_human: { enabled: true, position: { x: 50, y: 80 }, scale: 100 },
+        overlays: [],
+        objects: [
+          {
+            id: 'title-1',
+            type: 'text',
+            label: '标题',
+            text: '导购标题',
+            position: { x: 50, y: 20 },
+            scale: 120,
+            style: { fill: '#ff5600', textColor: '#111111' },
+          },
+        ],
+      },
+    ],
+  };
+}
+
+describe('hyperframes composer', () => {
+  it('materializes editor objects into timed HyperFrames clips', () => {
+    const html = generateHyperframesHTML(makeDsl());
+
+    assert.match(html, /data-composition-id="guide-video"/);
+    assert.match(html, /id="obj-title-1"/);
+    assert.match(html, /class="clip hf-object"/);
+    assert.match(html, /data-start="0"/);
+    assert.match(html, /data-duration="5"/);
+    assert.match(html, /data-track-index="10"/);
+    assert.match(html, /导购标题/);
+  });
+});

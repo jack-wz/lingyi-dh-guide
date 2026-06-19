@@ -45,6 +45,8 @@ interface Config {
     timeline_validate_strict: boolean;
     subtitle_aligner: 'whisper' | 'heuristic';
     whisper_model: string;
+    lipsync_parallel_workers?: number;
+    scene_fusion_parallel_workers?: number;
   };
 }
 
@@ -89,6 +91,8 @@ const DEFAULT_CONFIG: Config = {
     timeline_validate_strict: false,
     subtitle_aligner: 'whisper',
     whisper_model: 'base',
+    lipsync_parallel_workers: 4,
+    scene_fusion_parallel_workers: 4,
   },
 };
 
@@ -195,6 +199,13 @@ function buildDiagnostics(config: Config) {
       ].filter(Boolean),
       provider_keys: ['yuntts', 'wavespeed', 'ffmpeg'],
     },
+    hyperframes_template: {
+      blockers: providers.ffmpeg.configured ? [] : ['FFmpeg 不可用，无法合成最终视频'],
+      warnings: [
+        '需要 Node.js npx 与 hyperframes CLI；未安装时渲染会失败',
+      ],
+      provider_keys: ['ffmpeg'],
+    },
   };
 
   const avatarProvider = (config.pipeline?.avatar_provider || 'wavespeed').toLowerCase();
@@ -232,6 +243,8 @@ function buildDiagnostics(config: Config) {
       ],
       available_kie_avatar_models: ['infinitalk/from-audio', 'infinitetalk', 'infinite-talk'],
       scene_fusion_input_order: config.pipeline?.scene_fusion_input_order || 'scene_first',
+      lipsync_parallel_workers: config.pipeline?.lipsync_parallel_workers ?? 4,
+      scene_fusion_parallel_workers: config.pipeline?.scene_fusion_parallel_workers ?? 4,
       avatar_fallback_wavespeed: config.pipeline?.avatar_fallback_wavespeed ?? true,
       hint:
         avatarProvider === 'kie'

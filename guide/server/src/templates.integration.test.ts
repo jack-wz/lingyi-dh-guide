@@ -158,6 +158,73 @@ describe('template lifecycle API', () => {
     assert.equal(allItems[0].name, 'E2E Filter Test');
   });
 
+  it('lists templates with brand_pack_id and brand_pack_name from dsl', async () => {
+    const { getDb } = await import('./db/database.js');
+    const db = getDb();
+    db.prepare(
+      `INSERT INTO library_items (id, category, name, description, tags, file_url, parent_id, payload_json)
+       VALUES (?, 'brand', ?, '', '', '', '', '{}')`,
+    ).run('brand-list-test', '列表品牌包');
+
+    const created = await request('POST', '/api/templates', {
+      name: 'Brand Bound Template',
+      type: '新品发布',
+      description: 'has brand',
+    });
+    assert.equal(created.status, 201);
+    const template = created.json as { id: string; dsl_json: { meta: Record<string, unknown>; globalConfig: Record<string, unknown> } };
+    template.dsl_json.meta.brand_pack_id = 'brand-list-test';
+    template.dsl_json.globalConfig.brand_pack_id = 'brand-list-test';
+    const saved = await request('PUT', `/api/templates/${template.id}`, { dsl_json: template.dsl_json });
+    assert.equal(saved.status, 200);
+
+    const list = await request('GET', '/api/templates?with_meta=1&q=Brand%20Bound');
+    assert.equal(list.status, 200);
+    const item = (list.json as { items: Array<{ brand_pack_id?: string; brand_pack_name?: string; name: string }> }).items
+      .find((t) => t.name === 'Brand Bound Template');
+    assert.ok(item);
+    assert.equal(item!.brand_pack_id, 'brand-list-test');
+    assert.equal(item!.brand_pack_name, '列表品牌包');
+  });
+
+  it('filters templates by brand_pack_id and brand_unbound', async () => {
+    const { getDb } = await import('./db/database.js');
+    const db = getDb();
+    db.prepare(
+      `INSERT INTO library_items (id, category, name, description, tags, file_url, parent_id, payload_json)
+       VALUES (?, 'brand', ?, '', '', '', '', '{}')`,
+    ).run('brand-filter-a', '筛选品牌A');
+
+    const bound = await request('POST', '/api/templates', {
+      name: 'Filter Bound Template',
+      type: '新品发布',
+    });
+    assert.equal(bound.status, 201);
+    const boundTpl = bound.json as { id: string; dsl_json: { meta: Record<string, unknown>; globalConfig: Record<string, unknown> } };
+    boundTpl.dsl_json.meta.brand_pack_id = 'brand-filter-a';
+    boundTpl.dsl_json.globalConfig.brand_pack_id = 'brand-filter-a';
+    await request('PUT', `/api/templates/${boundTpl.id}`, { dsl_json: boundTpl.dsl_json });
+
+    const unbound = await request('POST', '/api/templates', {
+      name: 'Filter Unbound Template',
+      type: '新品发布',
+    });
+    assert.equal(unbound.status, 201);
+
+    const byBrand = await request('GET', '/api/templates?brand_pack_id=brand-filter-a&with_meta=1');
+    assert.equal(byBrand.status, 200);
+    const byBrandItems = (byBrand.json as { items: Array<{ name: string }> }).items;
+    assert.ok(byBrandItems.some((t) => t.name === 'Filter Bound Template'));
+    assert.ok(!byBrandItems.some((t) => t.name === 'Filter Unbound Template'));
+
+    const onlyUnbound = await request('GET', '/api/templates?brand_unbound=1&with_meta=1&q=Filter');
+    assert.equal(onlyUnbound.status, 200);
+    const unboundBody = onlyUnbound.json as { items: Array<{ name: string }>; meta: { unbound_brand_count: number } };
+    assert.ok(unboundBody.items.some((t) => t.name === 'Filter Unbound Template'));
+    assert.ok(!unboundBody.items.some((t) => t.name === 'Filter Bound Template'));
+    assert.ok(unboundBody.meta.unbound_brand_count >= 1);
+  });
+
   it('keeps legacy PUT status updates validated', async () => {
     const template = await createTemplate();
     const invalid = await request('PUT', `/api/templates/${template.id}`, {

@@ -1,7 +1,9 @@
 import { useMemo, useState } from 'react';
 import { libraryPayloadToBrandPack } from '@shared/brandPack';
 import { fontFamilyCss, useBrandFontFaces } from '../utils/brandFonts';
-import type { LibraryItem } from '../types/library';
+import { useEditorStore } from '../store/editorStore';
+import type { LibraryItem, Segment } from '../types/library';
+import { createEditorObject } from '../utils/editorObjects';
 
 type SubTab = 'overview' | 'logo' | 'fonts' | 'shots' | 'presets' | 'source';
 
@@ -10,9 +12,51 @@ interface Props {
 }
 
 export default function BrandPackPanel({ item }: Props) {
+  const updateDsl = useEditorStore((s) => (s as any).updateDsl);
+  const currentSegIndex = useEditorStore((s) => (s as any).currentSegIndex);
+  const dsl = useEditorStore((s) => (s as any).dsl);
   const [subTab, setSubTab] = useState<SubTab>('overview');
   const pack = useMemo(() => libraryPayloadToBrandPack(item), [item]);
   useBrandFontFaces(pack.fonts.map((f) => ({ family: f.family, url: f.url })));
+
+  const handleInsertShot = (frameId: string) => {
+    if (!dsl || !updateDsl) return;
+    const frame = pack.frames.find((f: any) => f.id === frameId);
+    if (!frame) return;
+    const defaultScript = String((frame as any).defaultData?.scriptText || frame.name);
+    updateDsl((draft: any) => {
+      const newSeg: any = {
+        id: `seg_${Date.now()}`,
+        type: (frame as any).shotType === 'product_showcase' ? 'product' : (frame as any).shotType === 'closing' ? 'ending' : 'narration',
+        narration_text: defaultScript,
+        duration_sec: (frame as any).duration || 5,
+        scene_image_url: '',
+        scene_description: (frame as any).description || (frame as any).name,
+        camera_shot: (frame as any).shotType,
+        segment_bgm_url: '',
+        subtitle: { enabled: true, style_id: (pack as any).subtitleStyle || 'default', position: 'bottom', animation: 'fadeIn' },
+        transition: { type: 'fade', duration: 0.5 },
+        digital_human: (frame as any).shotType === 'avatar_talking' ? { enabled: true, position: { x: 50, y: 60 }, scale: 100 } : { enabled: false, position: { x: 50, y: 60 }, scale: 100 },
+        objects: [],
+        overlays: [],
+      };
+      const segments = [...(draft.segments || [])];
+      segments.splice(currentSegIndex + 1, 0, newSeg);
+      return { ...draft, segments };
+    });
+  };
+
+  const handleSetDefaultFont = (family: string) => {
+    if (!updateDsl) return;
+    updateDsl((draft: any) => ({
+      ...draft,
+      globalConfig: {
+        ...draft.globalConfig,
+        default_font_family: family,
+        subtitle_font_family: family,
+      },
+    }));
+  };
 
   const tabs: { id: SubTab; label: string }[] = [
     { id: 'overview', label: '概览' },
@@ -121,10 +165,19 @@ export default function BrandPackPanel({ item }: Props) {
                 <div className="text-[10px] text-muted-foreground font-mono truncate">{f.family}</div>
                 {f.url ? <div className="text-[9px] text-brand-blue mt-0.5">本地字体包</div> : null}
               </div>
-              <div className="flex items-end gap-2 shrink-0 text-foreground" style={{ fontFamily: fontFamilyCss(f.family) }}>
-                <span className="text-[18px] leading-none">永</span>
-                <span className="text-[24px] leading-none">永</span>
-                <span className="text-[32px] leading-none">永</span>
+              <div className="flex items-center gap-2 shrink-0">
+                <div className="flex items-end gap-2 text-foreground" style={{ fontFamily: fontFamilyCss(f.family) }}>
+                  <span className="text-[18px] leading-none">永</span>
+                  <span className="text-[24px] leading-none">永</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleSetDefaultFont(f.family)}
+                  className="text-[10px] px-2 py-1 rounded bg-brand-blue/10 text-brand-blue hover:bg-brand-blue/20"
+                  title="设为默认字幕字体"
+                >
+                  设为默认
+                </button>
               </div>
             </div>
           ))}
@@ -136,10 +189,19 @@ export default function BrandPackPanel({ item }: Props) {
           {pack.frames.length === 0 ? (
             <p className="text-xs text-muted-foreground">暂无镜头模板，请从本地模板重置或编辑 frame.md</p>
           ) : pack.frames.map((f) => (
-            <div key={f.id} className="rounded-md border border-border px-3 py-2">
-              <div className="text-xs font-medium">{f.name}</div>
-              <div className="text-[10px] text-muted-foreground mt-0.5">{f.shotType} · {f.duration}s</div>
-              {f.description && <div className="text-[10px] text-muted-foreground mt-1 line-clamp-2">{f.description}</div>}
+            <div key={f.id} className="rounded-md border border-border px-3 py-2 flex items-start justify-between gap-2">
+              <div>
+                <div className="text-xs font-medium">{f.name}</div>
+                <div className="text-[10px] text-muted-foreground mt-0.5">{f.shotType} · {f.duration}s</div>
+                {f.description && <div className="text-[10px] text-muted-foreground mt-1 line-clamp-2">{f.description}</div>}
+              </div>
+              <button
+                type="button"
+                onClick={() => handleInsertShot(f.id)}
+                className="text-[10px] px-2 py-1 rounded bg-brand-blue/10 text-brand-blue hover:bg-brand-blue/20 shrink-0"
+              >
+                插入
+              </button>
             </div>
           ))}
         </div>

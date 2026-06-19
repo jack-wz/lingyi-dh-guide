@@ -99,7 +99,20 @@ export function waitForHyperframesPlayer(
 
 export function setHyperframesPlayback(iframe: HTMLIFrameElement | null, playing: boolean): void {
   const player = resolveHyperframesPlayer(iframe);
-  if (!player) return;
-  if (playing) player.play?.();
-  else player.pause?.();
+  const win = iframe?.contentWindow;
+  if (playing) {
+    player?.play?.();
+    try {
+      win?.dispatchEvent(new CustomEvent('hf-play'));
+    } catch {
+      /* ignore */
+    }
+    return;
+  }
+  player?.pause?.();
+  try {
+    win?.dispatchEvent(new CustomEvent('hf-pause'));
+  } catch {
+    /* ignore */
+  }
 }

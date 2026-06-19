@@ -92,10 +92,12 @@ describe('render API integration', () => {
 
   it('creates, claims, updates, logs, cancels, and duplicates a standard render job', async () => {
     const template = await createTemplate();
+    const digitalHumanId = await createReadyDigitalHuman();
 
     const created = await request('POST', '/api/renders', {
       template_id: template.id,
       pipeline_key: 'standard',
+      digital_human_id: digitalHumanId,
       input_mode: 'topic',
       topic: 'Safety training',
       variables: { brand: 'Acme' },
@@ -180,6 +182,18 @@ describe('render API integration', () => {
     });
     assert.equal(unknownInputMode.status, 400);
     assert.match((unknownInputMode.json as { error: string }).error, /Unknown input_mode/);
+
+    const standardNarrationWithoutDh = await request('POST', '/api/renders', {
+      template_id: template.id,
+      pipeline_key: 'standard',
+      input_mode: 'topic',
+      topic: 'Need a presenter',
+    });
+    assert.equal(standardNarrationWithoutDh.status, 400);
+    assert.match(
+      (standardNarrationWithoutDh.json as { error: string }).error,
+      /含口播分镜的标准流水线需选择数字人/,
+    );
 
     const missingTopic = await request('POST', '/api/renders', {
       template_id: template.id,
@@ -405,9 +419,11 @@ describe('render API integration', () => {
     originalDsl.segments[0].narration_text = 'snapshot original narration';
     getDb().prepare('UPDATE templates SET dsl_json = ? WHERE id = ?').run(JSON.stringify(originalDsl), template.id);
 
+    const digitalHumanId = await createReadyDigitalHuman();
     const created = await request('POST', '/api/renders', {
       template_id: template.id,
       pipeline_key: 'standard',
+      digital_human_id: digitalHumanId,
     });
     assert.equal(created.status, 201);
     const id = (created.json as { id: string }).id;

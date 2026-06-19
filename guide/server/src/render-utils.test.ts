@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
   PIPELINES,
+  getExposedPipelines,
   RENDER_STATUSES,
   enrichJob,
   getPipeline,
@@ -25,8 +26,23 @@ import {
 } from './render-utils.js';
 
 describe('render-utils', () => {
-  it('exposes production pipeline metadata', () => {
+  it('exposes full pipeline registry metadata', () => {
     assert.deepEqual(PIPELINES.map((pipeline) => pipeline.key), [
+      'standard',
+      'digital_human',
+      'ai_full_auto',
+      'template_editor',
+      'hyperframes_template',
+      'asset_driven',
+      'avatar_talk',
+    ]);
+    assert.equal(getPipeline('standard')?.requires_digital_human, false);
+    assert.equal(getPipeline('digital_human')?.requires_digital_human, true);
+    assert.equal(getPipeline('hyperframes_template')?.requires_digital_human, false);
+  });
+
+  it('exposes six pipelines by default until HF template flag is on', () => {
+    assert.deepEqual(getExposedPipelines().map((pipeline) => pipeline.key), [
       'standard',
       'digital_human',
       'ai_full_auto',
@@ -34,13 +50,12 @@ describe('render-utils', () => {
       'asset_driven',
       'avatar_talk',
     ]);
-    assert.equal(getPipeline('standard')?.requires_digital_human, false);
-    assert.equal(getPipeline('digital_human')?.requires_digital_human, true);
   });
 
   it('validates pipeline keys strictly', () => {
     assert.equal(validatePipeline('standard'), true);
     assert.equal(validatePipeline('digital_human'), true);
+    assert.equal(validatePipeline('hyperframes_template'), false);
     assert.equal(validatePipeline('image_to_video'), false);
     assert.equal(validatePipeline(''), false);
   });

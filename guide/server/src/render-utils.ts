@@ -1,21 +1,15 @@
 import { existsSync, readdirSync, statSync } from 'fs';
 import { join } from 'path';
+import {
+  PIPELINES,
+  getExposedPipelines,
+  getPipeline as getSharedPipeline,
+  validatePipelineKey,
+  type PipelineOption,
+} from '@shared/data/pipelines';
 
-export interface PipelineOption {
-  key: string;
-  name: string;
-  description: string;
-  requires_digital_human: boolean;
-}
-
-export const PIPELINES: PipelineOption[] = [
-  { key: 'standard', name: '标准', description: '模板解析 → 场景图 → 分镜视频 → FFmpeg 组装', requires_digital_human: false },
-  { key: 'digital_human', name: '数字人口播', description: '跳过场景图，直接用数字人口播视频', requires_digital_human: true },
-  { key: 'ai_full_auto', name: 'AI 全自动', description: 'LLM 根据主题/脚本自动生成完整分镜并渲染', requires_digital_human: true },
-  { key: 'template_editor', name: '模板编辑器', description: '精确渲染当前编辑器中编排的模板内容', requires_digital_human: false },
-  { key: 'asset_driven', name: '素材驱动', description: '根据上传素材列表自动分镜并生成口播视频', requires_digital_human: true },
-  { key: 'avatar_talk', name: '数字人对口播', description: '通过 AvatarAdapter 统一接口生成唇形同步视频', requires_digital_human: true },
-];
+export type { PipelineOption };
+export { PIPELINES, getExposedPipelines };
 
 export const TERMINAL_STATUSES = ['completed', 'failed', 'cancelled'];
 export const ACTIVE_RENDER_STATUSES = ['parsing', 'scene_gen', 'video_gen', 'ffmpeg', 'cancelling'];
@@ -23,11 +17,11 @@ export const RENDER_STATUSES = ['queued', ...ACTIVE_RENDER_STATUSES, ...TERMINAL
 export const RENDER_LOG_LEVELS = ['info', 'warn', 'error'];
 
 export function validatePipeline(pipelineKey: string) {
-  return PIPELINES.some((p) => p.key === pipelineKey);
+  return validatePipelineKey(pipelineKey);
 }
 
 export function getPipeline(pipelineKey: string) {
-  return PIPELINES.find((p) => p.key === pipelineKey);
+  return getSharedPipeline(pipelineKey);
 }
 
 export function validateRenderStatus(status: unknown): status is string {

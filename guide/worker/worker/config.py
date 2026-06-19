@@ -192,7 +192,34 @@ def get_pipeline_config():
             cfg.get("avatar_fallback_wavespeed", True),
         ),
         "render_heartbeat_timeout_ms": get_render_heartbeat_timeout_ms(),
+        "lipsync_parallel_workers": get_lipsync_parallel_workers(),
+        "scene_fusion_parallel_workers": get_scene_fusion_parallel_workers(),
     }
+
+
+def get_lipsync_parallel_workers() -> int:
+    """Max concurrent lip-sync API jobs in Stage3 (1 = sequential)."""
+    cfg = _load_json().get("pipeline", {})
+    raw = os.getenv("LIPSYNC_PARALLEL_WORKERS", cfg.get("lipsync_parallel_workers", 4))
+    try:
+        workers = int(raw)
+    except (TypeError, ValueError):
+        workers = 4
+    return max(1, min(workers, 8))
+
+
+def get_scene_fusion_parallel_workers() -> int:
+    """Max concurrent KIE scene-fusion jobs in Stage2 (1 = sequential)."""
+    cfg = _load_json().get("pipeline", {})
+    raw = os.getenv(
+        "SCENE_FUSION_PARALLEL_WORKERS",
+        cfg.get("scene_fusion_parallel_workers", 4),
+    )
+    try:
+        workers = int(raw)
+    except (TypeError, ValueError):
+        workers = 4
+    return max(1, min(workers, 8))
 
 
 def _env_bool(name: str, default: bool) -> bool:

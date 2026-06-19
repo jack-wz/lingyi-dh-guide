@@ -28,12 +28,26 @@ test('editor top bar and render review flow', async ({ page, request }) => {
   await expect(page.getByTitle('选择品牌包')).toBeVisible();
   await expect(page.getByTitle('从资产库选择脚本')).toBeVisible();
   await expect(page.getByRole('button', { name: '生成视频' })).toBeVisible();
-
   await page.locator('[data-tool="text"]').click();
   const toolPopover = page.locator('.absolute.left-0.top-full').first();
   await toolPopover.getByRole('button', { name: '文字', exact: true }).click();
   await toolPopover.getByRole('button', { name: '正文' }).click();
   await expect(page.getByText('正文内容').first()).toBeVisible();
+
+  await page.getByRole('button', { name: '对象', exact: true }).click();
+  const scaleInput = page.locator('label:has-text("缩放") input').last();
+  await scaleInput.fill('120');
+  await scaleInput.blur();
+  await expect.poll(async () => Number(await scaleInput.inputValue())).toBe(120);
+
+  const rotationInput = page.locator('label:has-text("旋转") input').last();
+  await rotationInput.fill('15');
+  await rotationInput.blur();
+  await expect.poll(async () => Math.abs(Number(await rotationInput.inputValue()))).toBe(15);
+
+  await expect(page.getByTestId('canvas-mode-edit')).toBeVisible();
+  await page.getByTestId('canvas-mode-preview').click();
+  await expect(page.getByTestId('canvas-mode-preview')).toHaveClass(/bg-white/);
 
   await page.getByRole('button', { name: '生成视频' }).click();
   const dialog = page.getByRole('dialog', { name: '生成前复核' });

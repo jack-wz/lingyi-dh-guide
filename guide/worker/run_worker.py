@@ -20,6 +20,7 @@ import worker.pipelines.standard  # noqa: F401
 import worker.pipelines.digital_human  # noqa: F401
 import worker.pipelines.ai_full_auto  # noqa: F401
 import worker.pipelines.template_editor  # noqa: F401
+import worker.pipelines.hyperframes_template  # noqa: F401
 import worker.pipelines.asset_driven  # noqa: F401
 import worker.pipelines.avatar_talk  # noqa: F401
 
@@ -160,7 +161,15 @@ def process_job(job):
         job_id,
         emit=lambda level, msg: (_emit_job_log(job_id, level, msg)),
     )
-    job_logger.info("Worker", "BEGIN", f"认领任务 pipeline={pipeline_key} strict={pipeline_cfg['pipeline_strict']}")
+    job_logger.info(
+        "Worker",
+        "BEGIN",
+        (
+            f"认领任务 pipeline={pipeline_key} strict={pipeline_cfg['pipeline_strict']} "
+            f"scene_fusion_workers={pipeline_cfg['scene_fusion_parallel_workers']} "
+            f"lipsync_workers={pipeline_cfg['lipsync_parallel_workers']}"
+        ),
+    )
 
     ctx = PipelineContext(
         task_id=job_id,
@@ -232,6 +241,10 @@ def main():
 
     from worker.config import KIE_API_KEY, YUNTTS_API_KEY, WAVESPEED_API_KEY
     print(f"[Worker] API Keys: KIE={'yes' if KIE_API_KEY else 'no'}, YunTTS={'yes' if YUNTTS_API_KEY else 'no'}, WaveSpeed={'yes' if WAVESPEED_API_KEY else 'no'}")
+    print(
+        f"[Worker] Parallel: scene_fusion={pipeline_cfg['scene_fusion_parallel_workers']}, "
+        f"lipsync={pipeline_cfg['lipsync_parallel_workers']}"
+    )
 
     last_timeout_maintenance = 0.0
     while True:

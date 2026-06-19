@@ -559,8 +559,9 @@ export default function AssetHubPage() {
         </div>
 
         {activeTab === 'brand' && items.length === 0 && !loading && (
-          <div className="mb-4 rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
-            暂无品牌包。点击「从本地模板重置」或「新建品牌包」，源文件位于 guide/data/brand-system/default/。
+          <div className="mb-4 rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground space-y-2">
+            <p>暂无品牌包。可一键同步内置素材，或从本地 design.md / frame.md 新建。</p>
+            <p className="text-xs">源模板目录：<code className="text-foreground/80">guide/data/brand-system/default/</code></p>
           </div>
         )}
 
@@ -666,7 +667,7 @@ export default function AssetHubPage() {
                 : items.map(renderItemCard)}
             </div>
             <div className="lg:col-span-1 min-h-[400px] sticky top-4 self-start">
-              <AssetPreviewPanel tab={activeTab} item={previewItem} />
+              <AssetPreviewPanel tab={activeTab} item={previewItem} returnTo={returnTo} />
             </div>
           </div>
         )}

@@ -3,6 +3,11 @@ import { v4 as uuidv4 } from 'uuid';
 import { getDb } from '../db/database.js';
 import { removeRenderArtifactsForJobs } from '../render-artifacts.js';
 import { createDefaultDSL } from '../../../shared/types/template.js';
+import {
+  enrichTemplateRowsWithBrandSummary,
+  SQL_BRAND_PACK_MATCH,
+  SQL_BRAND_UNBOUND,
+} from '../templateBrandSummary.js';
 
 const router = Router();
 const TEMPLATE_STATUSES = ['draft', 'pending', 'published', 'offline'] as const;
@@ -55,12 +60,20 @@ function listTemplatesQuery(req: Request) {
   const excludeE2e = !includeE2e && parseBoolQuery(req.query.exclude_e2e, false);
   const q = String(req.query.q || '').trim();
   const statusFilter = String(req.query.status || '').trim();
+  const brandPackId = String(req.query.brand_pack_id || '').trim();
+  const brandUnbound = parseBoolQuery(req.query.brand_unbound, false);
 
   const conditions: string[] = [];
   const params: unknown[] = [];
 
   if (excludeE2e) {
     conditions.push("type != 'e2e'");
+  }
+  if (brandUnbound) {
+    conditions.push(SQL_BRAND_UNBOUND);
+  } else if (brandPackId) {
+    conditions.push(SQL_BRAND_PACK_MATCH);
+    params.push(brandPackId, brandPackId);
   }
   if (statusFilter && isTemplateStatus(statusFilter)) {
     conditions.push('status = ?');
@@ -84,8 +97,9 @@ function listTemplatesQuery(req: Request) {
 router.get('/', (req: Request, res: Response) => {
   const db = getDb();
   const withMeta = parseBoolQuery(req.query.with_meta, false);
-  const { sql, params } = listTemplatesQuery(req);
-  const templates = db.prepare(sql).all(...params);
+  const { sql, params, excludeE2e } = listTemplatesQuery(req);
+  const rows = db.prepare(sql).all(...params) as Array<Record<string, unknown>>;
+  const templates = enrichTemplateRowsWithBrandSummary(rows, db);
 
   if (!withMeta) {
     res.json(templates);
@@ -93,11 +107,16 @@ router.get('/', (req: Request, res: Response) => {
   }
 
   const e2eCount = (db.prepare("SELECT COUNT(*) as n FROM templates WHERE type = 'e2e'").get() as { n: number }).n;
+  const unboundWhere = excludeE2e ? `WHERE type != 'e2e' AND ${SQL_BRAND_UNBOUND}` : `WHERE ${SQL_BRAND_UNBOUND}`;
+  const unboundBrandCount = (
+    db.prepare(`SELECT COUNT(*) as n FROM templates ${unboundWhere}`).get() as { n: number }
+  ).n;
   res.json({
     items: templates,
     meta: {
       e2e_count: e2eCount,
       shown_count: templates.length,
+      unbound_brand_count: unboundBrandCount,
     },
   });
 });
