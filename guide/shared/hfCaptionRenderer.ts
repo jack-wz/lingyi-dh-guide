@@ -164,7 +164,7 @@ export function renderCaptionHighlightClip(ctx: HfCaptionRenderContext): HfCapti
 
   const css = `
     .hf-caption-highlight .hl-word {
-      font-family: ${ctx.fontFamily}, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      font-family: ${ctx.fontFamily};
       font-weight: 800; display: inline-block; line-height: 1.1; position: relative;
       padding: ${layout.padY}px ${layout.padX}px ${layout.padY + 2}px; text-shadow: 0 6px 18px rgba(0,0,0,0.45); transform-origin: 50% 58%;
     }
@@ -231,7 +231,7 @@ export function renderCaptionPillClip(ctx: HfCaptionRenderContext): HfCaptionCli
     }
     .hf-caption-pill .pill-copy {
       display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: ${layout.gap + 2}px;
-      font-family: ${ctx.fontFamily}, 'PingFang SC', sans-serif; font-weight: 700; line-height: 1.2;
+      font-family: ${ctx.fontFamily}; font-weight: 700; line-height: 1.2;
     }
     .hf-caption-pill .pill-word {
       transition: color 0.1s; display: inline-block; position: relative; z-index: 1;
@@ -274,7 +274,7 @@ export function renderCaptionNeonClip(ctx: HfCaptionRenderContext): HfCaptionCli
 
   const css = `
     .hf-caption-neon .neon-word {
-      font-family: ${ctx.fontFamily}, 'PingFang SC', sans-serif;
+      font-family: ${ctx.fontFamily};
       font-weight: 900; color: ${ctx.textColor}; display: inline-block; line-height: 1.1;
       text-shadow: 0 0 8px ${glow}, 0 0 18px ${glow}, 0 0 32px ${shadeColor(glow, -0.2)};
     }
@@ -318,7 +318,7 @@ export function renderCaptionEditorialClip(ctx: HfCaptionRenderContext): HfCapti
   const css = `
     .hf-caption-editorial .ed-line {
       display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: ${layout.gap + 2}px;
-      font-family: ${ctx.fontFamily}, 'PingFang SC', 'Songti SC', serif; line-height: 1.15;
+      font-family: ${ctx.fontFamily}; line-height: 1.15;
     }
     .hf-caption-editorial .ed-word--normal { color: ${ctx.textColor}; font-weight: 500; }
     .hf-caption-editorial .ed-word--emph {
@@ -360,7 +360,7 @@ export function renderCaptionGradientClip(ctx: HfCaptionRenderContext): HfCaptio
 
   const css = `
     .hf-caption-gradient .gr-word {
-      font-family: ${ctx.fontFamily}, 'PingFang SC', sans-serif;
+      font-family: ${ctx.fontFamily};
       font-weight: 900; display: inline-block; line-height: 1.15;
       -webkit-background-clip: text; background-clip: text; color: transparent;
       background-size: 240% 100%; background-position: 100% 0;

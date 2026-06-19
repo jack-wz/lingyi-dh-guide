@@ -230,7 +230,7 @@ curl -s -X POST http://127.0.0.1:8000/api/renders \
 
 **转场（`segment.transition.type`，末镜无效）**
 
-`hf-dissolve`、`hf-push-left` / `hf-push-right` / `hf-push-up` / `hf-push-down`、`hf-zoom`
+`hf-dissolve`、`hf-push-left` / `hf-push-right` / `hf-push-up` / `hf-push-down`、`hf-wipe-left` / `hf-wipe-right`、`hf-zoom`
 
 **全局质感（`globalConfig.hf_overlays[]`，`type` + `enabled`）**
 

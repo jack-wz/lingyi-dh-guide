@@ -98,6 +98,23 @@ describe('hfTransitionRenderer', () => {
     }
   });
 
+  it('renders wipe variants', () => {
+    for (const type of ['hf-wipe', 'hf-wipe-left', 'hf-wipe-right']) {
+      const clip = renderHfTransitionClip({
+        segmentId: 's1',
+        transitionType: type,
+        clipStart: 2,
+        clipDuration: 0.6,
+        canvasWidth: 1080,
+        canvasHeight: 1920,
+        accentColor: '#2563eb',
+      });
+      assert.ok(clip);
+      assert.match(clip!.html, /transitions-wipe/);
+      assert.equal(isHyperframesTransitionType(type), true);
+    }
+  });
+
   it('renders zoom transition clip', () => {
     const clip = renderHfTransitionClip({
       segmentId: 's1',

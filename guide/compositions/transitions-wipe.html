@@ -1,0 +1,27 @@
+<!-- hyperframes-registry-item: transitions-wipe -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { width: 1920px; height: 1080px; overflow: hidden; background: #000; }
+      .wipe-veil {
+        position: absolute; inset: 0; background: #2563eb;
+        clip-path: inset(0 100% 0 0);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wipe-veil" id="wipe-veil"></div>
+    <script>
+      window.__timelines = window.__timelines || {};
+      var tl = gsap.timeline({ paused: true });
+      tl.fromTo('#wipe-veil', { clipPath: 'inset(0 100% 0 0)' }, { clipPath: 'inset(0 0 0 0)', duration: 0.3, ease: 'power2.inOut' }, 0);
+      tl.to('#wipe-veil', { clipPath: 'inset(0 0 0 100%)', duration: 0.3, ease: 'power2.inOut' }, 0.3);
+      window.__timelines['transitions-wipe'] = tl;
+    </script>
+  </body>
+</html>

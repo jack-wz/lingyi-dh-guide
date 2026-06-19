@@ -21,6 +21,7 @@ import { anySegmentUsesHyperframesCaptions } from './hfStyleRegistry.js';
 import { buildHfCaptionSeekBootstrap, renderHfCaptionClip } from './hfCaptionRenderer.js';
 import { isHyperframesTransitionType, renderHfTransitionClip, buildHfTransitionSeekBootstrap } from './hfTransitionRenderer.js';
 import { buildHfGlobalOverlaySeekBootstrap, renderHfGlobalOverlayClips } from './hfGlobalOverlayRenderer.js';
+import { resolveHfRenderFontStack } from './hfFontFamily.js';
 
 const GSAP_RUNTIME_URL = 'https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js';
 
@@ -202,6 +203,7 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
     ),
   };
   const defaultFont = String(dsl.globalConfig.default_font_family || brandInjection.defaultFontFamily);
+  const stageFontStack = resolveHfRenderFontStack(defaultFont, brandInjection.fontFaceCss);
   const stageBg = background_color || brandInjection.cssVariables.match(/--brand-bg:([^;]+)/)?.[1] || '#000';
 
   let totalDuration = 0;
@@ -255,6 +257,7 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
       }).hf_params;
       const phraseTimings = (seg as { subtitle_phrase_timings?: Array<{ text: string; start: number; end: number }> })
         .subtitle_phrase_timings;
+      const hfFontStack = resolveHfRenderFontStack(subFont, brandInjection.fontFaceCss);
       const hfClip = styleDef?.engine === 'hyperframes'
         ? renderHfCaptionClip({
           styleId,
@@ -265,7 +268,7 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
           canvasWidth: w,
           canvasHeight: h,
           position: seg.subtitle.position,
-          fontFamily: subFont,
+          fontFamily: hfFontStack,
           fontSizePx,
           accentColor: hfParams?.accent_color || accentColor,
           textColor: style.color,
@@ -451,7 +454,7 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
       height: ${h}px;
       overflow: hidden;
       background: #000;
-      font-family: var(--font-sans, ${defaultFont});
+      font-family: ${stageFontStack};
     }
     #stage {
       position: relative;

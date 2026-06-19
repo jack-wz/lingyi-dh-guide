@@ -26,6 +26,9 @@ export const HF_TRANSITION_TYPES = new Set([
   'hf-push-right',
   'hf-push-up',
   'hf-push-down',
+  'hf-wipe',
+  'hf-wipe-left',
+  'hf-wipe-right',
   'hf-zoom',
 ]);
 
@@ -127,6 +130,37 @@ export function renderPushTransition(ctx: HfTransitionRenderContext): HfTransiti
   return { html, css, script, timelineId, requiresGsap: true };
 }
 
+export function renderWipeTransition(ctx: HfTransitionRenderContext): HfTransitionClipOutput {
+  const timelineId = `trans-wipe-${ctx.segmentId}`;
+  const direction = ctx.direction || (ctx.transitionType === 'hf-wipe-left' ? 'left' : 'right');
+  const fromClip = direction === 'left' ? 'inset(0 100% 0 0)' : 'inset(0 0 0 100%)';
+  const midClip = 'inset(0 0 0 0)';
+  const outClip = direction === 'left' ? 'inset(0 0 0 100%)' : 'inset(0 100% 0 0)';
+
+  const html = `
+    <div class="clip hf-transition hf-trans-wipe" data-hf-component="transitions-wipe"
+         id="hf-trans-${timelineId}" data-timeline-id="${timelineId}"
+         data-start="${ctx.clipStart}" data-duration="${ctx.clipDuration}" data-track-index="5"
+         style="position:absolute;inset:0;pointer-events:none;z-index:5;overflow:hidden;">
+      <div class="wipe-veil" id="wipe-veil-${timelineId}"
+           style="position:absolute;inset:0;background:${ctx.accentColor};clip-path:${fromClip};"></div>
+    </div>`;
+
+  const css = `
+    .hf-trans-wipe .wipe-veil { will-change: clip-path; }
+  `;
+
+  const script = gsapTimelineScript(timelineId, `
+      var veil = document.getElementById('wipe-veil-' + timelineId);
+      if (!veil) return;
+      var half = ${ctx.clipDuration} / 2;
+      tl.fromTo(veil, { clipPath: '${fromClip}' }, { clipPath: '${midClip}', duration: half, ease: 'power2.inOut' }, 0);
+      tl.to(veil, { clipPath: '${outClip}', duration: half, ease: 'power2.inOut' }, half);
+  `);
+
+  return { html, css, script, timelineId, requiresGsap: true };
+}
+
 export function renderZoomTransition(ctx: HfTransitionRenderContext): HfTransitionClipOutput {
   const timelineId = `trans-zoom-${ctx.segmentId}`;
   const html = `
@@ -162,10 +196,23 @@ function resolvePushDirection(transitionType: string): HfTransitionRenderContext
   return 'right';
 }
 
+function resolveWipeDirection(transitionType: string): HfTransitionRenderContext['direction'] {
+  const type = String(transitionType || '').trim();
+  if (type === 'hf-wipe-left') return 'left';
+  if (type === 'hf-wipe-right') return 'right';
+  return 'left';
+}
+
 export function renderHfTransitionClip(ctx: HfTransitionRenderContext): HfTransitionClipOutput | null {
   const type = String(ctx.transitionType || '').trim();
   if (type === 'hf-dissolve') return renderDissolveTransition(ctx);
   if (type === 'hf-zoom') return renderZoomTransition(ctx);
+  if (type === 'hf-wipe' || type === 'hf-wipe-left' || type === 'hf-wipe-right') {
+    return renderWipeTransition({
+      ...ctx,
+      direction: ctx.direction || resolveWipeDirection(type),
+    });
+  }
   if (
     type === 'hf-push'
     || type === 'hf-push-left'
