@@ -4,6 +4,8 @@ import { useEditorStore } from '../store/editorStore';
 import type { DSL, Segment } from '../store/editorStore';
 import { normalizeSegmentObjects } from '../utils/elementTiming';
 import { applyVariableSubstitution } from '../utils/dslNormalize';
+import SegmentTtsPreview from './SegmentTtsPreview';
+import { isHyperframesSubtitleStyle } from '@shared/subtitleStyles';
 
 interface Props {
   dsl: DSL;
@@ -136,6 +138,17 @@ export default function ScriptPanel({
                 />
                 {showPreview && (
                   <p className="mt-1.5 text-[10px] text-muted-foreground truncate">预览：{preview}</p>
+                )}
+                {seg.subtitle?.enabled && isHyperframesSubtitleStyle(seg.subtitle.style_id) && (
+                  <div onClick={(e) => e.stopPropagation()}>
+                    <SegmentTtsPreview
+                      compact
+                      text={preview || seg.narration_text || ''}
+                      segment={seg}
+                      voiceId={seg.voice_id}
+                      onApply={(patch) => onUpdateSegment(index, patch)}
+                    />
+                  </div>
                 )}
                 {seg.scene_description && (
                   <p className="mt-1 text-[10px] text-muted-foreground/80 truncate">画面：{seg.scene_description}</p>

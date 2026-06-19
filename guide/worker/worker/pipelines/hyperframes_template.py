@@ -13,12 +13,23 @@ _GUIDE_ROOT = Path(__file__).resolve().parents[3]
 _COMPOSER_SCRIPT = _GUIDE_ROOT / "scripts" / "write_hf_composition.ts"
 
 
+def _local_bin(name: str) -> Path:
+    return _GUIDE_ROOT / "node_modules" / ".bin" / name
+
+
+def _cli_cmd(tool: str, *args: str) -> list[str]:
+    local = _local_bin(tool)
+    if local.exists():
+        return [str(local), *args]
+    return ["npx", tool, *args]
+
+
 def _run_cmd(args: list[str], cwd: str, timeout: int = 300):
     return subprocess.run(args, cwd=cwd, capture_output=True, text=True, timeout=timeout)
 
 
 def _run_hyperframes(args: list[str], cwd: str):
-    return _run_cmd(["npx", "hyperframes", *args], cwd=cwd)
+    return _run_cmd(_cli_cmd("hyperframes", *args), cwd=cwd)
 
 
 def _write_composition(ctx: PipelineContext):
@@ -32,14 +43,13 @@ def _write_composition(ctx: PipelineContext):
     if not _COMPOSER_SCRIPT.exists():
         raise RuntimeError(f"Missing composer script: {_COMPOSER_SCRIPT}")
     result = _run_cmd(
-        [
-            "npx",
+        _cli_cmd(
             "tsx",
             str(_COMPOSER_SCRIPT),
             str(dsl_path),
             ctx.work_dir,
             str(variables_path),
-        ],
+        ),
         cwd=str(_GUIDE_ROOT),
     )
     if result.returncode != 0:

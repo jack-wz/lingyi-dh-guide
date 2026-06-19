@@ -13,6 +13,7 @@ import tasksRouter from './routes/tasks.js';
 import opsRouter from './routes/ops.js';
 import libraryRouter from './routes/library.js';
 import aiRouter from './routes/ai.js';
+import ttsRouter from './routes/tts.js';
 
 import { getBrandFontsStaticDir } from './brand-fonts.js';
 import { ErrorCodes, apiError, listErrorCatalog } from './apiErrors.js';
@@ -45,6 +46,7 @@ export function createApp() {
   app.use('/api/ops', opsRouter);
   app.use('/api/library', libraryRouter);
   app.use('/api/ai', aiRouter);
+  app.use('/api/tts', ttsRouter);
 
   app.get('/api/error-catalog', (_req, res) => {
     res.json({ errors: listErrorCatalog() });

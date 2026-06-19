@@ -4,6 +4,7 @@ import FontFamilyPicker from '../../../../components/brand-editor/FontFamilyPick
 import { IconEye, IconEyeOff, IconImage, IconLayout, IconMic, IconType } from '../../../../components/Icons';
 import { SUBTITLE_STYLES } from '../../../../data/subtitleStyles';
 import { SubtitleStyleHint, SubtitleStyleSelect } from '../../../../components/SubtitleStylePicker';
+import SegmentTtsPreview from '../../../../components/SegmentTtsPreview';
 import { segmentUsesTtsWordTimings } from '@shared/captionWordTimings';
 import { isHyperframesSubtitleStyle } from '@shared/subtitleStyles';
 import {
@@ -89,11 +90,19 @@ export default function ObjectPanel({
           </div>
           <SubtitleStyleHint styleId={seg.subtitle.style_id} />
           {isHyperframesSubtitleStyle(seg.subtitle.style_id) && (
-            <p className="mt-2 text-[10px] text-muted-foreground leading-relaxed">
-              {segmentUsesTtsWordTimings(seg)
-                ? '已绑定 TTS 词级时间轴，卡拉 OK 将与配音对齐。'
-                : '预览使用估算词级时间轴；成片（含 TTS）后将自动对齐 Whisper 时间戳。'}
-            </p>
+            <>
+              <p className="mt-2 text-[10px] text-muted-foreground leading-relaxed">
+                {segmentUsesTtsWordTimings(seg)
+                  ? '已绑定 TTS 词级时间轴，卡拉 OK 将与配音对齐。'
+                  : '预览使用估算词级时间轴；可点击下方试听并对齐，或成片后自动 Whisper 对齐。'}
+              </p>
+              <SegmentTtsPreview
+                text={seg.narration_text || ''}
+                segment={seg}
+                voiceId={seg.voice_id}
+                onApply={(patch) => updateSeg(patch)}
+              />
+            </>
           )}
           {isHyperframesSubtitleStyle(seg.subtitle.style_id) && (
             <div className="mt-3">

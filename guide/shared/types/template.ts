@@ -153,6 +153,8 @@ export interface SubtitleHfParams {
   word_timings?: Array<{ text: string; start: number; end: number }>;
   /** whisper = ASR-aligned; heuristic = estimated from duration */
   word_timing_source?: 'whisper' | 'heuristic';
+  /** Editor preview TTS audio (not used in final render) */
+  preview_audio_url?: string;
 }
 
 export interface SubtitleConfig {

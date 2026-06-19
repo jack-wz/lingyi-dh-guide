@@ -15,9 +15,18 @@
     "test": "npm run test --workspace=server && node --import tsx --test shared/*.test.ts && python3 -m unittest discover -s worker/tests",
     "test:worker": "make -C .. test-guide",
     "validate:renders": "make -C .. validate-renders",
-    "validate:renders:ci": "make -C .. validate-renders-ci"
+    "validate:renders:ci": "make -C .. validate-renders-ci",
+    "hf:compose": "tsx scripts/write_hf_composition.ts",
+    "hf:lint": "hyperframes lint .",
+    "hf:render": "hyperframes render"
   },
   "dependencies": {
+    "@hyperframes/core": "^0.6.114",
+    "hyperframes": "0.6.114",
     "js-yaml": "^4.2.0"
+  },
+  "devDependencies": {
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
   }
 }
