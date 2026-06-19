@@ -188,6 +188,11 @@ jobs:
         working-directory: guide
         run: npm ci
 
+      - name: Install system tools (ffmpeg for HyperFrames encode)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+
       - name: Install Playwright Chromium (HyperFrames render)
         working-directory: guide/web
         run: npx playwright install --with-deps chromium
