@@ -4,7 +4,7 @@ import { useEditorStore } from '../store/editorStore';
 import type { AssetTab } from '../store/editorStore';
 import { IconUser, IconImage, IconType, IconMusic, IconMic, IconSparkles, IconSearch } from './Icons';
 import { SCENE_IMAGES, SCENE_CATEGORIES } from '../data/sceneImages';
-import { SUBTITLE_STYLES } from '../data/subtitleStyles';
+import { SubtitleStyleCards } from './SubtitleStylePicker';
 import { normalizeSubtitleStyleId } from '../utils/subtitleStylePreview';
 import { SOUND_EFFECTS, SOUND_CATEGORIES } from '../data/soundEffects';
 import { ANIMATION_PRESETS, ANIM_CATEGORIES } from '../data/animations';
@@ -338,44 +338,21 @@ export default function AssetLibrary({ tab, editorId, selectedDhId = '', onSelec
         )}
 
         {tab === 'subtitle' && (
-          <div className="space-y-2">
-            {SUBTITLE_STYLES.map(style => {
-              const isActive = normalizeSubtitleStyleId(seg?.subtitle.style_id || '') === style.id;
-              const p = style.preview;
-              return (
-                <div key={style.id}
-                  onClick={() => {
-                    if (!dsl) return;
-                    updateDsl(d => {
-                      const segs = [...d.segments];
-                      segs[currentSegIndex] = { ...segs[currentSegIndex], subtitle: { ...segs[currentSegIndex].subtitle, style_id: style.id, enabled: true } };
-                      return { ...d, segments: segs };
-                    });
-                    onEdited?.();
-                  }}
-                  className={`cursor-pointer rounded-lg overflow-hidden border transition-colors ${
-                    isActive ? 'border-foreground ring-1 ring-foreground/20' : 'border-border hover:border-foreground/30'
-                  }`}>
-                  <div className="h-16 bg-gradient-to-br from-gray-700 to-gray-900 flex items-center justify-center px-3 relative">
-                    <span style={{
-                      color: p.color,
-                      background: p.bg,
-                      fontSize: p.fontSize,
-                      fontWeight: p.fontWeight,
-                      borderRadius: p.borderRadius,
-                      textShadow: p.outline ? `0 1px 3px ${p.outline}` : 'none',
-                      padding: p.bg && p.bg !== 'transparent' ? '4px 12px' : '0',
-                      whiteSpace: 'nowrap',
-                    }}>{p.text}</span>
-                  </div>
-                  <div className="p-2">
-                    <p className="text-[11px] font-medium">{style.name}</p>
-                    <p className="text-[9px] text-muted-foreground">{style.description}</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <SubtitleStyleCards
+            activeStyleId={normalizeSubtitleStyleId(seg?.subtitle.style_id || 'default')}
+            onSelect={(styleId) => {
+              if (!dsl) return;
+              updateDsl((d) => {
+                const segs = [...d.segments];
+                segs[currentSegIndex] = {
+                  ...segs[currentSegIndex],
+                  subtitle: { ...segs[currentSegIndex].subtitle, style_id: styleId, enabled: true },
+                };
+                return { ...d, segments: segs };
+              });
+              onEdited?.();
+            }}
+          />
         )}
 
         {tab === 'sound' && (

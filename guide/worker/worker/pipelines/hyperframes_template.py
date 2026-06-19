@@ -24,10 +24,22 @@ def _run_hyperframes(args: list[str], cwd: str):
 def _write_composition(ctx: PipelineContext):
     dsl_path = Path(ctx.work_dir) / "dsl.json"
     dsl_path.write_text(json.dumps(ctx.dsl, ensure_ascii=False), encoding="utf-8")
+    variables_path = Path(ctx.work_dir) / "variables.json"
+    variables_path.write_text(
+        json.dumps(ctx.variables or {}, ensure_ascii=False),
+        encoding="utf-8",
+    )
     if not _COMPOSER_SCRIPT.exists():
         raise RuntimeError(f"Missing composer script: {_COMPOSER_SCRIPT}")
     result = _run_cmd(
-        ["npx", "tsx", str(_COMPOSER_SCRIPT), str(dsl_path), ctx.work_dir],
+        [
+            "npx",
+            "tsx",
+            str(_COMPOSER_SCRIPT),
+            str(dsl_path),
+            ctx.work_dir,
+            str(variables_path),
+        ],
         cwd=str(_GUIDE_ROOT),
     )
     if result.returncode != 0:

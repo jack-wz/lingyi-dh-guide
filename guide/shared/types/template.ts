@@ -130,6 +130,13 @@ export interface EditorObject {
   locked?: boolean;
 }
 
+export interface SubtitleHfParams {
+  emphasis_words?: string[];
+  accent_color?: string;
+  intensity?: number;
+  word_timings?: Array<{ text: string; start: number; end: number }>;
+}
+
 export interface SubtitleConfig {
   enabled: boolean;
   style_id: string;
@@ -139,6 +146,8 @@ export interface SubtitleConfig {
   font_size?: number;
   /** Font family for burned-in subtitles. Omit to use globalConfig.subtitle_font_family / default_font_family. */
   font_family?: string;
+  /** HyperFrames caption component params (when style_id uses engine=hyperframes). */
+  hf_params?: SubtitleHfParams;
 }
 
 export interface TransitionConfig {

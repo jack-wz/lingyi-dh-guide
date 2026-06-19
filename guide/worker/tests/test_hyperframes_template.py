@@ -20,7 +20,15 @@ class HyperFramesTemplatePipelineTests(TestCase):
         from worker.pipelines import hyperframes_template as module
 
         with tempfile.TemporaryDirectory() as work_dir:
-            ctx = type("Ctx", (), {"work_dir": work_dir, "dsl": {"meta": {"name": "t"}, "globalConfig": {}, "segments": []}})()
+            ctx = type(
+                "Ctx",
+                (),
+                {
+                    "work_dir": work_dir,
+                    "dsl": {"meta": {"name": "t"}, "globalConfig": {}, "segments": []},
+                    "variables": {"product_name": "飞鹤奶粉"},
+                },
+            )()
             with patch.object(module.subprocess, "run") as run_mock:
                 run_mock.return_value = type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})()
                 Path(work_dir, "index.html").write_text("<html></html>", encoding="utf-8")
@@ -29,5 +37,12 @@ class HyperFramesTemplatePipelineTests(TestCase):
                 self.assertIn("tsx", args)
                 self.assertIn(str(_COMPOSER_SCRIPT), args)
                 dsl_path = Path(work_dir) / "dsl.json"
+                variables_path = Path(work_dir) / "variables.json"
                 self.assertTrue(dsl_path.exists())
+                self.assertTrue(variables_path.exists())
                 json.loads(dsl_path.read_text(encoding="utf-8"))
+                self.assertEqual(
+                    json.loads(variables_path.read_text(encoding="utf-8")),
+                    {"product_name": "飞鹤奶粉"},
+                )
+                self.assertIn(str(variables_path), args)

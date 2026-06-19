@@ -10,11 +10,16 @@ import {
 import {
   buildSubtitleStyleRenderMap,
   buildSubtitleTextShadow,
+  getSubtitleStyleDefinition,
   normalizeSubtitleStyleId,
   type SubtitleStyleRender,
   resolveSubtitleFontFamily,
   resolveSubtitleFontSize,
 } from './subtitleStyles';
+import { anySegmentUsesHyperframesCaptions } from './hfStyleRegistry.js';
+import { buildHfCaptionSeekBootstrap, renderHfCaptionClip } from './hfCaptionRenderer.js';
+
+const GSAP_RUNTIME_URL = 'https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js';
 
 export const HYPERFRAMES_RUNTIME_URL =
   'https://cdn.jsdelivr.net/npm/@hyperframes/core/dist/hyperframe.runtime.iife.js';
@@ -161,8 +166,20 @@ function renderEditorObjectHtml(obj: EditorObject, segStart: number, segDuration
     </div>`;
 }
 
+function resolveAccentColor(dsl: DSL, brandInjection: ReturnType<typeof buildBrandTokenInjection>): string {
+  const gc = dsl.globalConfig;
+  const fromFlat = String(gc.brand_color || gc.accent_color || '').trim();
+  if (fromFlat) return fromFlat;
+  const pack = gc.brand_pack as BrandPackPayload | undefined;
+  const fromPack = String(pack?.brand_color || pack?.tokens?.colors?.['digital-orange'] || '').trim();
+  if (fromPack) return fromPack;
+  const cssMatch = brandInjection.cssVariables.match(/--brand-primary:([^;]+)/);
+  return cssMatch?.[1]?.trim() || '#ff1745';
+}
+
 export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]): string {
   const assetMap = getAssetMapFromDsl(dsl);
+  const skipObjects = Boolean(resolvedSegments);
   const baseSegs = resolvedSegments || dsl.segments;
   const segs = baseSegs.map((seg) => ({
     ...seg,
@@ -186,6 +203,9 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
 
   let totalDuration = 0;
   const segmentEntries: string[] = [];
+  const hfCaptionCss: string[] = [];
+  const hfCaptionScripts: string[] = [];
+  const accentColor = resolveAccentColor(dsl, brandInjection);
 
   segs.forEach((seg, i) => {
     const start = totalDuration;
@@ -201,6 +221,7 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
     let subtitleHtml = '';
     if (seg.subtitle.enabled && seg.narration_text) {
       const styleId = normalizeSubtitleStyleId(seg.subtitle.style_id);
+      const styleDef = getSubtitleStyleDefinition(styleId);
       const style = styleMap[styleId] || styleMap.default;
       const subFont = resolveSubtitleFontFamily({
         fontFamily: (seg.subtitle as { font_family?: string }).font_family,
@@ -209,19 +230,43 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
           || brandInjection.subtitleStyleMap[seg.subtitle.style_id]?.fontFamily
           || defaultFont,
       });
-      const posY = seg.subtitle.position === 'top' ? '8%' : seg.subtitle.position === 'center' ? '45%' : '82%';
-      const animClass = seg.subtitle.animation === 'typewriter' ? 'typewriter' : seg.subtitle.animation === 'fadeIn' ? 'fade-in' : '';
-      const textShadow = buildSubtitleTextShadow(style.outline, style.weight >= 700 ? 2 : 1);
-      const bg = style.bg === 'transparent' ? 'transparent' : style.bg;
-      const padding = style.padding || (bg === 'transparent' ? '4px 8px' : '8px 16px');
-      const borderRadius = style.borderRadius ?? 8;
       const fontSizePx = resolveSubtitleFontSize({
         styleId,
         fontSize: seg.subtitle.font_size,
         globalFontSize: (dsl.globalConfig as { subtitle_font_size?: number }).subtitle_font_size,
         canvasHeight: Number((dsl.globalConfig as { canvas_height?: number }).canvas_height) || 1920,
       });
-      subtitleHtml = `
+      const hfParams = (seg.subtitle as { hf_params?: { emphasis_words?: string[]; accent_color?: string } }).hf_params;
+      const hfClip = styleDef?.engine === 'hyperframes'
+        ? renderHfCaptionClip({
+          styleId,
+          segmentId: String(seg.id || `seg-${i}`),
+          text: seg.narration_text,
+          clipStart: start,
+          clipDuration: dur,
+          canvasWidth: w,
+          canvasHeight: h,
+          position: seg.subtitle.position,
+          fontFamily: subFont,
+          fontSizePx,
+          accentColor: hfParams?.accent_color || accentColor,
+          textColor: style.color,
+          emphasisWords: hfParams?.emphasis_words,
+        })
+        : null;
+
+      if (hfClip) {
+        subtitleHtml = hfClip.html;
+        hfCaptionCss.push(hfClip.css);
+        hfCaptionScripts.push(hfClip.script);
+      } else {
+        const posY = seg.subtitle.position === 'top' ? '8%' : seg.subtitle.position === 'center' ? '45%' : '82%';
+        const animClass = seg.subtitle.animation === 'typewriter' ? 'typewriter' : seg.subtitle.animation === 'fadeIn' ? 'fade-in' : '';
+        const textShadow = buildSubtitleTextShadow(style.outline, style.weight >= 700 ? 2 : 1);
+        const bg = style.bg === 'transparent' ? 'transparent' : style.bg;
+        const padding = style.padding || (bg === 'transparent' ? '4px 8px' : '8px 16px');
+        const borderRadius = style.borderRadius ?? 8;
+        subtitleHtml = `
       <div class="clip subtitle ${animClass}" data-start="${start + 0.3}" data-duration="${Math.max(0.1, dur - 0.3)}" data-track-index="2"
            style="${clipStyle(`left:5%;right:5%;bottom:${100 - parseInt(posY, 10)}%;text-align:center;
                   color:${style.color};font-size:${fontSizePx}px;font-weight:${style.weight};
@@ -229,6 +274,7 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
                   padding:${padding};border-radius:${borderRadius}px;font-family:${subFont};`)}">
         ${escapeHtml(seg.narration_text)}
       </div>`;
+      }
     }
 
     let dhHtml = '';
@@ -316,9 +362,11 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
     });
 
     let objectsHtml = '';
-    (seg.objects || []).forEach((obj, objectIndex) => {
-      objectsHtml += renderEditorObjectHtml(obj, start, dur, objectIndex);
-    });
+    if (!skipObjects) {
+      (seg.objects || []).forEach((obj, objectIndex) => {
+        objectsHtml += renderEditorObjectHtml(obj, start, dur, objectIndex);
+      });
+    }
 
     segmentEntries.push(sceneHtml + dhHtml + subtitleHtml + overlaysHtml + objectsHtml);
   });
@@ -327,6 +375,12 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
     <audio class="clip" data-start="0" data-duration="${totalDuration}" data-track-index="4"
            data-volume="${bgm_volume}" src="${escapeHtml(bgm_url)}"></audio>
   ` : '';
+
+  const needsGsap = anySegmentUsesHyperframesCaptions(segs) || hfCaptionScripts.length > 0;
+  const gsapScriptTag = needsGsap ? `<script src="${GSAP_RUNTIME_URL}"></script>` : '';
+  const hfCaptionScriptBlock = hfCaptionScripts.length
+    ? `<script>${hfCaptionScripts.join('\n')}${buildHfCaptionSeekBootstrap()}</script>`
+    : '';
 
   return `<!DOCTYPE html>
 <html lang="zh-CN">
@@ -361,7 +415,9 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
       animation: typing 2s steps(30) forwards; width: 0;
     }
     @keyframes typing { to { width: 100%; } }
+    ${hfCaptionCss.join('\n')}
   </style>
+  ${gsapScriptTag}
 </head>
 <body>
   <div id="stage"
@@ -375,6 +431,7 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
     ${bgmHtml}
   </div>
   <script src="${HYPERFRAMES_RUNTIME_URL}"></script>
+  ${hfCaptionScriptBlock}
 </body>
 </html>`;
 }

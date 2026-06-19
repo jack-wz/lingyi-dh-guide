@@ -5,7 +5,7 @@ import type { LibraryItem } from '../../../../types/library';
 import FileUploader from '../../../../components/FileUploader';
 import FontFamilyPicker from '../../../../components/brand-editor/FontFamilyPicker';
 import { IconFilm, IconMusic, IconPalette, IconSettings2, IconType } from '../../../../components/Icons';
-import { SUBTITLE_STYLES } from '../../../../data/subtitleStyles';
+import { SubtitleStyleHint, SubtitleStyleSelect } from '../../../../components/SubtitleStylePicker';
 import {
   SUBTITLE_FONT_SIZE_DEFAULT,
   SUBTITLE_FONT_SIZE_MAX,
@@ -210,15 +210,11 @@ export default function DesignPanel({
           previewType="image"
         />
         <label className="mt-3 block text-xs text-muted-foreground mb-1">字幕样式</label>
-        <select
+        <SubtitleStyleSelect
           value={seg.subtitle.style_id}
-          onChange={(e) => updateSeg({ subtitle: { ...seg.subtitle, style_id: e.target.value } })}
-          className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
-        >
-          {SUBTITLE_STYLES.map((style) => (
-            <option key={style.id} value={style.id}>{style.name}</option>
-          ))}
-        </select>
+          onChange={(styleId) => updateSeg({ subtitle: { ...seg.subtitle, style_id: styleId } })}
+        />
+        <SubtitleStyleHint styleId={seg.subtitle.style_id} />
         <FontFamilyPicker
           label="字幕默认字体"
           value={cfg.subtitle_font_family || cfg.default_font_family || ''}

@@ -20,6 +20,8 @@ export interface SubtitleStyleRender {
   padding?: string;
 }
 
+export type SubtitleEngine = 'css' | 'hyperframes';
+
 export interface SubtitleStyleDefinition {
   id: string;
   name: string;
@@ -27,6 +29,10 @@ export interface SubtitleStyleDefinition {
   aliases?: string[];
   preview: SubtitleStylePreview;
   render: SubtitleStyleRender;
+  /** Rendering engine; hyperframes styles use HF caption adapters in composer. */
+  engine?: SubtitleEngine;
+  hf_component?: string;
+  hf_fallback_id?: string;
 }
 
 const STROKE_SHADOW = (color: string, width = 2) =>
@@ -224,6 +230,30 @@ export const SUBTITLE_STYLE_DEFINITIONS: SubtitleStyleDefinition[] = [
       weight: 400,
     },
   },
+  {
+    id: 'hf-caption-highlight',
+    name: '高亮强调（HF）',
+    description: 'HyperFrames 逐词高亮动效字幕，适合卖点口播',
+    preview: {
+      text: '限时特惠 立即抢购',
+      color: '#ffffff',
+      bg: '#ff1745',
+      fontSize: 14,
+      fontWeight: 800,
+      borderRadius: 10,
+    },
+    render: {
+      color: '#ffffff',
+      bg: '#ff1745',
+      size: '32px',
+      weight: 800,
+      borderRadius: 10,
+      padding: '6px 12px',
+    },
+    engine: 'hyperframes',
+    hf_component: 'caption-highlight',
+    hf_fallback_id: 'bold-yellow',
+  },
 ];
 
 const aliasToCanonical = new Map<string, string>();
@@ -361,4 +391,29 @@ export const SUBTITLE_STYLES = SUBTITLE_STYLE_DEFINITIONS.map((def) => ({
   name: def.name,
   description: def.description,
   preview: def.preview,
+  engine: def.engine || ('css' as SubtitleEngine),
+  hf_component: def.hf_component,
+  hf_fallback_id: def.hf_fallback_id,
 }));
+
+export const CLASSIC_SUBTITLE_STYLES = SUBTITLE_STYLES.filter((s) => s.engine !== 'hyperframes');
+export const HF_SUBTITLE_STYLES = SUBTITLE_STYLES.filter((s) => s.engine === 'hyperframes');
+
+export function isHyperframesSubtitleStyle(styleId: string): boolean {
+  const def = getSubtitleStyleDefinition(styleId);
+  return def?.engine === 'hyperframes';
+}
+
+export function dslUsesHyperframesSubtitles(dsl: {
+  segments?: Array<{ subtitle?: { enabled?: boolean; style_id?: string }; narration_text?: string }>;
+}): boolean {
+  return (dsl.segments || []).some((seg) => {
+    if (!seg.subtitle?.enabled || !String(seg.narration_text || '').trim()) return false;
+    return isHyperframesSubtitleStyle(String(seg.subtitle.style_id || ''));
+  });
+}
+
+export function getHyperframesSubtitlePipelineWarning(pipelineKey?: string): string | null {
+  if (!pipelineKey || pipelineKey === 'hyperframes_template') return null;
+  return '模板含 HyperFrames 动效字幕；当前流水线将降级为静态字幕，完整动效请选「HyperFrames 模板」流水线';
+}

@@ -25,6 +25,11 @@ export interface Segment {
     animation: SubtitleAnimation;
     font_size?: number;
     font_family?: string;
+    hf_params?: {
+      emphasis_words?: string[];
+      accent_color?: string;
+      intensity?: number;
+    };
   };
   transition: { type: string; duration: number };
   digital_human: { enabled: boolean; position: { x: number; y: number }; scale: number };

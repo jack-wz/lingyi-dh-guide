@@ -3,6 +3,8 @@ import FileUploader from '../../../../components/FileUploader';
 import FontFamilyPicker from '../../../../components/brand-editor/FontFamilyPicker';
 import { IconEye, IconEyeOff, IconImage, IconLayout, IconMic, IconType } from '../../../../components/Icons';
 import { SUBTITLE_STYLES } from '../../../../data/subtitleStyles';
+import { SubtitleStyleHint, SubtitleStyleSelect } from '../../../../components/SubtitleStylePicker';
+import { isHyperframesSubtitleStyle } from '@shared/subtitleStyles';
 import {
   resolveSubtitleFontSize,
   SUBTITLE_FONT_SIZE_DEFAULT,
@@ -78,15 +80,35 @@ export default function ObjectPanel({
             显示字幕
             <input type="checkbox" checked={seg.subtitle.enabled} onChange={(e) => updateSeg({ subtitle: { ...seg.subtitle, enabled: e.target.checked } })} />
           </label>
-          <select
-            value={seg.subtitle.style_id}
-            onChange={(e) => updateSeg({ subtitle: { ...seg.subtitle, style_id: e.target.value } })}
-            className="mt-3 w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
-          >
-            {SUBTITLE_STYLES.map((style) => (
-              <option key={style.id} value={style.id}>{style.name}</option>
-            ))}
-          </select>
+          <div className="mt-3">
+            <SubtitleStyleSelect
+              value={seg.subtitle.style_id}
+              onChange={(styleId) => updateSeg({ subtitle: { ...seg.subtitle, style_id: styleId } })}
+            />
+          </div>
+          <SubtitleStyleHint styleId={seg.subtitle.style_id} />
+          {isHyperframesSubtitleStyle(seg.subtitle.style_id) && (
+            <div className="mt-3">
+              <label className="block text-xs text-muted-foreground mb-1">强调词（逗号分隔）</label>
+              <input
+                value={(seg.subtitle.hf_params?.emphasis_words || []).join('，')}
+                onChange={(e) => {
+                  const emphasis_words = e.target.value
+                    .split(/[,，]/)
+                    .map((w) => w.trim())
+                    .filter(Boolean);
+                  updateSeg({
+                    subtitle: {
+                      ...seg.subtitle,
+                      hf_params: { ...seg.subtitle.hf_params, emphasis_words },
+                    },
+                  });
+                }}
+                placeholder="例如：限时特惠，新品"
+                className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
+              />
+            </div>
+          )}
           <div className="mt-3">
             <FontFamilyPicker
               label="字幕字体"

@@ -698,7 +698,7 @@ export default function EditorPage() {
   const totalDuration = dsl.segments.reduce((sum, seg) => sum + Number(seg.duration_sec || 0), 0);
   const selectedPipeline = pipelines.find(p => p.key === pipelineKey);
   const renderIssues = getRenderIssues(dsl, selectedPipeline, selectedDhId, inputMode, topic, scriptText, configDiagnostics, variableValues);
-  const renderWarnings = getRenderWarnings(dsl, selectedDhId);
+  const renderWarnings = getRenderWarnings(dsl, selectedDhId, pipelineKey);
   const readyToRender = renderIssues.length === 0;
   const segmentItems = dsl.segments.map((seg, index) => ({ seg, index }));
 

@@ -3,15 +3,28 @@ import {
   getSegmentVoiceIdWarnings,
   narrationRequiresDigitalHumanIssue,
 } from '@shared/renderGuards';
+import {
+  dslUsesHyperframesSubtitles,
+  getHyperframesSubtitlePipelineWarning,
+} from '@shared/subtitleStyles';
 import type { ConfigDiagnostics, DSL } from '@shared/types/editor';
 
-export function getRenderWarnings(dsl: DSL, selectedDhId: string = ''): string[] {
+export function getRenderWarnings(
+  dsl: DSL,
+  selectedDhId: string = '',
+  pipelineKey?: string,
+): string[] {
   const warnings: string[] = [];
   if (!dsl.globalConfig.brand_pack_id) {
     warnings.push('未选择品牌包（建议先选，确保字幕样式与成片字体一致）');
   }
   const dhId = selectedDhId || dsl.meta?.digital_human_id || '';
   warnings.push(...getSegmentVoiceIdWarnings(dsl, dhId));
+  if (dslUsesHyperframesSubtitles(dsl)) {
+    const activePipeline = pipelineKey || dsl.meta?.pipeline_key;
+    const hfWarning = getHyperframesSubtitlePipelineWarning(activePipeline);
+    if (hfWarning) warnings.push(hfWarning);
+  }
   return warnings;
 }
 
