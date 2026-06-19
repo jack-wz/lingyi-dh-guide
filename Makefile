@@ -8,14 +8,14 @@
 
 GUIDE_DIR := guide
 
-.PHONY: help test-guide test-guide-fast test-guide-timeline smoke-brand-render smoke-integrator smoke-integrator-ci verify-playground restart-worker preflight lint-guide \
+.PHONY: help test-guide test-guide-shared test-guide-fast test-guide-timeline smoke-brand-render smoke-hf-render smoke-integrator smoke-integrator-hf verify-playground restart-worker preflight lint-guide \
 	validate-renders validate-renders-strict validate-renders-ci validate-render-job \
 	batch-reassemble batch-reassemble-dry
 
 help:
 	@$(MAKE) -C $(GUIDE_DIR) help
 
-test-guide test-guide-fast test-guide-timeline smoke-brand-render smoke-integrator smoke-integrator-ci verify-playground restart-worker preflight lint-guide \
+test-guide test-guide-shared test-guide-fast test-guide-timeline smoke-brand-render smoke-hf-render smoke-integrator smoke-integrator-hf verify-playground restart-worker preflight lint-guide \
 validate-renders validate-renders-strict validate-renders-ci validate-render-job \
 batch-reassemble batch-reassemble-dry:
 	@$(MAKE) -C $(GUIDE_DIR) $@

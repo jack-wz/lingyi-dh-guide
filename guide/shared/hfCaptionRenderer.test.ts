@@ -50,6 +50,13 @@ describe('hfCaptionRenderer', () => {
     assert.match(clip!.script, /caption-highlight-s1/);
   });
 
+  it('marks pill karaoke layering for HF layout inspect', () => {
+    const clip = renderCaptionPillClip({ ...BASE_CTX, styleId: 'hf-caption-pill' });
+    assert.ok(clip);
+    assert.match(clip!.html, /data-layout-allow-occlusion/);
+    assert.match(clip!.script, /overwrite: 'auto'/);
+  });
+
   it('scales caption layout for narrow vertical canvases', () => {
     const ref = renderCaptionPillClip({ ...BASE_CTX, styleId: 'hf-caption-pill' });
     const narrow = renderCaptionPillClip({

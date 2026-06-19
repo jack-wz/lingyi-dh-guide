@@ -18,6 +18,27 @@ on:
   workflow_dispatch:
 
 jobs:
+  guide-shared:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: guide/package-lock.json
+
+      - name: Install guide workspaces
+        working-directory: guide
+        run: npm ci
+
+      - name: Shared TS unit tests (HF adapters, composer)
+        working-directory: guide
+        run: make test-guide-shared
+
   guide-server:
     runs-on: ubuntu-latest
     steps:
@@ -78,6 +99,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: guide/package-lock.json
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -96,6 +124,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r guide/worker/requirements.txt
 
+      - name: Install guide npm deps (hyperframes CLI for HF unit tests)
+        working-directory: guide
+        run: npm ci
+
       - name: Install system tools (ffmpeg, node for preflight)
         run: |
           sudo apt-get update
@@ -111,6 +143,11 @@ jobs:
       - name: Worker unit tests
         run: make test-guide
 
+      - name: HF pipeline unit tests (skip slow Chrome render in CI)
+        env:
+          SKIP_HF_RENDER_SMOKE: '1'
+        run: make smoke-hf-render
+
       - name: Upload audit report (if generated)
         if: always()
         uses: actions/upload-artifact@v4
@@ -118,3 +155,39 @@ jobs:
           name: render-jobs-audit
           path: guide/data/render_jobs_audit.json
           if-no-files-found: ignore
+
+  guide-hf-render:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: guide/package-lock.json
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r guide/worker/requirements.txt
+
+      - name: Install guide npm deps
+        working-directory: guide
+        run: npm ci
+
+      - name: Install Playwright Chromium (HyperFrames render)
+        working-directory: guide/web
+        run: npx playwright install --with-deps chromium
+
+      - name: HF compose + render smoke
+        run: make smoke-hf-render

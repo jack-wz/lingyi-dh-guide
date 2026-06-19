@@ -219,7 +219,7 @@ export function renderCaptionPillClip(ctx: HfCaptionRenderContext): HfCaptionCli
   const html = wrapCaptionClip('caption-pill-karaoke', 'hf-caption-pill', ctx, timing, `
       <div class="pill-shell" id="pill-${timing.timelineId}" style="opacity:0;transform:scale(0.92);">
         <div class="pill-box" style="background:${pillBg};">
-          <div class="pill-copy">${wordHtml}</div>
+          <div class="pill-copy" data-layout-allow-occlusion data-layout-allow-overlap>${wordHtml}</div>
         </div>
       </div>`);
 
@@ -233,7 +233,10 @@ export function renderCaptionPillClip(ctx: HfCaptionRenderContext): HfCaptionCli
       display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: ${layout.gap + 2}px;
       font-family: ${ctx.fontFamily}, 'PingFang SC', sans-serif; font-weight: 700; line-height: 1.2;
     }
-    .hf-caption-pill .pill-word { transition: color 0.1s; display: inline-block; }
+    .hf-caption-pill .pill-word {
+      transition: color 0.1s; display: inline-block; position: relative; z-index: 1;
+      transform-origin: 50% 50%;
+    }
     .hf-caption-pill .pill-gap { width: 4px; }
   `;
 
@@ -246,8 +249,8 @@ export function renderCaptionPillClip(ctx: HfCaptionRenderContext): HfCaptionCli
       WORDS.forEach(function(w, wi) {
         var el = document.getElementById('pill-w-' + timelineId + '-' + wi);
         if (!el) return;
-        tl.to(el, { color: '${ctx.accentColor}', scale: 1.06, duration: 0.12, ease: 'power2.out' }, w.start);
-        tl.to(el, { color: '${ctx.textColor}', scale: 1, duration: 0.18, ease: 'power2.inOut' }, w.end);
+        tl.to(el, { color: '${ctx.accentColor}', scale: 1.06, duration: 0.12, ease: 'power2.out', overwrite: 'auto' }, w.start);
+        tl.to(el, { color: '${ctx.textColor}', scale: 1, duration: 0.18, ease: 'power2.inOut', overwrite: 'auto' }, w.end);
       });
   `);
 

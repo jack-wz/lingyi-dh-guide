@@ -1,0 +1,27 @@
+<!-- hyperframes-registry-item: transitions-zoom -->
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { width: 1920px; height: 1080px; overflow: hidden; background: #000; }
+      .zoom-veil {
+        position: absolute; inset: 0; pointer-events: none;
+        background: #2563eb; opacity: 0; transform: scale(1);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="zoom-veil" id="zoom-veil"></div>
+    <script>
+      window.__timelines = window.__timelines || {};
+      var tl = gsap.timeline({ paused: true });
+      tl.to('#zoom-veil', { opacity: 0.35, scale: 1.08, duration: 0.3, ease: 'power2.inOut' }, 0);
+      tl.to('#zoom-veil', { opacity: 0, scale: 1, duration: 0.3, ease: 'power2.inOut' }, 0.3);
+      window.__timelines['transitions-zoom'] = tl;
+    </script>
+  </body>
+</html>

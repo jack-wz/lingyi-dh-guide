@@ -13,7 +13,7 @@ RUN_PYTEST := "$(SCRIPTS)/run_pytest.sh"
 TEMPLATE_ID ?= 517a1920-6376-47ef-871b-9badbaa16b53
 MIN_SEGMENTS ?= 4
 
-.PHONY: help setup-worker-venv test-guide test-guide-server test-guide-e2e test-guide-fast test-guide-timeline smoke-brand-render smoke-hf-render smoke-integrator smoke-integrator-hf smoke-integrator-ci verify-playground start-guide-internal restart-worker lint-guide \
+.PHONY: help setup-worker-venv test-guide test-guide-server test-guide-shared test-guide-e2e test-guide-fast test-guide-timeline smoke-brand-render smoke-hf-render smoke-integrator smoke-integrator-hf smoke-integrator-ci verify-playground start-guide-internal restart-worker lint-guide \
 	validate-renders validate-renders-strict validate-renders-ci validate-render-job \
 	batch-reassemble batch-reassemble-dry preflight
 
@@ -21,6 +21,7 @@ help:
 	@echo "Guide Makefile targets:"
 	@echo "  test-guide              Run worker unit tests"
 	@echo "  test-guide-server       Run guide Express API unit tests"
+	@echo "  test-guide-shared       Run shared TS unit tests (HF adapters, composer)"
 	@echo "  test-guide-e2e          Playwright E2E (isolated :3100/:5180, incl. HF smoke)"
 	@echo "  test-guide-fast         Timeline / ASS / audit unit tests only"
 	@echo "  smoke-brand-render      E2E: brand TTF → ASS → FFmpeg MP4 (needs ffmpeg-full)"
@@ -48,6 +49,9 @@ test-guide: setup-worker-venv
 
 test-guide-server:
 	cd "$(ROOT)/server" && npm test
+
+test-guide-shared:
+	cd "$(ROOT)" && node --import tsx --test shared/*.test.ts
 
 test-guide-e2e:
 	cd "$(ROOT)/web" && npm run test:e2e
