@@ -30,6 +30,11 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Guide integrator smoke test")
     parser.add_argument("--api", default=os.getenv("SERVER_URL", "http://127.0.0.1:8000").rstrip("/"))
     parser.add_argument("--template-id", default=os.getenv("SMOKE_TEMPLATE_ID", DEFAULT_TEMPLATE))
+    parser.add_argument(
+        "--pipeline-key",
+        default=os.getenv("SMOKE_PIPELINE_KEY", "template_editor"),
+        help="Render pipeline (e.g. template_editor, hyperframes_template)",
+    )
     parser.add_argument("--timeout", type=int, default=int(os.getenv("SMOKE_POLL_TIMEOUT_SEC", "3600")))
     parser.add_argument("--poll-interval", type=int, default=int(os.getenv("SMOKE_POLL_INTERVAL_SEC", "10")))
     parser.add_argument(
@@ -67,7 +72,7 @@ def main() -> int:
 
     payload = {
         "template_id": args.template_id,
-        "pipeline_key": "template_editor",
+        "pipeline_key": args.pipeline_key,
         "input_mode": "template",
     }
     try:
@@ -87,7 +92,7 @@ def main() -> int:
         job_id = job.get("id")
         if not job_id:
             return fail("Create response missing id", body=job)
-        log("render_created", job_id=job_id, template_id=args.template_id)
+        log("render_created", job_id=job_id, template_id=args.template_id, pipeline_key=args.pipeline_key)
     except Exception as exc:
         return fail("POST /api/renders error", detail=str(exc))
 
