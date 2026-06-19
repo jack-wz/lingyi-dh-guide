@@ -155,6 +155,7 @@ export default function DesignPanel({
         </label>
         <div className="mt-3">
           <TransitionStyleSelect
+            data-testid="segment-transition-type"
             value={seg.transition.type}
             onChange={(type) => updateSeg({
               transition: {

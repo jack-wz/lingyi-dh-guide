@@ -20,7 +20,7 @@ export default defineConfig({
   },
   webServer: [
     {
-      command: 'DISABLE_RENDER_WORKER=1 PORT=3100 npm run dev --workspace=server',
+      command: 'ENABLE_HF_TEMPLATE_PIPELINE=1 DISABLE_RENDER_WORKER=1 PORT=3100 npm run dev --workspace=server',
       cwd: '..',
       url: `${e2eApiUrl}/api/health`,
       reuseExistingServer: true,

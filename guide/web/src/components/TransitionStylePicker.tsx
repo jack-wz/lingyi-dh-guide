@@ -23,13 +23,20 @@ export function TransitionStyleSelect({
   value,
   onChange,
   className = 'w-full h-9 rounded-md border border-border bg-background px-3 text-sm',
+  'data-testid': dataTestId,
 }: {
   value: string;
   onChange: (type: string) => void;
   className?: string;
+  'data-testid'?: string;
 }) {
   return (
-    <select value={value} onChange={(e) => onChange(e.target.value)} className={className}>
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className={className}
+      data-testid={dataTestId}
+    >
       <optgroup label="经典转场">
         {CLASSIC_TRANSITIONS.map((item) => (
           <option key={item.id} value={item.id}>{item.name}</option>
