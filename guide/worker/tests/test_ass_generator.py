@@ -137,6 +137,25 @@ class TestAssGenerator(unittest.TestCase):
         self.assertIn(r"{\k", body)
         self.assertIn("限", body)
 
+    def test_generate_ass_respects_subtitle_position(self):
+        segments = [
+            {
+                "narration_text": "顶部字幕测试。",
+                "duration_sec": 4.0,
+                "subtitle": {
+                    "enabled": True,
+                    "style_id": "default",
+                    "position": "top",
+                    "animation": "fadeIn",
+                },
+            }
+        ]
+        path = "/tmp/test_subtitles_top_position.ass"
+        generate_ass(segments, {"canvas_width": 1080, "canvas_height": 1920}, path)
+        with open(path, encoding="utf-8-sig") as f:
+            content = f.read()
+        self.assertIn(",8,10,10,", content)
+
     def test_generate_ass_hf_style_with_karaoke(self):
         segments = [
             {
@@ -166,6 +185,7 @@ class TestAssGenerator(unittest.TestCase):
         self.assertIn(r"{\k", content)
         self.assertIn("&H00EB6325", content)  # #2563eb primary override BGR
         self.assertIn(",3,2,2,2,10,10,120,1", content)  # subtitle-card boxed ASS style
+        self.assertIn("SecondaryColour", content)
 
     def test_generate_ass_uses_segment_subtitle_font_family(self):
         segments = [

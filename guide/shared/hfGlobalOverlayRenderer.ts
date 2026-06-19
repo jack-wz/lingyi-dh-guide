@@ -1,5 +1,7 @@
 /** Guide-native adapters for HyperFrames global overlays (grain, vignette, VFX). */
 
+import { hfOverlayMetrics } from './hfVerticalScale.js';
+
 export type HfGlobalOverlayType = 'hf-grain' | 'hf-vignette' | 'hf-light-leak' | 'hf-motion-blur';
 export type HfMotionBlurDirection = 'horizontal' | 'vertical';
 
@@ -184,6 +186,7 @@ export function renderLightLeakOverlay(
   const leakColor = String(item.leak_color || ctx.accentColor || '#fb8b24').trim();
   const warm = leakColor;
   const fade = `${leakColor}00`;
+  const overlay = hfOverlayMetrics(ctx.canvasWidth, ctx.canvasHeight);
 
   const html = `
     <div class="clip hf-global-overlay hf-global-light-leak" data-hf-component="light-leak"
@@ -197,12 +200,12 @@ export function renderLightLeakOverlay(
   const css = `
     .hf-global-light-leak .leak-band {
       position: absolute;
-      width: 70%;
+      width: ${overlay.leakBandWidthPct}%;
       height: 140%;
       top: -20%;
       border-radius: 50%;
       opacity: 0;
-      filter: blur(42px);
+      filter: blur(${overlay.leakBlurPx}px);
       background: radial-gradient(circle at 30% 40%, ${warm} 0%, ${fade} 72%);
       will-change: transform, opacity;
     }
@@ -232,7 +235,8 @@ export function renderMotionBlurOverlay(
   const timelineId = 'motion-blur';
   const blurIntensity = clamp(Number(item.blur_intensity ?? 0.35), 0.15, 0.65);
   const direction = item.direction === 'vertical' ? 'vertical' : 'horizontal';
-  const blurPx = Math.round(4 + blurIntensity * 18);
+  const overlay = hfOverlayMetrics(ctx.canvasWidth, ctx.canvasHeight);
+  const blurPx = overlay.motionBlurPx(blurIntensity);
   const streakOpacity = (blurIntensity * 0.55).toFixed(2);
   const gradient = direction === 'vertical'
     ? `linear-gradient(180deg, transparent 0%, rgba(255,255,255,${streakOpacity}) 48%, transparent 100%)`

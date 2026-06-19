@@ -29,6 +29,22 @@ describe('hfGlobalOverlayRenderer', () => {
     assert.match(clip.css, /opacity: 0\.2/);
   });
 
+  it('scales light leak blur on narrow canvases', () => {
+    const ref = renderLightLeakOverlay(
+      { type: 'hf-light-leak', enabled: true, leak_intensity: 0.5 },
+      { totalDuration: 8, canvasWidth: 1080, canvasHeight: 1920, accentColor: '#fb8b24' },
+    );
+    const narrow = renderLightLeakOverlay(
+      { type: 'hf-light-leak', enabled: true, leak_intensity: 0.5 },
+      { totalDuration: 8, canvasWidth: 720, canvasHeight: 1280, accentColor: '#fb8b24' },
+    );
+    const refBlur = Number(ref.css.match(/blur\((\d+)px\)/)?.[1] || 0);
+    const narrowBlur = Number(narrow.css.match(/blur\((\d+)px\)/)?.[1] || 0);
+    assert.ok(refBlur > 0 && narrowBlur > 0);
+    assert.ok(narrowBlur < refBlur);
+    assert.match(narrow.css, /width: 78%/);
+  });
+
   it('composer embeds global overlays for full duration', () => {
     const html = generateHyperframesHTML({
       meta: { name: 'Overlay Test', type: 'smoke' },

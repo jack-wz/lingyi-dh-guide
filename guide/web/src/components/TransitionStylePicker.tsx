@@ -12,6 +12,9 @@ export const HF_TRANSITIONS = [
   { id: 'hf-push', name: '推入过渡（HF）', description: '色块推入推出，节奏感强' },
   { id: 'hf-push-left', name: '左推过渡（HF）', description: '从左侧推入切场' },
   { id: 'hf-push-right', name: '右推过渡（HF）', description: '从右侧推入切场' },
+  { id: 'hf-push-up', name: '上推过渡（HF）', description: '自下向上推入，适合竖屏节奏切场' },
+  { id: 'hf-push-down', name: '下推过渡（HF）', description: '自上向下推入，适合段落收束' },
+  { id: 'hf-zoom', name: '缩放过渡（HF）', description: '品牌色径向缩放，强调段落转折' },
 ] as const;
 
 export function TransitionStyleSelect({

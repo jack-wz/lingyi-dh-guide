@@ -321,6 +321,34 @@ def _resolve_ass_font(global_config: dict) -> str:
     return _resolve_subtitle_font_family({}, global_config)
 
 
+def _resolve_ass_alignment(position: str) -> int:
+    pos = str(position or "bottom").strip().lower()
+    if pos == "top":
+        return 8
+    if pos == "center":
+        return 5
+    return 2
+
+
+def _resolve_margin_v(position: str, canvas_h: int) -> int:
+    pos = str(position or "bottom").strip().lower()
+    scale = max(0.6, min(1.4, float(canvas_h) / 1920.0))
+    if pos == "top":
+        return max(40, round(80 * scale))
+    if pos == "center":
+        return 0
+    return max(60, round(120 * scale))
+
+
+def _resolve_hf_karaoke_secondary_color(canonical_style: str) -> str | None:
+    from worker.subtitle_styles import get_subtitle_style_definition
+
+    definition = get_subtitle_style_definition(canonical_style)
+    render = (definition or {}).get("render") or {}
+    color = str(render.get("color") or "").strip()
+    return color or None
+
+
 def generate_ass(
     segments: list[dict],
     global_config: dict,
@@ -345,8 +373,14 @@ def generate_ass(
         font_name: str,
         *,
         primary_override: str | None = None,
+        secondary_override: str | None = None,
+        alignment: int = 2,
+        margin_v: int = 120,
     ) -> str:
-        key = f"{canonical_style}_{font_size}_{font_name}_{primary_override or ''}"
+        key = (
+            f"{canonical_style}_{font_size}_{font_name}_{primary_override or ''}_"
+            f"{secondary_override or ''}_{alignment}_{margin_v}"
+        )
         if key in style_registry:
             return style_registry[key]
         name = f"Style_{len(style_registry)}"
@@ -357,6 +391,9 @@ def generate_ass(
                 font_size,
                 canonical_style,
                 primary_override=primary_override,
+                secondary_override=secondary_override,
+                alignment=alignment,
+                margin_v=margin_v,
             )
         )
         style_registry[key] = name
@@ -379,6 +416,13 @@ def generate_ass(
         hf_params = subtitle_cfg.get("hf_params") or {}
         word_timings = hf_params.get("word_timings") or []
         primary_override = str(hf_params.get("accent_color") or global_config.get("brand_color") or "").strip() or None
+        secondary_override = None
+        if ass_degraded_hf and primary_override:
+            secondary_override = _resolve_hf_karaoke_secondary_color(canonical_style)
+
+        subtitle_position = str(subtitle_cfg.get("position") or "bottom")
+        ass_alignment = _resolve_ass_alignment(subtitle_position)
+        margin_v = _resolve_margin_v(subtitle_position, int(canvas_h))
 
         seg_font_size = _resolve_subtitle_font_size(
             subtitle_cfg,
@@ -393,6 +437,9 @@ def generate_ass(
             seg_font_size,
             seg_font,
             primary_override=primary_override if ass_degraded_hf else None,
+            secondary_override=secondary_override if ass_degraded_hf and word_timings else None,
+            alignment=ass_alignment,
+            margin_v=margin_v,
         )
 
         phrases = split_narration_phrases(text, max_chars=max_chars)

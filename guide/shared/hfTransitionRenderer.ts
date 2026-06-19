@@ -19,7 +19,15 @@ export interface HfTransitionClipOutput {
   requiresGsap: boolean;
 }
 
-export const HF_TRANSITION_TYPES = new Set(['hf-dissolve', 'hf-push', 'hf-push-left', 'hf-push-right']);
+export const HF_TRANSITION_TYPES = new Set([
+  'hf-dissolve',
+  'hf-push',
+  'hf-push-left',
+  'hf-push-right',
+  'hf-push-up',
+  'hf-push-down',
+  'hf-zoom',
+]);
 
 export function isHyperframesTransitionType(type: string): boolean {
   return HF_TRANSITION_TYPES.has(String(type || '').trim());
@@ -119,11 +127,56 @@ export function renderPushTransition(ctx: HfTransitionRenderContext): HfTransiti
   return { html, css, script, timelineId, requiresGsap: true };
 }
 
+export function renderZoomTransition(ctx: HfTransitionRenderContext): HfTransitionClipOutput {
+  const timelineId = `trans-zoom-${ctx.segmentId}`;
+  const html = `
+    <div class="clip hf-transition hf-trans-zoom" data-hf-component="transitions-zoom"
+         id="hf-trans-${timelineId}" data-timeline-id="${timelineId}"
+         data-start="${ctx.clipStart}" data-duration="${ctx.clipDuration}" data-track-index="5"
+         style="position:absolute;inset:0;pointer-events:none;z-index:5;overflow:hidden;">
+      <div class="zoom-veil" id="zoom-veil-${timelineId}"
+           style="position:absolute;inset:0;background:radial-gradient(circle at 50% 50%, ${ctx.accentColor} 0%, rgba(0,0,0,0.55) 100%);opacity:0;transform:scale(0.75);"></div>
+    </div>`;
+
+  const css = `
+    .hf-trans-zoom .zoom-veil { will-change: transform, opacity; transform-origin: 50% 50%; }
+  `;
+
+  const script = gsapTimelineScript(timelineId, `
+      var veil = document.getElementById('zoom-veil-' + timelineId);
+      if (!veil) return;
+      var half = ${ctx.clipDuration} / 2;
+      tl.fromTo(veil, { opacity: 0, scale: 0.72 }, { opacity: 0.92, scale: 1, duration: half, ease: 'power2.inOut' }, 0);
+      tl.to(veil, { opacity: 0, scale: 1.18, duration: half, ease: 'power2.out' }, half);
+  `);
+
+  return { html, css, script, timelineId, requiresGsap: true };
+}
+
+function resolvePushDirection(transitionType: string): HfTransitionRenderContext['direction'] {
+  const type = String(transitionType || '').trim();
+  if (type === 'hf-push-left') return 'left';
+  if (type === 'hf-push-right') return 'right';
+  if (type === 'hf-push-up') return 'up';
+  if (type === 'hf-push-down') return 'down';
+  return 'right';
+}
+
 export function renderHfTransitionClip(ctx: HfTransitionRenderContext): HfTransitionClipOutput | null {
   const type = String(ctx.transitionType || '').trim();
   if (type === 'hf-dissolve') return renderDissolveTransition(ctx);
-  if (type === 'hf-push' || type === 'hf-push-left' || type === 'hf-push-right') {
-    return renderPushTransition(ctx);
+  if (type === 'hf-zoom') return renderZoomTransition(ctx);
+  if (
+    type === 'hf-push'
+    || type === 'hf-push-left'
+    || type === 'hf-push-right'
+    || type === 'hf-push-up'
+    || type === 'hf-push-down'
+  ) {
+    return renderPushTransition({
+      ...ctx,
+      direction: ctx.direction || resolvePushDirection(type),
+    });
   }
   return null;
 }

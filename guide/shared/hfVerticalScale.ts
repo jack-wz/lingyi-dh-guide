@@ -59,3 +59,23 @@ export function scaleHfCaptionFontSize(
   const scaled = Math.round(fontSizePx * metrics.fontScale * metrics.scale);
   return Math.max(metrics.minFontSize, Math.min(metrics.maxFontSize, scaled));
 }
+
+export interface HfOverlayMetrics {
+  scale: number;
+  leakBlurPx: number;
+  leakBandWidthPct: number;
+  motionBlurPx: (intensity: number) => number;
+}
+
+export function hfOverlayMetrics(canvasWidth: number, canvasHeight: number): HfOverlayMetrics {
+  const scale = hfScaleFactor(canvasWidth, canvasHeight);
+  return {
+    scale,
+    leakBlurPx: Math.max(18, Math.round(42 * scale)),
+    leakBandWidthPct: canvasWidth < 900 ? 78 : 70,
+    motionBlurPx: (intensity: number) => {
+      const clamped = Math.max(0.15, Math.min(0.65, intensity));
+      return Math.max(3, Math.round((4 + clamped * 18) * scale));
+    },
+  };
+}

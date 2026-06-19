@@ -259,11 +259,15 @@ def build_ass_style_line(
     style_id: str,
     *,
     primary_override: str | None = None,
+    secondary_override: str | None = None,
+    alignment: int = 2,
+    margin_v: int = 120,
 ) -> str:
     """Build one ASS Style: line from registry definition."""
     definition = get_subtitle_style_definition(style_id)
     render = (definition or {}).get("render") or {}
     primary = rgba_to_ass_color(primary_override or render.get("color", "#ffffff"))
+    secondary = rgba_to_ass_color(secondary_override or render.get("color", "#ffffff"), default_alpha=180)
     outline_color = rgba_to_ass_color(render.get("outline", "#000000"))
     bg = render.get("bg", "transparent")
     has_box = bg and str(bg).lower() != "transparent"
@@ -273,8 +277,9 @@ def build_ass_style_line(
     bold = -1 if weight >= 700 else 0
     outline_w = 4 if weight >= 800 else (3 if render.get("outline") else 2)
     shadow = 2 if has_box else 1
-    # Alignment 2 = bottom center
+    align = max(1, min(9, int(alignment)))
+    margin = max(0, int(margin_v))
     return (
-        f"Style: {name},{font},{font_size},{primary},&H000000FF,{outline_color},{back_colour},"
-        f"{bold},0,0,0,100,100,0,0,{border_style},{outline_w},{shadow},2,10,10,120,1"
+        f"Style: {name},{font},{font_size},{primary},{secondary},{outline_color},{back_colour},"
+        f"{bold},0,0,0,100,100,0,0,{border_style},{outline_w},{shadow},{align},10,10,{margin},1"
     )
