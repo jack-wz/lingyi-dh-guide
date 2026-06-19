@@ -19,6 +19,7 @@ import {
 import { anySegmentUsesHyperframesCaptions } from './hfStyleRegistry.js';
 import { buildHfCaptionSeekBootstrap, renderHfCaptionClip } from './hfCaptionRenderer.js';
 import { isHyperframesTransitionType, renderHfTransitionClip, buildHfTransitionSeekBootstrap } from './hfTransitionRenderer.js';
+import { renderHfGlobalOverlayClips } from './hfGlobalOverlayRenderer.js';
 
 const GSAP_RUNTIME_URL = 'https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js';
 
@@ -399,6 +400,12 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
     }
   });
 
+  const globalOverlayClips = renderHfGlobalOverlayClips(dsl.globalConfig.hf_overlays, {
+    totalDuration,
+    canvasWidth: w,
+    canvasHeight: h,
+  });
+
   const bgmHtml = bgm_url ? `
     <audio class="clip" data-start="0" data-duration="${totalDuration}" data-track-index="4"
            data-volume="${bgm_volume}" src="${escapeHtml(bgm_url)}"></audio>
@@ -448,6 +455,7 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
     @keyframes typing { to { width: 100%; } }
     ${hfCaptionCss.join('\n')}
     ${hfTransitionCss.join('\n')}
+    ${globalOverlayClips.css}
   </style>
   ${gsapScriptTag}
 </head>
@@ -461,6 +469,7 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
        data-fps="${fps}">
     ${segmentEntries.join('\n')}
     ${transitionEntries.join('\n')}
+    ${globalOverlayClips.html}
     ${bgmHtml}
   </div>
   <script src="${HYPERFRAMES_RUNTIME_URL}"></script>

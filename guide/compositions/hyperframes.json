@@ -12,6 +12,8 @@
     { "name": "caption-editorial-emphasis", "type": "hyperframes:component", "styleId": "hf-caption-editorial", "adapter": "guide-native" },
     { "name": "caption-gradient-fill", "type": "hyperframes:component", "styleId": "hf-caption-gradient", "adapter": "guide-native" },
     { "name": "transitions-dissolve", "type": "hyperframes:block", "transitionType": "hf-dissolve", "adapter": "guide-native" },
-    { "name": "transitions-push", "type": "hyperframes:block", "transitionType": "hf-push", "adapter": "guide-native" }
+    { "name": "transitions-push", "type": "hyperframes:block", "transitionType": "hf-push", "adapter": "guide-native" },
+    { "name": "grain-overlay", "type": "hyperframes:component", "overlayType": "hf-grain", "adapter": "guide-native" },
+    { "name": "vignette", "type": "hyperframes:component", "overlayType": "hf-vignette", "adapter": "guide-native" }
   ]
 }

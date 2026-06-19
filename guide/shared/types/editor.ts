@@ -128,6 +128,13 @@ export interface GlobalConfig {
   subtitle_font_family?: string;
   asset_map?: Record<string, string>;
   digital_human_catalog?: DigitalHumanCatalog;
+  hf_overlays?: Array<{
+    type: 'hf-grain' | 'hf-vignette';
+    enabled: boolean;
+    opacity?: number;
+    intensity?: number;
+    vignette_size?: number;
+  }>;
 }
 
 export interface DSL {

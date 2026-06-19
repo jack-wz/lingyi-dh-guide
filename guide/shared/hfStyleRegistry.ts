@@ -60,6 +60,22 @@ export const HF_STYLE_BINDINGS: HfStyleBinding[] = [
     requiresGsap: true,
     brandTokenKeys: ['brand_color', 'accent_color'],
   },
+  {
+    styleId: 'hf-grain',
+    hfName: 'grain-overlay',
+    slot: 'overlay',
+    fallbackStyleId: 'default',
+    verticalSafe: true,
+    requiresGsap: false,
+  },
+  {
+    styleId: 'hf-vignette',
+    hfName: 'vignette',
+    slot: 'overlay',
+    fallbackStyleId: 'default',
+    verticalSafe: true,
+    requiresGsap: false,
+  },
 ];
 
 const bindingByStyleId = new Map(HF_STYLE_BINDINGS.map((b) => [b.styleId, b]));

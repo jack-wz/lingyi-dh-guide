@@ -4,7 +4,8 @@ import type { DSL, Segment } from '@shared/types/editor';
 import type { LibraryItem } from '../../../../types/library';
 import FileUploader from '../../../../components/FileUploader';
 import FontFamilyPicker from '../../../../components/brand-editor/FontFamilyPicker';
-import { IconFilm, IconMusic, IconPalette, IconSettings2, IconType } from '../../../../components/Icons';
+import { IconFilm, IconMusic, IconPalette, IconSettings2, IconSparkles, IconType } from '../../../../components/Icons';
+import { HfGlobalOverlayPanel } from '../../../../components/HfGlobalOverlayPanel';
 import { SubtitleStyleHint, SubtitleStyleSelect } from '../../../../components/SubtitleStylePicker';
 import { TransitionStyleHint, TransitionStyleSelect } from '../../../../components/TransitionStylePicker';
 import { isHyperframesTransitionType } from '@shared/hfTransitionRenderer';
@@ -183,6 +184,13 @@ export default function DesignPanel({
             />
           </div>
         )}
+      </PanelSection>
+
+      <PanelSection title="画面质感" icon={<IconSparkles size={15} />}>
+        <HfGlobalOverlayPanel
+          overlays={cfg.hf_overlays}
+          onChange={(hf_overlays) => updateGlobal({ hf_overlays })}
+        />
       </PanelSection>
 
       <PanelSection title="品牌与字幕" icon={<IconType size={15} />}>

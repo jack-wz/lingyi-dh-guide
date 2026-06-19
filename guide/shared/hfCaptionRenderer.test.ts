@@ -33,7 +33,8 @@ describe('hfCaptionRenderer', () => {
   });
 
   it('renders all registered hf caption adapters', () => {
-    for (const binding of HF_STYLE_BINDINGS) {
+    const captionBindings = HF_STYLE_BINDINGS.filter((binding) => binding.slot === 'subtitle');
+    for (const binding of captionBindings) {
       const clip = renderHfCaptionClip({ ...BASE_CTX, styleId: binding.styleId });
       assert.ok(clip, `missing renderer for ${binding.styleId}`);
       assert.match(clip!.html, new RegExp(`data-hf-component="${binding.hfName}"`));
@@ -51,7 +52,8 @@ describe('hfCaptionRenderer', () => {
 
 describe('hyperframesComposer hf captions', () => {
   it('embeds GSAP for each hyperframes subtitle style', () => {
-    for (const binding of HF_STYLE_BINDINGS) {
+    const captionBindings = HF_STYLE_BINDINGS.filter((binding) => binding.slot === 'subtitle');
+    for (const binding of captionBindings) {
       const html = generateHyperframesHTML({
         meta: { name: 'HF Style Test', type: 'smoke' },
         globalConfig: {

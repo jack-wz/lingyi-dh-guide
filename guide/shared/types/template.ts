@@ -55,6 +55,18 @@ export interface GlobalConfig {
   subtitle_font_size?: number;
   /** Default subtitle font family (CSS / ASS Fontname). Segments may override via subtitle.font_family. */
   subtitle_font_family?: string;
+  /** Full-video HyperFrames overlays (grain, vignette). */
+  hf_overlays?: HfGlobalOverlayItem[];
+}
+
+export type HfGlobalOverlayType = 'hf-grain' | 'hf-vignette';
+
+export interface HfGlobalOverlayItem {
+  type: HfGlobalOverlayType;
+  enabled: boolean;
+  opacity?: number;
+  intensity?: number;
+  vignette_size?: number;
 }
 
 export interface Segment {
