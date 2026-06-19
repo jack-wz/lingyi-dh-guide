@@ -58,6 +58,13 @@ class HyperFramesTemplatePipeline(BasePipeline):
 
     async def parse(self, ctx: PipelineContext):
         ctx.report_progress("parsing", 10, "正在生成 HyperFrames composition...")
+        from worker.config import _load_json
+        from worker.whisper_aligner import apply_whisper_subtitle_timings
+
+        segments = ctx.dsl.get("segments") or []
+        if segments:
+            apply_whisper_subtitle_timings(segments, work_dir=ctx.work_dir, config=_load_json())
+            ctx.dsl["segments"] = segments
         _write_composition(ctx)
         ctx.resolved_variables = {}
         ctx.segments = ctx.dsl.get("segments", [])

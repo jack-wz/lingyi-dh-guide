@@ -162,6 +162,68 @@ def resolve_subtitle_aligner(config: dict[str, Any] | None = None) -> str:
     return mode if mode in {"whisper", "heuristic"} else "whisper"
 
 
+def split_caption_display_units(text: str) -> list[str]:
+    """Mirror shared/captionWordTimings.ts splitCaptionWords for karaoke units."""
+    trimmed = (text or "").strip()
+    if not trimmed:
+        return []
+    if re.search(r"[\u4e00-\u9fff]", trimmed):
+        parts = [p.strip() for p in re.split(r"(?<=[，。！？、；：,.!?])", trimmed) if p.strip()]
+        if len(parts) > 1:
+            return parts
+        return [ch for ch in trimmed if not ch.isspace()]
+    return [p for p in trimmed.split() if p]
+
+
+def build_heuristic_word_timings(units: list[str], duration: float, *, lead_in: float = 0.25) -> list[dict[str, float | str]]:
+    if not units:
+        return []
+    window = max(0.4, float(duration) - lead_in - 0.1)
+    slice_sec = max(0.05, window / len(units))
+    timings: list[dict[str, float | str]] = []
+    for index, text in enumerate(units):
+        start = lead_in + index * slice_sec
+        end = min(float(duration), start + slice_sec * 0.85)
+        timings.append({"text": text, "start": round(start, 3), "end": round(end, 3)})
+    return timings
+
+
+def attach_hf_word_timings(
+    seg: dict[str, Any],
+    *,
+    duration: float,
+    asr_segments: list[_ASR_SEGMENT] | None = None,
+    aligner: str = "heuristic",
+) -> None:
+    """Populate subtitle.hf_params.word_timings for HyperFrames karaoke captions."""
+    text = (seg.get("narration_text") or "").strip()
+    if not text:
+        return
+
+    units = split_caption_display_units(text)
+    if not units:
+        return
+
+    timings: list[dict[str, float | str]] | None = None
+    source = "heuristic"
+    if asr_segments:
+        local = align_phrases_to_asr(units, asr_segments, 0.0, duration)
+        if local:
+            timings = [
+                {"text": phrase, "start": round(start, 3), "end": round(end, 3)}
+                for phrase, start, end in local
+            ]
+            source = "whisper"
+
+    if not timings:
+        timings = build_heuristic_word_timings(units, duration)
+
+    subtitle = seg.setdefault("subtitle", {})
+    hf_params = subtitle.setdefault("hf_params", {})
+    hf_params["word_timings"] = timings
+    hf_params["word_timing_source"] = source if aligner == "whisper" and source == "whisper" else source
+
+
 def apply_whisper_subtitle_timings(
     segments: list[dict],
     *,
@@ -173,6 +235,25 @@ def apply_whisper_subtitle_timings(
 
     mode = resolve_subtitle_aligner(config)
     if mode == "heuristic":
+        cursor = 0.0
+        for seg in segments:
+            duration = float(seg.get("duration_sec") or 5.0)
+            seg_start = float(seg.get("start_time", cursor))
+            seg_end = float(seg.get("end_time", seg_start + duration))
+            cursor = seg_end
+            text = (seg.get("narration_text") or "").strip()
+            if not text:
+                continue
+            subtitle_cfg = seg.get("subtitle") or {}
+            max_chars = int(subtitle_cfg.get("max_chars_per_line") or 14)
+            phrases = split_narration_phrases(text, max_chars=max_chars)
+            fallback = allocate_phrase_timings(phrases, seg_start, seg_end - seg_start)
+            seg["subtitle_phrase_timings"] = [
+                {"text": phrase, "start": round(start, 3), "end": round(end, 3)}
+                for phrase, start, end in fallback
+            ]
+            seg["subtitle_aligner"] = "heuristic"
+            attach_hf_word_timings(seg, duration=duration, asr_segments=None, aligner="heuristic")
         return "heuristic"
 
     pipeline = (config or {}).get("pipeline", {}) if isinstance((config or {}).get("pipeline"), dict) else {}
@@ -214,6 +295,7 @@ def apply_whisper_subtitle_timings(
                 for phrase, start, end in timings
             ]
             seg["subtitle_aligner"] = "whisper"
+            attach_hf_word_timings(seg, duration=duration, asr_segments=asr_segments, aligner="whisper")
             aligned += 1
             continue
 
@@ -223,6 +305,7 @@ def apply_whisper_subtitle_timings(
             for phrase, start, end in fallback
         ]
         seg["subtitle_aligner"] = "heuristic"
+        attach_hf_word_timings(seg, duration=duration, asr_segments=None, aligner="heuristic")
 
     result = "whisper" if aligned else "heuristic"
     print(f"[Whisper] Subtitle alignment: {aligned}/{len(segments)} segments via ASR")

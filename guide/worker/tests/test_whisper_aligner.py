@@ -1,6 +1,11 @@
 import unittest
 
-from worker.whisper_aligner import align_phrases_to_asr, normalize_subtitle_text
+from worker.whisper_aligner import (
+    align_phrases_to_asr,
+    attach_hf_word_timings,
+    normalize_subtitle_text,
+    split_caption_display_units,
+)
 
 
 class WhisperAlignerTests(unittest.TestCase):
@@ -48,6 +53,31 @@ class WhisperAlignerTests(unittest.TestCase):
 
     def test_normalize_strips_punctuation(self):
         self.assertEqual(normalize_subtitle_text("Hello, World!"), "helloworld")
+
+    def test_split_caption_display_units_for_chinese(self):
+        units = split_caption_display_units("限时特惠")
+        self.assertEqual(units, ["限", "时", "特", "惠"])
+
+    def test_attach_hf_word_timings_from_asr(self):
+        seg = {"narration_text": "限时特惠", "subtitle": {}}
+        asr_segments = [
+            {
+                "start": 0.0,
+                "end": 1.6,
+                "text": "限时特惠",
+                "words": [
+                    {"text": "限", "start": 0.0, "end": 0.3},
+                    {"text": "时", "start": 0.3, "end": 0.6},
+                    {"text": "特", "start": 0.6, "end": 0.9},
+                    {"text": "惠", "start": 0.9, "end": 1.2},
+                ],
+            }
+        ]
+        attach_hf_word_timings(seg, duration=5.0, asr_segments=asr_segments, aligner="whisper")
+        timings = seg["subtitle"]["hf_params"]["word_timings"]
+        self.assertEqual(len(timings), 4)
+        self.assertEqual(timings[0]["text"], "限")
+        self.assertEqual(seg["subtitle"]["hf_params"]["word_timing_source"], "whisper")
 
 
 if __name__ == "__main__":

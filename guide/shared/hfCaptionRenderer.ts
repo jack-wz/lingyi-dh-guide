@@ -1,6 +1,14 @@
 /** Adapt HF caption components to guide DSL clip model (segment text + brand tokens). */
 
+import {
+  buildCaptionWordTimings,
+  resolveCaptionWordTimings,
+  splitCaptionWords,
+  type CaptionWordTiming,
+} from './captionWordTimings.js';
 import { getHfStyleBinding } from './hfStyleRegistry.js';
+
+export { buildCaptionWordTimings, splitCaptionWords } from './captionWordTimings.js';
 
 export interface HfCaptionRenderContext {
   styleId: string;
@@ -16,6 +24,8 @@ export interface HfCaptionRenderContext {
   accentColor: string;
   textColor: string;
   emphasisWords?: string[];
+  wordTimings?: CaptionWordTiming[];
+  phraseTimings?: CaptionWordTiming[];
 }
 
 export interface HfCaptionClipOutput {
@@ -26,11 +36,7 @@ export interface HfCaptionClipOutput {
   requiresGsap: boolean;
 }
 
-interface CaptionWord {
-  text: string;
-  start: number;
-  end: number;
-}
+type CaptionWord = CaptionWordTiming;
 
 interface CaptionTiming {
   visibleStart: number;
@@ -45,27 +51,6 @@ function escapeHtml(text: string): string {
   return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-export function splitCaptionWords(text: string): string[] {
-  const trimmed = String(text || '').trim();
-  if (!trimmed) return [];
-  if (/[\u4e00-\u9fff]/.test(trimmed)) {
-    const parts = trimmed.split(/(?<=[，。！？、；：,.!?])/g).map((p) => p.trim()).filter(Boolean);
-    if (parts.length > 1) return parts;
-    return Array.from(trimmed).filter((ch) => !/\s/.test(ch));
-  }
-  return trimmed.split(/\s+/).filter(Boolean);
-}
-
-export function buildCaptionWordTimings(words: string[], windowStart: number, windowDuration: number): CaptionWord[] {
-  if (!words.length) return [];
-  const slice = Math.max(0.05, windowDuration / words.length);
-  return words.map((text, index) => {
-    const start = windowStart + index * slice;
-    const end = start + slice * 0.85;
-    return { text, start, end };
-  });
-}
-
 function captionPositionStyle(position: string, canvasHeight: number): string {
   const bottomOffset = Math.round(canvasHeight * 0.12);
   if (position === 'top') return `top:${Math.round(canvasHeight * 0.08)}px;bottom:auto;`;
@@ -74,12 +59,17 @@ function captionPositionStyle(position: string, canvasHeight: number): string {
 }
 
 function buildCaptionTiming(ctx: HfCaptionRenderContext, component: string): CaptionTiming {
-  const visibleStart = 0.25;
-  const visibleDuration = Math.max(0.4, ctx.clipDuration - 0.35);
+  const resolved = resolveCaptionWordTimings({
+    text: ctx.text,
+    clipDuration: ctx.clipDuration,
+    clipStart: ctx.clipStart,
+    wordTimings: ctx.wordTimings,
+    phraseTimings: ctx.phraseTimings,
+  });
   return {
-    visibleStart,
-    visibleDuration,
-    words: buildCaptionWordTimings(splitCaptionWords(ctx.text), visibleStart, visibleDuration),
+    visibleStart: resolved.visibleStart,
+    visibleDuration: resolved.visibleDuration,
+    words: resolved.words,
     timelineId: `${component}-${ctx.segmentId}`,
     posStyle: captionPositionStyle(ctx.position, ctx.canvasHeight),
     fontSize: Math.max(28, Math.min(96, Math.round(ctx.fontSizePx * 0.9))),

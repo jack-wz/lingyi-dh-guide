@@ -4,6 +4,7 @@ import FontFamilyPicker from '../../../../components/brand-editor/FontFamilyPick
 import { IconEye, IconEyeOff, IconImage, IconLayout, IconMic, IconType } from '../../../../components/Icons';
 import { SUBTITLE_STYLES } from '../../../../data/subtitleStyles';
 import { SubtitleStyleHint, SubtitleStyleSelect } from '../../../../components/SubtitleStylePicker';
+import { segmentUsesTtsWordTimings } from '@shared/captionWordTimings';
 import { isHyperframesSubtitleStyle } from '@shared/subtitleStyles';
 import {
   resolveSubtitleFontSize,
@@ -87,6 +88,13 @@ export default function ObjectPanel({
             />
           </div>
           <SubtitleStyleHint styleId={seg.subtitle.style_id} />
+          {isHyperframesSubtitleStyle(seg.subtitle.style_id) && (
+            <p className="mt-2 text-[10px] text-muted-foreground leading-relaxed">
+              {segmentUsesTtsWordTimings(seg)
+                ? '已绑定 TTS 词级时间轴，卡拉 OK 将与配音对齐。'
+                : '预览使用估算词级时间轴；成片（含 TTS）后将自动对齐 Whisper 时间戳。'}
+            </p>
+          )}
           {isHyperframesSubtitleStyle(seg.subtitle.style_id) && (
             <div className="mt-3">
               <label className="block text-xs text-muted-foreground mb-1">强调词（逗号分隔）</label>

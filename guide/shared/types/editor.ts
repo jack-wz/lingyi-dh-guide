@@ -29,6 +29,8 @@ export interface Segment {
       emphasis_words?: string[];
       accent_color?: string;
       intensity?: number;
+      word_timings?: Array<{ text: string; start: number; end: number }>;
+      word_timing_source?: 'whisper' | 'heuristic';
     };
   };
   transition: { type: string; duration: number };

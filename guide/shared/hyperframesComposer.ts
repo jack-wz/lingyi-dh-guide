@@ -242,7 +242,15 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
         globalFontSize: (dsl.globalConfig as { subtitle_font_size?: number }).subtitle_font_size,
         canvasHeight: Number((dsl.globalConfig as { canvas_height?: number }).canvas_height) || 1920,
       });
-      const hfParams = (seg.subtitle as { hf_params?: { emphasis_words?: string[]; accent_color?: string } }).hf_params;
+      const hfParams = (seg.subtitle as {
+        hf_params?: {
+          emphasis_words?: string[];
+          accent_color?: string;
+          word_timings?: Array<{ text: string; start: number; end: number }>;
+        };
+      }).hf_params;
+      const phraseTimings = (seg as { subtitle_phrase_timings?: Array<{ text: string; start: number; end: number }> })
+        .subtitle_phrase_timings;
       const hfClip = styleDef?.engine === 'hyperframes'
         ? renderHfCaptionClip({
           styleId,
@@ -258,6 +266,8 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
           accentColor: hfParams?.accent_color || accentColor,
           textColor: style.color,
           emphasisWords: hfParams?.emphasis_words,
+          wordTimings: hfParams?.word_timings,
+          phraseTimings,
         })
         : null;
 

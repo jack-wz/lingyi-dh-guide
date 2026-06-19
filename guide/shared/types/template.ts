@@ -147,6 +147,8 @@ export interface SubtitleHfParams {
   accent_color?: string;
   intensity?: number;
   word_timings?: Array<{ text: string; start: number; end: number }>;
+  /** whisper = ASR-aligned; heuristic = estimated from duration */
+  word_timing_source?: 'whisper' | 'heuristic';
 }
 
 export interface SubtitleConfig {
