@@ -9,6 +9,7 @@ from worker.pipelines.hyperframes_template import (
     _GUIDE_ROOT,
     _COMPOSER_SCRIPT,
     _lint_blocking_errors,
+    _parse_lint_json,
     _validate_hyperframes_output,
 )
 
@@ -52,6 +53,20 @@ class HyperFramesTemplatePipelineTests(TestCase):
                     {"product_name": "飞鹤奶粉"},
                 )
                 self.assertIn(str(variables_path), args)
+
+    def test_parse_lint_json_strips_telemetry_banner(self):
+        payload = {
+            "errorCount": 1,
+            "findings": [{"severity": "error", "code": "gsap_timeline_not_registered", "message": "x"}],
+        }
+        stdout = (
+            "Hyperframes collects anonymous usage data to improve the tool.\n"
+            "Disable anytime: hyperframes telemetry disable\n\n"
+            + json.dumps(payload)
+        )
+        parsed = _parse_lint_json(stdout)
+        self.assertEqual(parsed["errorCount"], 1)
+        self.assertEqual(parsed["findings"][0]["code"], "gsap_timeline_not_registered")
 
     def test_lint_ignores_guide_native_root_timeline_error(self):
         with tempfile.TemporaryDirectory() as work_dir:

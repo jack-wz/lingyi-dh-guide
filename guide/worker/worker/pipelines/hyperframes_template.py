@@ -39,12 +39,25 @@ def _run_hyperframes(args: list[str], cwd: str):
     return _run_cmd(_cli_cmd("hyperframes", *args), cwd=cwd)
 
 
+def _parse_lint_json(stdout: str) -> dict:
+    text = (stdout or "").strip()
+    if not text:
+        return {}
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        start = text.find("{")
+        if start < 0:
+            raise
+        return json.loads(text[start:])
+
+
 def _lint_blocking_errors(work_dir: str) -> list[str]:
     lint = _run_hyperframes(["lint", ".", "--json"], work_dir)
     if lint.returncode == 0:
         return []
     try:
-        payload = json.loads(lint.stdout or "{}")
+        payload = _parse_lint_json(lint.stdout or "")
     except json.JSONDecodeError:
         detail = (lint.stderr or lint.stdout or "HyperFrames lint failed").strip()
         return [detail]
