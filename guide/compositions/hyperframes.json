@@ -14,6 +14,8 @@
     { "name": "transitions-dissolve", "type": "hyperframes:block", "transitionType": "hf-dissolve", "adapter": "guide-native" },
     { "name": "transitions-push", "type": "hyperframes:block", "transitionType": "hf-push", "adapter": "guide-native" },
     { "name": "grain-overlay", "type": "hyperframes:component", "overlayType": "hf-grain", "adapter": "guide-native" },
-    { "name": "vignette", "type": "hyperframes:component", "overlayType": "hf-vignette", "adapter": "guide-native" }
+    { "name": "vignette", "type": "hyperframes:component", "overlayType": "hf-vignette", "adapter": "guide-native" },
+    { "name": "light-leak", "type": "hyperframes:block", "overlayType": "hf-light-leak", "adapter": "guide-native" },
+    { "name": "motion-blur", "type": "hyperframes:component", "overlayType": "hf-motion-blur", "adapter": "guide-native" }
   ]
 }

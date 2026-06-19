@@ -76,6 +76,23 @@ export const HF_STYLE_BINDINGS: HfStyleBinding[] = [
     verticalSafe: true,
     requiresGsap: false,
   },
+  {
+    styleId: 'hf-light-leak',
+    hfName: 'light-leak',
+    slot: 'overlay',
+    fallbackStyleId: 'default',
+    verticalSafe: true,
+    requiresGsap: true,
+    brandTokenKeys: ['brand_color', 'accent_color'],
+  },
+  {
+    styleId: 'hf-motion-blur',
+    hfName: 'motion-blur',
+    slot: 'overlay',
+    fallbackStyleId: 'default',
+    verticalSafe: true,
+    requiresGsap: true,
+  },
 ];
 
 const bindingByStyleId = new Map(HF_STYLE_BINDINGS.map((b) => [b.styleId, b]));

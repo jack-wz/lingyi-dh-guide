@@ -5,6 +5,8 @@ import {
   dslUsesHyperframesGlobalOverlays,
   getEnabledHfGlobalOverlays,
   renderGrainOverlay,
+  renderLightLeakOverlay,
+  renderMotionBlurOverlay,
   renderHfGlobalOverlayClips,
 } from './hfGlobalOverlayRenderer.js';
 
@@ -73,10 +75,66 @@ describe('hfGlobalOverlayRenderer', () => {
 
   it('returns empty output when all overlays disabled', () => {
     const clips = renderHfGlobalOverlayClips(
-      [{ type: 'hf-grain', enabled: false }, { type: 'hf-vignette', enabled: false }],
+      [
+        { type: 'hf-grain', enabled: false },
+        { type: 'hf-vignette', enabled: false },
+        { type: 'hf-light-leak', enabled: false },
+        { type: 'hf-motion-blur', enabled: false },
+      ],
       { totalDuration: 8, canvasWidth: 1080, canvasHeight: 1920 },
     );
     assert.equal(clips.html.trim(), '');
     assert.equal(clips.css.trim(), '');
+    assert.equal(clips.scripts.length, 0);
+  });
+
+  it('renders light leak and motion blur with GSAP', () => {
+    const leak = renderLightLeakOverlay(
+      { type: 'hf-light-leak', enabled: true, leak_intensity: 0.5, leak_color: '#ff5600' },
+      { totalDuration: 10, canvasWidth: 1080, canvasHeight: 1920, accentColor: '#ff5600' },
+    );
+    assert.match(leak.html, /light-leak/);
+    assert.match(leak.script || '', /hf-light-leak-a/);
+
+    const blur = renderMotionBlurOverlay(
+      { type: 'hf-motion-blur', enabled: true, blur_intensity: 0.4, direction: 'vertical' },
+      { totalDuration: 10, canvasWidth: 1080, canvasHeight: 1920 },
+    );
+    assert.match(blur.html, /motion-blur/);
+    assert.match(blur.css, /scaleY/);
+
+    const html = generateHyperframesHTML({
+      meta: { name: 'VFX Test', type: 'smoke' },
+      globalConfig: {
+        canvas_width: 1080,
+        canvas_height: 1920,
+        fps: 30,
+        bgm_url: '',
+        bgm_volume: 0.3,
+        background_color: '#111827',
+        brand_color: '#fb8b24',
+        hf_overlays: [
+          { type: 'hf-light-leak', enabled: true, leak_intensity: 0.55 },
+          { type: 'hf-motion-blur', enabled: true, blur_intensity: 0.4 },
+        ],
+      },
+      segments: [
+        {
+          id: 's1',
+          type: 'narration',
+          narration_text: '测试',
+          duration_sec: 6,
+          scene_image_url: '',
+          scene_description: '',
+          subtitle: { enabled: false, style_id: 'default', position: 'bottom', animation: 'none' },
+          transition: { type: 'none', duration: 0.5 },
+          digital_human: { enabled: false, position: { x: 50, y: 80 }, scale: 100 },
+          overlays: [],
+        },
+      ],
+    });
+    assert.match(html, /hf-global-light-leak/);
+    assert.match(html, /hf-global-motion-blur/);
+    assert.match(html, /gsap@3\.14\.2/);
   });
 });

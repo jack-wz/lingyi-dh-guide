@@ -189,6 +189,7 @@ export default function DesignPanel({
       <PanelSection title="画面质感" icon={<IconSparkles size={15} />}>
         <HfGlobalOverlayPanel
           overlays={cfg.hf_overlays}
+          brandColor={cfg.brand_color}
           onChange={(hf_overlays) => updateGlobal({ hf_overlays })}
         />
       </PanelSection>

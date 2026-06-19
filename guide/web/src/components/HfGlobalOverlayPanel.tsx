@@ -4,14 +4,18 @@ import { DEFAULT_HF_GLOBAL_OVERLAYS } from '@shared/hfGlobalOverlayRenderer';
 const OVERLAY_META: Record<HfGlobalOverlayType, { label: string; hint: string }> = {
   'hf-grain': { label: '胶片颗粒', hint: '全片叠加动态噪点，增强质感' },
   'hf-vignette': { label: '暗角', hint: '边缘压暗，突出画面中心' },
+  'hf-light-leak': { label: '漏光', hint: '暖色光斑扫过画面，电影感氛围' },
+  'hf-motion-blur': { label: '动态模糊', hint: '周期性方向模糊脉冲，适合快节奏片段' },
 };
 
 export function HfGlobalOverlayPanel({
   overlays,
   onChange,
+  brandColor,
 }: {
   overlays: HfGlobalOverlayItem[] | undefined;
   onChange: (next: HfGlobalOverlayItem[]) => void;
+  brandColor?: string;
 }) {
   const normalized = DEFAULT_HF_GLOBAL_OVERLAYS.map((defaults) => {
     const found = (overlays || []).find((item) => item.type === defaults.type);
@@ -88,11 +92,69 @@ export function HfGlobalOverlayPanel({
                 </div>
               </div>
             )}
+            {item.enabled && item.type === 'hf-light-leak' && (
+              <div className="mt-2 space-y-2">
+                <div>
+                  <label className="block text-[10px] text-muted-foreground mb-1">
+                    漏光强度 {Math.round((item.leak_intensity ?? 0.45) * 100)}%
+                  </label>
+                  <input
+                    type="range"
+                    min={0.2}
+                    max={0.8}
+                    step={0.05}
+                    value={item.leak_intensity ?? 0.45}
+                    onChange={(e) => updateItem(item.type, { leak_intensity: Number(e.target.value) })}
+                    className="w-full"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    value={item.leak_color || brandColor || '#fb8b24'}
+                    onChange={(e) => updateItem(item.type, { leak_color: e.target.value })}
+                    className="w-9 h-8 rounded border border-border bg-background"
+                  />
+                  <span className="text-[10px] text-muted-foreground">漏光色（默认品牌色）</span>
+                </div>
+              </div>
+            )}
+            {item.enabled && item.type === 'hf-motion-blur' && (
+              <div className="mt-2 space-y-2">
+                <div>
+                  <label className="block text-[10px] text-muted-foreground mb-1">
+                    模糊强度 {Math.round((item.blur_intensity ?? 0.35) * 100)}%
+                  </label>
+                  <input
+                    type="range"
+                    min={0.15}
+                    max={0.65}
+                    step={0.05}
+                    value={item.blur_intensity ?? 0.35}
+                    onChange={(e) => updateItem(item.type, { blur_intensity: Number(e.target.value) })}
+                    className="w-full"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-muted-foreground mb-1">模糊方向</label>
+                  <select
+                    value={item.direction || 'horizontal'}
+                    onChange={(e) => updateItem(item.type, {
+                      direction: e.target.value as 'horizontal' | 'vertical',
+                    })}
+                    className="w-full h-8 rounded-md border border-border bg-background px-2 text-xs"
+                  >
+                    <option value="horizontal">水平</option>
+                    <option value="vertical">垂直</option>
+                  </select>
+                </div>
+              </div>
+            )}
           </div>
         );
       })}
       <p className="text-[10px] text-brand-blue/90 leading-relaxed">
-        全局质感叠加作用于整段视频；完整效果需使用「HyperFrames 模板」流水线。
+        全局质感/VFX 叠加作用于整段视频；漏光与动态模糊需 GSAP，完整效果请用「HyperFrames 模板」流水线。
       </p>
     </div>
   );

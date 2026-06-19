@@ -131,11 +131,15 @@ export interface GlobalConfig {
   asset_map?: Record<string, string>;
   digital_human_catalog?: DigitalHumanCatalog;
   hf_overlays?: Array<{
-    type: 'hf-grain' | 'hf-vignette';
+    type: 'hf-grain' | 'hf-vignette' | 'hf-light-leak' | 'hf-motion-blur';
     enabled: boolean;
     opacity?: number;
     intensity?: number;
     vignette_size?: number;
+    leak_intensity?: number;
+    leak_color?: string;
+    blur_intensity?: number;
+    direction?: 'horizontal' | 'vertical';
   }>;
 }
 

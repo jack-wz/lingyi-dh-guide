@@ -20,7 +20,7 @@ import {
 import { anySegmentUsesHyperframesCaptions } from './hfStyleRegistry.js';
 import { buildHfCaptionSeekBootstrap, renderHfCaptionClip } from './hfCaptionRenderer.js';
 import { isHyperframesTransitionType, renderHfTransitionClip, buildHfTransitionSeekBootstrap } from './hfTransitionRenderer.js';
-import { renderHfGlobalOverlayClips } from './hfGlobalOverlayRenderer.js';
+import { buildHfGlobalOverlaySeekBootstrap, renderHfGlobalOverlayClips } from './hfGlobalOverlayRenderer.js';
 
 const GSAP_RUNTIME_URL = 'https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js';
 
@@ -418,6 +418,7 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
     totalDuration,
     canvasWidth: w,
     canvasHeight: h,
+    accentColor,
   });
 
   const bgmHtml = bgm_url ? `
@@ -427,11 +428,12 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
 
   const needsGsap = anySegmentUsesHyperframesCaptions(segs)
     || hfCaptionScripts.length > 0
-    || hfTransitionScripts.length > 0;
+    || hfTransitionScripts.length > 0
+    || globalOverlayClips.requiresGsap;
   const gsapScriptTag = needsGsap ? `<script src="${GSAP_RUNTIME_URL}"></script>` : '';
-  const hfMotionScripts = [...hfCaptionScripts, ...hfTransitionScripts];
+  const hfMotionScripts = [...hfCaptionScripts, ...hfTransitionScripts, ...globalOverlayClips.scripts];
   const hfMotionScriptBlock = hfMotionScripts.length
-    ? `<script>${hfMotionScripts.join('\n')}${buildHfCaptionSeekBootstrap()}${buildHfTransitionSeekBootstrap()}</script>`
+    ? `<script>${hfMotionScripts.join('\n')}${buildHfCaptionSeekBootstrap()}${buildHfTransitionSeekBootstrap()}${buildHfGlobalOverlaySeekBootstrap()}</script>`
     : '';
 
   return `<!DOCTYPE html>
