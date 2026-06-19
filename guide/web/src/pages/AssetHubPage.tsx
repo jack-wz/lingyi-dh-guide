@@ -236,25 +236,18 @@ export default function AssetHubPage() {
   const uploadFile = async (file: File) => {
     const fd = new FormData();
     fd.append('file', file);
-    const up = await fetch('/api/assets/upload', { method: 'POST', body: fd });
-    if (!up.ok) throw new Error('上传失败');
-    return up.json() as Promise<{ url: string }>;
+    const up = await fetch('/api/uploads', { method: 'POST', body: fd });
+    if (!up.ok) {
+      const body = await up.json().catch(() => ({}));
+      throw new Error((body as { error?: string }).error || '上传失败');
+    }
+    return up.json() as Promise<{ url: string; asset_id?: string }>;
   };
 
   const handleMediaUpload = async (file: File) => {
     setUploading(true);
     try {
-      const asset = await uploadFile(file);
-      await fetch('/api/assets', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: file.name,
-          type: file.type.startsWith('video') ? 'video' : file.type.startsWith('image') ? 'image' : 'other',
-          file_url: asset.url,
-          metadata: { size: file.size, mime: file.type },
-        }),
-      });
+      await uploadFile(file);
       loadItems();
       loadSummary();
     } finally {
@@ -265,17 +258,19 @@ export default function AssetHubPage() {
   const handleBgmUpload = async (file: File) => {
     setUploading(true);
     try {
-      const asset = await uploadFile(file);
-      await fetch('/api/assets', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: file.name,
-          type: 'bgm',
-          file_url: asset.url,
-          metadata: { size: file.size, mime: file.type },
-        }),
-      });
+      const uploaded = await uploadFile(file);
+      if (uploaded.asset_id) {
+        await fetch(`/api/assets/${uploaded.asset_id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: file.name,
+            type: 'audio',
+            file_url: uploaded.url,
+            metadata: { size: file.size, mime: file.type, role: 'bgm' },
+          }),
+        });
+      }
       loadItems();
       loadSummary();
     } finally {

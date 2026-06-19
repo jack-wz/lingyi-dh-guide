@@ -38,7 +38,7 @@ function runPreviewScript(payload: Record<string, unknown>) {
 }
 
 router.post('/preview-segment', (req: Request, res: Response) => {
-  const text = String(req.body?.text || '').trim();
+  const text = String(req.body?.text || req.body?.narration_text || '').trim();
   if (!text) {
     return apiError(res, ErrorCodes.VALIDATION, 'text is required', 400);
   }
