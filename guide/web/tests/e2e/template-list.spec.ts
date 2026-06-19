@@ -38,7 +38,7 @@ test('template list supports brand pack filter and bind-brand link', async ({ pa
   if (await unboundBadge.isVisible()) {
     const bindLink = cards.first().getByTestId('template-bind-brand-link');
     await expect(bindLink).toBeVisible();
-    await expect(bindLink).toHaveAttribute('href', /\/assets\?tab=brand&from=/);
+    await expect(bindLink).toHaveAttribute('href', /\/editor\/.+\?pick_brand=1/);
   }
 });
 
