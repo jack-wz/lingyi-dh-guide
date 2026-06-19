@@ -6,12 +6,10 @@
     "assets": "compositions/assets"
   },
   "installed": [
-    {
-      "name": "caption-highlight",
-      "type": "hyperframes:component",
-      "styleId": "hf-caption-highlight",
-      "installedAt": "2026-06-19",
-      "adapter": "guide-native"
-    }
+    { "name": "caption-highlight", "type": "hyperframes:component", "styleId": "hf-caption-highlight", "adapter": "guide-native" },
+    { "name": "caption-pill-karaoke", "type": "hyperframes:component", "styleId": "hf-caption-pill", "adapter": "guide-native" },
+    { "name": "caption-neon-glow", "type": "hyperframes:component", "styleId": "hf-caption-neon", "adapter": "guide-native" },
+    { "name": "caption-editorial-emphasis", "type": "hyperframes:component", "styleId": "hf-caption-editorial", "adapter": "guide-native" },
+    { "name": "caption-gradient-fill", "type": "hyperframes:component", "styleId": "hf-caption-gradient", "adapter": "guide-native" }
   ]
 }

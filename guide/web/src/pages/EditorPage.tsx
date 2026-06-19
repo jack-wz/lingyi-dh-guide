@@ -958,6 +958,8 @@ export default function EditorPage() {
           onCancel={() => setShowRenderReview(false)}
           onConfirm={executeRender}
           onIssueClick={jumpToRenderIssue}
+          hfPipelineAvailable={pipelines.some((p) => p.key === 'hyperframes_template')}
+          onSwitchToHfPipeline={() => setPipelineKey('hyperframes_template')}
         />
       )}
       <EditorCoachmark />

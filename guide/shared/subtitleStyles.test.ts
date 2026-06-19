@@ -11,8 +11,9 @@ import {
 describe('subtitleStyles hf grouping', () => {
   it('exposes classic and hyperframes style groups', () => {
     assert.ok(CLASSIC_SUBTITLE_STYLES.length >= 8);
-    assert.equal(HF_SUBTITLE_STYLES.length, 1);
-    assert.equal(HF_SUBTITLE_STYLES[0]?.id, 'hf-caption-highlight');
+    assert.equal(HF_SUBTITLE_STYLES.length, 5);
+    assert.ok(HF_SUBTITLE_STYLES.some((s) => s.id === 'hf-caption-highlight'));
+    assert.ok(HF_SUBTITLE_STYLES.some((s) => s.id === 'hf-caption-pill'));
   });
 
   it('detects hyperframes subtitle usage in dsl', () => {

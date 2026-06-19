@@ -1,5 +1,6 @@
 import type { PipelineOption } from '@shared/data/pipelines';
 import type { ConfigDiagnostics, DSL } from '@shared/types/editor';
+import { dslUsesHyperframesSubtitles } from '@shared/subtitleStyles';
 import { IconAlertCircle, IconCheck, IconZap } from '../../../components/Icons';
 import { estimateRenderCostRisk } from '../utils/renderIssues';
 import { getPreviewRenderAlignment } from '../../../utils/previewRenderAlignment';
@@ -36,6 +37,8 @@ export default function RenderReviewDialog({
   onCancel,
   onConfirm,
   onIssueClick,
+  hfPipelineAvailable = false,
+  onSwitchToHfPipeline,
 }: {
   dsl: DSL;
   pipeline: PipelineOption | undefined;
@@ -50,6 +53,8 @@ export default function RenderReviewDialog({
   onCancel: () => void;
   onConfirm: () => void;
   onIssueClick: (issue: string) => void;
+  hfPipelineAvailable?: boolean;
+  onSwitchToHfPipeline?: () => void;
 }) {
   const totalDuration = dsl.segments.reduce((sum, seg) => sum + Number(seg.duration_sec || 0), 0);
   const textCount = dsl.segments.filter((seg) => seg.narration_text.trim()).length;
@@ -66,6 +71,11 @@ export default function RenderReviewDialog({
   const activeProviders = diagnostics?.providers?.filter((provider) => providerKeys.includes(provider.key)) || [];
   const estimate = estimateRenderCostRisk(dsl, pipeline, diagnostics);
   const alignment = getPreviewRenderAlignment(pipeline?.key);
+  const usesHfSubtitles = dslUsesHyperframesSubtitles(dsl);
+  const showHfPipelineCta = usesHfSubtitles
+    && pipeline?.key !== 'hyperframes_template'
+    && hfPipelineAvailable
+    && Boolean(onSwitchToHfPipeline);
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4" onClick={onCancel}>
@@ -157,6 +167,21 @@ export default function RenderReviewDialog({
                 {pipelineBlockers.map((item) => <li key={item} className="text-destructive">{item}</li>)}
                 {pipelineWarnings.map((item) => <li key={item}>{item}</li>)}
               </ul>
+            </div>
+          )}
+          {showHfPipelineCta && (
+            <div className="rounded-md border border-brand-blue/35 bg-brand-blue/10 p-3">
+              <div className="text-xs font-medium text-foreground mb-1">动效字幕需 HyperFrames 流水线</div>
+              <p className="text-xs text-muted-foreground leading-5 mb-3">
+                当前模板使用了 HyperFrames 动效字幕。切换到「HyperFrames 模板」流水线可保留预览中的逐词动效；否则成片将降级为静态字幕。
+              </p>
+              <button
+                type="button"
+                onClick={onSwitchToHfPipeline}
+                className="h-8 px-3 text-xs rounded-md bg-brand-blue text-white hover:opacity-90"
+              >
+                切换为 HyperFrames 模板流水线
+              </button>
             </div>
           )}
           {warnings && warnings.length > 0 && (

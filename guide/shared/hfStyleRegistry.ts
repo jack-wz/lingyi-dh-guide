@@ -1,20 +1,16 @@
 /** HyperFrames registry metadata — maps guide style ids to installed HF assets. */
 
+import { isHyperframesSubtitleStyle } from './subtitleStyles.js';
+
 export type HfStyleSlot = 'subtitle' | 'overlay' | 'transition';
 
 export interface HfStyleBinding {
-  /** Guide subtitle style id */
   styleId: string;
-  /** HF registry component/block name */
   hfName: string;
   slot: HfStyleSlot;
-  /** Fallback CSS style id when HF asset missing or render fails */
   fallbackStyleId: string;
-  /** Safe for 1080×1920 vertical canvas without extra scaling */
   verticalSafe: boolean;
-  /** Needs GSAP runtime in host composition */
   requiresGsap: boolean;
-  /** Brand token keys mapped into component CSS */
   brandTokenKeys?: string[];
 }
 
@@ -24,6 +20,42 @@ export const HF_STYLE_BINDINGS: HfStyleBinding[] = [
     hfName: 'caption-highlight',
     slot: 'subtitle',
     fallbackStyleId: 'bold-yellow',
+    verticalSafe: true,
+    requiresGsap: true,
+    brandTokenKeys: ['brand_color', 'accent_color'],
+  },
+  {
+    styleId: 'hf-caption-pill',
+    hfName: 'caption-pill-karaoke',
+    slot: 'subtitle',
+    fallbackStyleId: 'subtitle-card',
+    verticalSafe: true,
+    requiresGsap: true,
+    brandTokenKeys: ['brand_color', 'accent_color'],
+  },
+  {
+    styleId: 'hf-caption-neon',
+    hfName: 'caption-neon-glow',
+    slot: 'subtitle',
+    fallbackStyleId: 'gradient-glow',
+    verticalSafe: true,
+    requiresGsap: true,
+    brandTokenKeys: ['brand_color', 'accent_color'],
+  },
+  {
+    styleId: 'hf-caption-editorial',
+    hfName: 'caption-editorial-emphasis',
+    slot: 'subtitle',
+    fallbackStyleId: 'brand-elegant',
+    verticalSafe: true,
+    requiresGsap: true,
+    brandTokenKeys: ['brand_color'],
+  },
+  {
+    styleId: 'hf-caption-gradient',
+    hfName: 'caption-gradient-fill',
+    slot: 'subtitle',
+    fallbackStyleId: 'gradient-glow',
     verticalSafe: true,
     requiresGsap: true,
     brandTokenKeys: ['brand_color', 'accent_color'],
@@ -42,7 +74,7 @@ export function getHfStyleBindingByName(hfName: string): HfStyleBinding | undefi
 }
 
 export function subtitleUsesHyperframes(styleId: string): boolean {
-  return Boolean(getHfStyleBinding(styleId));
+  return isHyperframesSubtitleStyle(styleId);
 }
 
 export function anySegmentUsesHyperframesCaptions(
