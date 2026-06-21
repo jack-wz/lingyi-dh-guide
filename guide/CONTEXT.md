@@ -65,7 +65,8 @@ flowchart TB
 { "pipeline_key": "template_editor", "input_mode": "template" }
 ```
 
-详表见 [INTEGRATOR_QUICKSTART.md §9.1](./docs/INTEGRATOR_QUICKSTART.md#91-流水线-registrypipeline_key)。
+详表见 [INTEGRATOR_QUICKSTART.md §9.1](./docs/INTEGRATOR_QUICKSTART.md#91-流水线-registrypipeline_key)。  
+代码文件索引见 [PIPELINE_CODE_INDEX.md](./docs/PIPELINE_CODE_INDEX.md)。
 
 ## 验收命令
 

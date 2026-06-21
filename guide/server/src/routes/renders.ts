@@ -120,12 +120,21 @@ function getProviderConfigSnapshot() {
   }
 }
 
-// GET /api/renders/pipelines - list available pipelines
+/**
+ * GET /api/renders/pipelines
+ * Returns exposed pipeline_key registry (see guide/shared/data/pipelines.ts).
+ * hyperframes_template is omitted unless ENABLE_HF_TEMPLATE_PIPELINE=1.
+ * Docs: guide/docs/INTEGRATOR_QUICKSTART.md §9.1, guide/docs/PIPELINE_CODE_INDEX.md
+ */
 router.get('/pipelines', (_req: Request, res: Response) => {
   res.json(getExposedPipelines());
 });
 
-// POST /api/renders - create a render job
+/**
+ * POST /api/renders
+ * Body: template_id (required), pipeline_key (default standard; integrators should use template_editor),
+ * input_mode (template|topic|script), digital_human_id when required, variables.
+ */
 router.post('/', (req: Request, res: Response) => {
   const db = getDb();
   const id = uuidv4();

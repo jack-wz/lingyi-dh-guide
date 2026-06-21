@@ -6,3 +6,5 @@ export const GITHUB_REPO_URL = 'https://github.com/jack-wz/lingyi-dh-guide';
 export const INTEGRATOR_QUICKSTART_PATH = '/guide/docs/INTEGRATOR_QUICKSTART.md';
 
 export const INTEGRATOR_QUICKSTART_DOC_URL = `${GITHUB_REPO_URL}/blob/main/guide/docs/INTEGRATOR_QUICKSTART.md`;
+
+export const PIPELINE_CODE_INDEX_DOC_URL = `${GITHUB_REPO_URL}/blob/main/guide/docs/PIPELINE_CODE_INDEX.md`;

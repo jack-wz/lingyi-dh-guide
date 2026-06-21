@@ -24,7 +24,9 @@ test('debug page loads integrator playground with API online', async ({ page }) 
   await expect(page.getByText('集成方 Playground')).toBeVisible();
   await expect(page.getByTestId('playground-smoke-run')).toBeVisible();
   await expect(page.getByTestId('playground-submit-only')).toBeVisible();
+  await expect(page.getByTestId('playground-pipeline-select')).toBeVisible();
   await expect(page.getByText('API 在线')).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId('playground-pipeline-select')).toHaveValue('template_editor');
 });
 
 test('playground submit-only enqueues a render job', async ({ page, request }) => {

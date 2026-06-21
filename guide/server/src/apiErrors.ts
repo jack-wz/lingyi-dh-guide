@@ -45,7 +45,9 @@ export const ERROR_CATALOG: Record<ErrorCode, ErrorMeta> = {
     doc_path: 'guide/README.md',
   },
   [ErrorCodes.PIPELINE_INVALID]: {
-    remediation: '使用 GET /api/renders/pipelines 查看可用 pipeline_key。',
+    remediation:
+      '使用 GET /api/renders/pipelines 查看可用 pipeline_key；选型见 guide/docs/INTEGRATOR_QUICKSTART.md §9.1。',
+    doc_path: 'guide/docs/PIPELINE_CODE_INDEX.md',
   },
   [ErrorCodes.INPUT_INVALID]: {
     remediation: '检查 input_mode 与 topic/script_text 是否匹配。',

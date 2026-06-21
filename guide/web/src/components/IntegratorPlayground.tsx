@@ -1,10 +1,23 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { IconFilm, IconZap } from './Icons';
-import { DEFAULT_SMOKE_TEMPLATE_ID, INTEGRATOR_QUICKSTART_DOC_URL } from '../constants/integrator';
+import { DEFAULT_EDITOR_PIPELINE_KEY } from '@shared/data/pipelines';
+import {
+  DEFAULT_SMOKE_TEMPLATE_ID,
+  INTEGRATOR_QUICKSTART_DOC_URL,
+  PIPELINE_CODE_INDEX_DOC_URL,
+} from '../constants/integrator';
 import { formatApiErrorMessage, parseApiErrorResponse } from '../utils/apiError';
+import { getPreviewRenderAlignment } from '../utils/previewRenderAlignment';
 import { showApiToast } from './ApiToast';
 import RenderArtifactsPreview from './RenderArtifactsPreview';
+
+interface PipelineOption {
+  key: string;
+  name: string;
+  description: string;
+  requires_digital_human: boolean;
+}
 
 type HealthState = 'checking' | 'ok' | 'down';
 type SmokePhase = 'idle' | 'submitting' | 'polling' | 'completed' | 'failed';
@@ -38,6 +51,8 @@ export default function IntegratorPlayground() {
   const [health, setHealth] = useState<HealthState>('checking');
   const [diagnostics, setDiagnostics] = useState<Diagnostics | null>(null);
   const [templateId, setTemplateId] = useState(DEFAULT_SMOKE_TEMPLATE_ID);
+  const [pipelineKey, setPipelineKey] = useState(DEFAULT_EDITOR_PIPELINE_KEY);
+  const [pipelines, setPipelines] = useState<PipelineOption[]>([]);
   const [phase, setPhase] = useState<SmokePhase>('idle');
   const [job, setJob] = useState<RenderJob | null>(null);
   const [elapsedSec, setElapsedSec] = useState<number | null>(null);
@@ -48,14 +63,24 @@ export default function IntegratorPlayground() {
   const loadStatus = useCallback(async () => {
     setHealth('checking');
     try {
-      const [guideRes, directRes, diagRes] = await Promise.all([
+      const [guideRes, directRes, diagRes, pipelinesRes] = await Promise.all([
         fetch('/api/guide/health'),
         fetch('/api/health'),
         fetch('/api/config/diagnostics'),
+        fetch('/api/renders/pipelines'),
       ]);
       setHealth(guideRes.ok || directRes.ok ? 'ok' : 'down');
       if (diagRes.ok) {
         setDiagnostics(await diagRes.json());
+      }
+      if (pipelinesRes.ok) {
+        const list = (await pipelinesRes.json()) as PipelineOption[];
+        setPipelines(list);
+        setPipelineKey((current) => {
+          if (list.length === 0) return current;
+          if (list.some((p) => p.key === current)) return current;
+          return list.find((p) => p.key === DEFAULT_EDITOR_PIPELINE_KEY)?.key ?? list[0].key;
+        });
       }
     } catch {
       setHealth('down');
@@ -121,7 +146,7 @@ export default function IntegratorPlayground() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           template_id: templateId.trim(),
-          pipeline_key: 'template_editor',
+          pipeline_key: pipelineKey,
           input_mode: 'template',
         }),
       });
@@ -145,9 +170,13 @@ export default function IntegratorPlayground() {
     }
   };
 
-  const blockers = diagnostics?.pipelines?.standard?.blockers ?? [];
-  const warnings = diagnostics?.pipelines?.standard?.warnings ?? [];
+  const pipelineDiag =
+    diagnostics?.pipelines?.[pipelineKey] ?? diagnostics?.pipelines?.standard;
+  const blockers = pipelineDiag?.blockers ?? [];
+  const warnings = pipelineDiag?.warnings ?? [];
   const providers = diagnostics?.providers ?? [];
+  const selectedPipeline = pipelines.find((p) => p.key === pipelineKey);
+  const alignment = getPreviewRenderAlignment(pipelineKey);
 
   return (
     <div className="space-y-4" data-testid="integrator-playground">
@@ -159,7 +188,9 @@ export default function IntegratorPlayground() {
               集成方 Playground
             </h2>
             <p className="text-[13px] text-muted-foreground mt-1 max-w-xl">
-              浏览器内一键验证「模板 → 渲染 → 成片」，对标 HeyGen Playground。CLI 等价：
+              浏览器内一键验证「模板 → 渲染 → 成片」。导购默认
+              <code className="mx-1 text-[11px] bg-secondary px-1 rounded">template_editor</code>
+              （FFmpeg 单路径）；CLI 等价
               <code className="mx-1 text-[11px] bg-secondary px-1 rounded">make smoke-integrator</code>
             </p>
           </div>
@@ -199,6 +230,40 @@ export default function IntegratorPlayground() {
       </div>
 
       <div className="bg-card border border-border rounded-lg p-4 space-y-4">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="text-[12px] text-muted-foreground block mb-1">流水线 pipeline_key</label>
+            <select
+              value={pipelineKey}
+              onChange={(e) => setPipelineKey(e.target.value)}
+              className="w-full h-9 text-[13px] bg-secondary border border-border rounded-md px-3"
+              data-testid="playground-pipeline-select"
+            >
+              {(pipelines.length > 0
+                ? pipelines
+                : [{ key: DEFAULT_EDITOR_PIPELINE_KEY, name: '模板编辑器', description: '', requires_digital_human: false }]
+              ).map((p) => (
+                <option key={p.key} value={p.key}>
+                  {p.name} ({p.key})
+                </option>
+              ))}
+            </select>
+            {selectedPipeline && (
+              <p className="mt-1.5 text-[11px] text-muted-foreground leading-relaxed">
+                {selectedPipeline.description}
+                {selectedPipeline.requires_digital_human ? ' · 需 digital_human_id' : ''}
+              </p>
+            )}
+          </div>
+          <div className="rounded-md border border-border bg-secondary/20 p-3 text-[11px] leading-relaxed space-y-1">
+            <p className="font-medium text-foreground">{alignment.title}</p>
+            <p className="text-muted-foreground">{alignment.detail}</p>
+            <p className="text-muted-foreground">
+              tier: <span className="font-mono">{alignment.tier}</span>
+            </p>
+          </div>
+        </div>
+
         <div>
           <label className="text-[12px] text-muted-foreground block mb-1">Smoke 模板 ID</label>
           <input
@@ -289,6 +354,15 @@ export default function IntegratorPlayground() {
           className="text-brand-blue hover:underline ml-1"
         >
           INTEGRATOR_QUICKSTART
+        </a>
+        {' · '}
+        <a
+          href={PIPELINE_CODE_INDEX_DOC_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="text-brand-blue hover:underline"
+        >
+          PIPELINE_CODE_INDEX
         </a>
         {' · '}
         <button type="button" className="text-brand-blue hover:underline" onClick={() => apiCallDocs()}>
