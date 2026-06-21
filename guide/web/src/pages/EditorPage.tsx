@@ -4,8 +4,12 @@ import { useParams, useNavigate, Link, useSearchParams } from 'react-router-dom'
 import EditorLeftPanel from '../components/EditorLeftPanel';
 import { getSegmentIssues } from '../utils/segmentIssues';
 import { useEditorStore } from '../store/editorStore';
-import type { PipelineOption } from '@shared/data/pipelines';
-import { resolveEditorPipelineKey } from '@shared/data/pipelines';
+import {
+  DEFAULT_EDITOR_PIPELINE_KEY,
+  getPipeline,
+  resolveEditorPipelineKey,
+  resolveEditorRenderPipelineKey,
+} from '@shared/data/pipelines';
 import type {
   ApiSegment,
   CanvasElement,
@@ -93,9 +97,7 @@ export default function EditorPage() {
   const [selectedDhId, setSelectedDhId] = useState('');
   const [variableValues, setVariableValues] = useState<Record<string, string>>({});
   const [showProps, setShowProps] = useState(true);
-  const [pipelines, setPipelines] = useState<PipelineOption[]>([]);
   const [configDiagnostics, setConfigDiagnostics] = useState<ConfigDiagnostics | null>(null);
-  const [pipelineKey, setPipelineKey] = useState('digital_human');
   const [inputMode, setInputMode] = useState<'template' | 'topic' | 'script'>('template');
   const [topic, setTopic] = useState('');
   const [scriptText, setScriptText] = useState('');
@@ -180,7 +182,6 @@ export default function EditorPage() {
           })
           .catch(() => {});
       }
-      setPipelineKey(resolveEditorPipelineKey(raw.meta?.pipeline_key));
       setInputMode(raw.meta?.input_mode || 'template');
       setTopic(raw.meta?.topic || '');
       setScriptText(raw.meta?.script_text || '');
@@ -193,18 +194,6 @@ export default function EditorPage() {
   useEffect(() => {
     void Promise.resolve().then(fetchTemplate);
   }, [fetchTemplate]);
-  useEffect(() => {
-    fetch('/api/renders/pipelines')
-      .then(r => r.json())
-      .then((items) => {
-        setPipelines(items);
-        if (Array.isArray(items) && !items.some((p) => p.key === pipelineKey) && items[0]) {
-          setPipelineKey(items[0].key);
-        }
-      })
-      .catch(() => {});
-  }, [pipelineKey]);
-
   useEffect(() => {
     fetch('/api/config/diagnostics')
       .then(r => r.json())
@@ -289,9 +278,6 @@ export default function EditorPage() {
         const { payload } = migrateLookPresetPayload(parsed);
         appliedLookFromUrlRef.current = lookId;
         updateEditorDsl((draft) => applyLookPresetToDsl(draft, payload, { currentSegIndex }));
-        if (payload.pipeline_required === 'template_editor' || payload.pipeline_required === 'hyperframes_template') {
-          setPipelineKey('template_editor');
-        }
         setInspectorTab('motion');
         setShowProps(true);
       })
@@ -346,7 +332,7 @@ export default function EditorPage() {
         ...dsl,
         meta: {
           ...dsl.meta,
-          pipeline_key: pipelineKey,
+          pipeline_key: DEFAULT_EDITOR_PIPELINE_KEY,
           input_mode: inputMode,
           topic,
           script_text: scriptText,
@@ -360,7 +346,7 @@ export default function EditorPage() {
       });
       setSavingState('saved');
     } catch (e) { console.error(e); setSavingState('dirty'); } finally { setSaving(false); }
-  }, [dsl, id, pipelineKey, inputMode, topic, scriptText, selectedDhId]);
+  }, [dsl, id, inputMode, topic, scriptText, selectedDhId]);
 
   const handleBack = () => {
     if (savingState === 'dirty') {
@@ -585,11 +571,12 @@ export default function EditorPage() {
 
   const executeRender = async () => {
     if (!dsl) return;
-    const selectedPipeline = pipelines.find(p => p.key === pipelineKey);
+    const renderPipelineKey = resolveEditorRenderPipelineKey(inputMode);
+    const selectedPipeline = getPipeline(renderPipelineKey);
     const missing = getRenderIssues(dsl, selectedPipeline, selectedDhId, inputMode, topic, scriptText, configDiagnostics, variableValues);
     if (missing.length > 0) return;
     await saveTemplate();
-    const isAIFullAuto = pipelineKey === 'ai_full_auto';
+    const isAIFullAuto = renderPipelineKey === 'ai_full_auto';
     const endpoint = isAIFullAuto ? '/api/renders/ai-generate' : '/api/renders';
     const resolvedDhId = selectedDhId || dsl.meta.digital_human_id || '';
     const body = isAIFullAuto
@@ -604,7 +591,7 @@ export default function EditorPage() {
       : {
           template_id: id,
           digital_human_id: resolvedDhId || undefined,
-          pipeline_key: pipelineKey,
+          pipeline_key: renderPipelineKey,
           input_mode: inputMode,
           topic,
           script_text: scriptText,
@@ -731,9 +718,10 @@ export default function EditorPage() {
   if (loading) return <div className="h-screen flex items-center justify-center bg-background text-muted-foreground">加载中...</div>;
   if (!dsl) return <div className="h-screen flex items-center justify-center bg-background text-muted-foreground">模板不存在</div>;
   const totalDuration = dsl.segments.reduce((sum, seg) => sum + Number(seg.duration_sec || 0), 0);
-  const selectedPipeline = pipelines.find(p => p.key === pipelineKey);
+  const renderPipelineKey = resolveEditorRenderPipelineKey(inputMode);
+  const selectedPipeline = getPipeline(renderPipelineKey);
   const renderIssues = getRenderIssues(dsl, selectedPipeline, selectedDhId, inputMode, topic, scriptText, configDiagnostics, variableValues);
-  const renderWarnings = getRenderWarnings(dsl, selectedDhId, pipelineKey);
+  const renderWarnings = getRenderWarnings(dsl, selectedDhId, renderPipelineKey);
   const readyToRender = renderIssues.length === 0;
   const segmentItems = dsl.segments.map((seg, index) => ({ seg, index }));
 
@@ -862,9 +850,6 @@ export default function EditorPage() {
               <div className="absolute right-0 top-full mt-1 z-50 w-[360px] max-h-[70vh] overflow-y-auto rounded-lg border border-border bg-card shadow-2xl">
                 <GeneratePanel
                   dsl={dsl}
-                  pipelines={pipelines}
-                  pipelineKey={pipelineKey}
-                  setPipelineKey={setPipelineKey}
                   inputMode={inputMode}
                   setInputMode={setInputMode}
                   topic={topic}
@@ -921,7 +906,7 @@ export default function EditorPage() {
 
       <HfPipelineStatusBar
         dsl={dsl}
-        pipelineKey={pipelineKey}
+        pipelineKey={DEFAULT_EDITOR_PIPELINE_KEY}
         onOpenMotionPanel={() => {
           setInspectorTab('motion');
           setShowProps(true);
@@ -932,9 +917,8 @@ export default function EditorPage() {
         <BrandLookPresetBanner
           dsl={dsl}
           editorId={id || ''}
-          onApply={(updater, options) => {
+          onApply={(updater) => {
             updateEditorDsl(updater);
-            if (options?.pipelineKey) setPipelineKey(options.pipelineKey);
             setInspectorTab('motion');
             setShowProps(true);
           }}

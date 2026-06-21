@@ -83,7 +83,24 @@ export function validatePipelineKey(pipelineKey: string): boolean {
 /** Editor default: standard 4-stage pipeline; HF is a style layer, not a separate render path. */
 export const DEFAULT_EDITOR_PIPELINE_KEY = 'template_editor';
 
-export function resolveEditorPipelineKey(saved?: string): string {
-  if (!saved || saved === 'hyperframes_template') return DEFAULT_EDITOR_PIPELINE_KEY;
-  return saved;
+/**
+ * Editor never exposes legacy worker keys (avatar_talk / digital_human / standard).
+ * Normalize any saved template meta to the single delivery pipeline.
+ */
+export function resolveEditorPipelineKey(_saved?: string): string {
+  return DEFAULT_EDITOR_PIPELINE_KEY;
+}
+
+/** Pipeline used when submitting a render from the editor. */
+export function resolveEditorRenderPipelineKey(
+  inputMode: 'template' | 'topic' | 'script',
+): string {
+  if (inputMode === 'topic' || inputMode === 'script') return 'ai_full_auto';
+  return DEFAULT_EDITOR_PIPELINE_KEY;
+}
+
+/** Diagnostics API keys only standard/digital_human/hyperframes — map editor delivery to standard. */
+export function resolveDiagnosticsPipelineKey(pipelineKey: string): string {
+  if (pipelineKey === 'template_editor' || pipelineKey === 'standard') return 'standard';
+  return pipelineKey;
 }

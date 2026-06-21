@@ -1,15 +1,11 @@
 export type ToolKey = 'avatar' | 'text' | 'media' | 'generate';
 export type InspectorTab = 'design' | 'motion' | 'layers' | 'object';
 
-import type { PipelineOption } from '@shared/data/pipelines';
 import type { ConfigDiagnostics, DSL } from '@shared/types/editor';
 
 export type RenderControlProps = {
   dsl: DSL;
   editorId?: string;
-  pipelines: PipelineOption[];
-  pipelineKey: string;
-  setPipelineKey: (key: string) => void;
   inputMode: 'template' | 'topic' | 'script';
   setInputMode: (mode: 'template' | 'topic' | 'script') => void;
   topic: string;

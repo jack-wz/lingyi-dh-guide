@@ -1,16 +1,19 @@
 import { Link } from 'react-router-dom';
+import {
+  DEFAULT_EDITOR_PIPELINE_KEY,
+  getPipeline,
+  resolveDiagnosticsPipelineKey,
+  resolveEditorRenderPipelineKey,
+} from '@shared/data/pipelines';
 import type { ConfigDiagnostics, DSL } from '@shared/types/editor';
 import { IconAlertCircle, IconCheck, IconType, IconZap } from '../../../../components/Icons';
 import { estimateRenderCostRisk, getRenderIssues } from '../../utils/renderIssues';
-import { getPipelineDisplayName, getPreviewRenderAlignment } from '../../../../utils/previewRenderAlignment';
+import { getPreviewRenderAlignment } from '../../../../utils/previewRenderAlignment';
 import type { RenderControlProps } from '../../types';
 
 export default function GeneratePanel({
   dsl,
   editorId,
-  pipelines,
-  pipelineKey,
-  setPipelineKey,
   inputMode,
   setInputMode,
   topic,
@@ -24,11 +27,13 @@ export default function GeneratePanel({
   diagnostics,
   onPickScript,
 }: RenderControlProps) {
-  const pipeline = pipelines.find(p => p.key === pipelineKey);
+  const renderPipelineKey = resolveEditorRenderPipelineKey(inputMode);
+  const pipeline = getPipeline(renderPipelineKey);
+  const diagKey = resolveDiagnosticsPipelineKey(renderPipelineKey);
   const issues = getRenderIssues(dsl, pipeline, selectedDhId, inputMode, topic, scriptText, diagnostics, variableValues);
   const duration = dsl.segments.reduce((sum, seg) => sum + Number(seg.duration_sec || 0), 0);
   const ready = issues.length === 0;
-  const pipelineDiagnostics = pipeline ? diagnostics?.pipelines?.[pipeline.key] : undefined;
+  const pipelineDiagnostics = diagnostics?.pipelines?.[diagKey];
   const providerWarnings = pipelineDiagnostics?.warnings || [];
   const providerBlockers = pipelineDiagnostics?.blockers || [];
   const providerStatus = providerBlockers.length > 0
@@ -39,7 +44,9 @@ export default function GeneratePanel({
         ? '供应商就绪'
         : '诊断加载中';
   const estimate = estimateRenderCostRisk(dsl, pipeline, diagnostics);
-  const alignment = getPreviewRenderAlignment(pipelineKey);
+  const alignment = getPreviewRenderAlignment(
+    inputMode === 'template' ? DEFAULT_EDITOR_PIPELINE_KEY : renderPipelineKey,
+  );
 
   return (
     <div className="p-4 space-y-4">
@@ -53,38 +60,23 @@ export default function GeneratePanel({
           </span>
         </div>
 
-        <div>
-          <label className="block text-[10px] text-muted-foreground mb-1">流水线</label>
-          <select
-            value={pipelineKey}
-            onChange={(e) => setPipelineKey(e.target.value)}
-            className="w-full h-9 rounded-md border border-border bg-background px-3 text-[12px] outline-none"
-          >
-            {pipelines.map(p => <option key={p.key} value={p.key}>{p.name}</option>)}
-          </select>
-          <p className="mt-1 text-[10px] text-muted-foreground">{pipeline?.description || '加载流水线...'}</p>
-          <div
-            className={`mt-2 rounded-md border px-2.5 py-2 text-[10px] leading-relaxed ${
-              alignment.tier === 'exact'
-                ? 'border-brand-green/30 bg-brand-green/10 text-brand-green'
-                : alignment.tier === 'layout'
-                  ? 'border-brand-blue/30 bg-brand-blue/5 text-muted-foreground'
-                  : 'border-brand-amber/30 bg-brand-amber/10 text-muted-foreground'
-            }`}
-          >
+        <div className="rounded-md border border-brand-blue/25 bg-brand-blue/5 px-2.5 py-2 text-[10px] leading-relaxed text-muted-foreground">
+          <div className="font-medium text-foreground mb-0.5">
+            {inputMode === 'template' ? '导购成片（固定）' : 'AI 自动分镜（主题/脚本）'}
+          </div>
+          {inputMode === 'template' ? (
+            <p>
+              场景图 → 数字人口播 → FFmpeg 组装（字幕 / 转场 / 质感）。无需选择
+              avatar_talk、digital_human 等调试流水线。
+            </p>
+          ) : (
+            <p>大模型根据主题或脚本生成分镜，再走完整四阶段渲染。</p>
+          )}
+          <p className="mt-1.5">
             <span className="font-medium text-foreground">{alignment.title}</span>
             <span className="mx-1">·</span>
             {alignment.detail}
-            {alignment.recommendPipeline && pipelineKey !== alignment.recommendPipeline && (
-              <button
-                type="button"
-                className="ml-2 text-brand-blue hover:underline"
-                onClick={() => setPipelineKey(alignment.recommendPipeline!)}
-              >
-                切换为{getPipelineDisplayName(alignment.recommendPipeline)}
-              </button>
-            )}
-          </div>
+          </p>
         </div>
 
         <div>

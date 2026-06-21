@@ -203,16 +203,18 @@ function buildDiagnostics(config: Config) {
   };
 
   const providerList = Object.values(providers);
+  const standardPipelineStatus = {
+    blockers: providers.ffmpeg.configured ? [] : ['FFmpeg 不可用，无法合成最终视频'],
+    warnings: [
+      !providers.kie.configured ? 'KIE API key 缺失：场景图会降级为参考图/占位图' : '',
+      !providers.yuntts.configured ? 'YunTTS API key 缺失：语音会尝试 Edge TTS 或降级' : '',
+      !providers.wavespeed.configured ? 'WaveSpeed API key 缺失：口型视频会降级为图片动效' : '',
+    ].filter(Boolean),
+    provider_keys: ['kie', 'yuntts', 'wavespeed', 'ffmpeg'],
+  };
   const pipelineStatus = {
-    standard: {
-      blockers: providers.ffmpeg.configured ? [] : ['FFmpeg 不可用，无法合成最终视频'],
-      warnings: [
-        !providers.kie.configured ? 'KIE API key 缺失：场景图会降级为参考图/占位图' : '',
-        !providers.yuntts.configured ? 'YunTTS API key 缺失：语音会尝试 Edge TTS 或降级' : '',
-        !providers.wavespeed.configured ? 'WaveSpeed API key 缺失：口型视频会降级为图片动效' : '',
-      ].filter(Boolean),
-      provider_keys: ['kie', 'yuntts', 'wavespeed', 'ffmpeg'],
-    },
+    standard: standardPipelineStatus,
+    template_editor: standardPipelineStatus,
     digital_human: {
       blockers: providers.ffmpeg.configured ? [] : ['FFmpeg 不可用，无法合成最终视频'],
       warnings: [
