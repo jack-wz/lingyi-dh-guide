@@ -15,7 +15,8 @@ MIN_SEGMENTS ?= 4
 
 .PHONY: help setup-worker-venv test-guide test-guide-server test-guide-shared test-guide-e2e test-guide-fast test-guide-timeline smoke-brand-render smoke-hf-render smoke-integrator smoke-integrator-hf smoke-integrator-hf-ci smoke-integrator-ci verify-playground verify-final-delivery verify-delivery-complete poll-render-job start-guide-internal restart-worker lint-guide \
 	validate-renders validate-renders-strict validate-renders-ci validate-render-job \
-	batch-reassemble batch-reassemble-dry preflight
+	batch-reassemble batch-reassemble-dry preflight \
+	fetch-openstoryline-assets
 
 help:
 	@echo "Guide Makefile targets:"
@@ -44,6 +45,10 @@ help:
 	@echo "  batch-reassemble-dry    Preview jobs that would be reassembled"
 	@echo "  batch-reassemble        Reassemble misaligned jobs (--needs-fix)"
 	@echo "  setup-worker-venv       Install worker venv deps (requests, pytest, ...)"
+	@echo "  fetch-openstoryline-assets  Copy BGM files from OPENSTORYLINE_ROOT to uploads"
+
+fetch-openstoryline-assets:
+	@cd "$(ROOT)" && uv run python "$(SCRIPTS)/fetch_openstoryline_assets.py"
 
 setup-worker-venv:
 	@"$(SCRIPTS)/setup_worker_venv.sh"

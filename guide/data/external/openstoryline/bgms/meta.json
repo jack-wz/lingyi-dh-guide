@@ -1,0 +1,2116 @@
+[
+  {
+    "scene": [
+      "Relaxing",
+      "Cafe",
+      "Evening"
+    ],
+    "genre": [
+      "BGM",
+      "Hip Hop/Rap",
+      "Jazz"
+    ],
+    "mood": [
+      "Chill",
+      "Calm",
+      "Healing"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首融合了爵士钢琴与轻柔嘻哈节奏的背景音乐，氛围放松治愈，适合咖啡馆、夜晚独处或Vlog配乐。",
+    "path": "./resource/bgms/music_0000.mp3",
+    "id": "341900d54323fd638a5a1cbf3c044362"
+  },
+  {
+    "scene": [
+      "Vlog",
+      "Cafe",
+      "Relaxing"
+    ],
+    "genre": [
+      "BGM",
+      "Hip Hop/Rap",
+      "R&B/Soul"
+    ],
+    "mood": [
+      "Chill",
+      "Calm",
+      "Healing"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻松惬意的嘻哈灵魂乐，带有柔和的合成器和节奏感强烈的鼓点，适合咖啡馆、日常放松或Vlog背景音乐。",
+    "path": "./resource/bgms/music_0001.mp3",
+    "id": "51e942535feaf2fd3e22ee72e34f2b4b"
+  },
+  {
+    "scene": [
+      "Relaxing",
+      "Cafe",
+      "Evening"
+    ],
+    "genre": [
+      "BGM",
+      "Electronic",
+      "Chinese Style"
+    ],
+    "mood": [
+      "Chill",
+      "Calm",
+      "Healing"
+    ],
+    "lang": [
+      "zh"
+    ],
+    "description": "这是一首融合中国风元素的轻电子BGM，旋律舒缓柔和，适合放松、咖啡馆或夜晚场景，主要使用合成器与传统音色营造宁静氛围。",
+    "path": "./resource/bgms/music_0002.mp3",
+    "id": "b36c3a5a73f00967aa4ee489de700561"
+  },
+  {
+    "scene": [
+      "Club"
+    ],
+    "genre": [
+      "Electronic"
+    ],
+    "mood": [
+      "Dynamic",
+      "Excited"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首充满能量的电子音乐，节奏强劲，合成器音效突出，适合夜店或派对场景。",
+    "path": "./resource/bgms/music_0003.mp3",
+    "id": "b84700eb8664f54ef4b21b29b61dedf0"
+  },
+  {
+    "scene": [
+      "Relaxing",
+      "Cafe",
+      "Evening"
+    ],
+    "genre": [
+      "BGM",
+      "Classical"
+    ],
+    "mood": [
+      "Chill",
+      "Calm",
+      "Healing"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首舒缓柔和的钢琴独奏BGM，适合放松、咖啡馆或夜晚场景，营造宁静治愈的氛围。",
+    "path": "./resource/bgms/music_0004.mp3",
+    "id": "bea4359bd20a0ad10ce4c136e462db85"
+  },
+  {
+    "scene": [
+      "Club"
+    ],
+    "genre": [
+      "Electronic",
+      "Pop"
+    ],
+    "mood": [
+      "Dynamic",
+      "Happy"
+    ],
+    "lang": [
+      "en"
+    ],
+    "description": "这是一首充满活力的电子流行乐，节奏感强，适合派对或俱乐部场景，以合成器和鼓点为主导，搭配女声演唱，营造出欢快动感的氛围。",
+    "path": "./resource/bgms/music_0005.mp3",
+    "id": "a6905a1ce527a56445bbd51c9d91bdd3"
+  },
+  {
+    "scene": [
+      "Cafe",
+      "Relaxing"
+    ],
+    "genre": [
+      "BGM",
+      "Electronic",
+      "Jazz"
+    ],
+    "mood": [
+      "Chill",
+      "Happy"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻松愉悦的电子爵士乐，融合了萨克斯风和合成器，适合咖啡馆或放松场景。",
+    "path": "./resource/bgms/music_0006.mp3",
+    "id": "05ede67f50f596f4b9f059fc78906a6f"
+  },
+  {
+    "scene": [
+      "Vlog",
+      "Club"
+    ],
+    "genre": [
+      "Electronic",
+      "Hip Hop/Rap"
+    ],
+    "mood": [
+      "Dynamic",
+      "Excited"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首充满能量的电子嘻哈音乐，节奏强劲，适合派对或Vlog背景，主要使用合成器、重低音和鼓点营造动感氛围。",
+    "path": "./resource/bgms/music_0007.mp3",
+    "id": "78d484032dd654c4f393b2aa939a2c0c"
+  },
+  {
+    "scene": [
+      "Relaxing",
+      "Cafe",
+      "Evening"
+    ],
+    "genre": [
+      "BGM",
+      "Electronic",
+      "R&B/Soul"
+    ],
+    "mood": [
+      "Chill",
+      "Calm",
+      "Healing"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首舒缓放松的电子爵士风格BGM，融合了柔和的合成器、轻柔的打击乐和萨克斯旋律，适合咖啡馆、夜晚放松或Vlog背景音乐。",
+    "path": "./resource/bgms/music_0008.mp3",
+    "id": "b5271ab2cc3c42d1f0e5c9f8640202be"
+  },
+  {
+    "scene": [
+      "Relaxing",
+      "Cafe",
+      "Evening"
+    ],
+    "genre": [
+      "BGM",
+      "Electronic",
+      "Chill"
+    ],
+    "mood": [
+      "Chill",
+      "Calm",
+      "Healing"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻柔舒缓的电子背景音乐，带有温暖的合成器音色和轻快的节奏，适合放松、咖啡馆或夜晚场景。",
+    "path": "./resource/bgms/music_0009.mp3",
+    "id": "33dcbb9d30e4521d06b0c3a88afe732f"
+  },
+  {
+    "scene": [
+      "Cafe",
+      "Relaxing"
+    ],
+    "genre": [
+      "BGM",
+      "R&B/Soul",
+      "Hip Hop/Rap"
+    ],
+    "mood": [
+      "Chill",
+      "Calm"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻柔的R&B/Soul风格背景音乐，融合了嘻哈节奏，适合咖啡馆或放松场景，以电吉他和柔和鼓点为主。",
+    "path": "./resource/bgms/music_0010.mp3",
+    "id": "e2b49559ec75515b1a42d7e823f31157"
+  },
+  {
+    "scene": [
+      "Vlog",
+      "Travel",
+      "Cafe"
+    ],
+    "genre": [
+      "Pop",
+      "BGM"
+    ],
+    "mood": [
+      "Happy",
+      "Chill",
+      "Inspirational"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻快愉悦的流行背景音乐，适合用于Vlog、旅行或咖啡馆场景，主要使用合成器和轻快节奏营造轻松氛围。",
+    "path": "./resource/bgms/music_0011.mp3",
+    "id": "f84dfea6df878657c3a7c5103e436a72"
+  },
+  {
+    "scene": [
+      "Relaxing",
+      "Cafe",
+      "Evening"
+    ],
+    "genre": [
+      "BGM",
+      "Jazz",
+      "R&B/Soul"
+    ],
+    "mood": [
+      "Chill",
+      "Romantic",
+      "Calm"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首舒缓浪漫的轻爵士BGM，以电吉他和钢琴为主，适合咖啡馆、夜晚放松或情感类场景。",
+    "path": "./resource/bgms/music_0012.mp3",
+    "id": "0ad49d1abec1a7ff6a67dd92c8a8451d"
+  },
+  {
+    "scene": [
+      "Romantic",
+      "Evening"
+    ],
+    "genre": [
+      "Pop",
+      "BGM"
+    ],
+    "mood": [
+      "Romantic",
+      "Calm",
+      "Healing"
+    ],
+    "lang": [
+      "en"
+    ],
+    "description": "这是一首温柔抒情的流行情歌，适合夜晚浪漫场景，以钢琴和弦乐为主，营造宁静治愈的氛围。",
+    "path": "./resource/bgms/music_0013.mp3",
+    "id": "1bc352534fb1a7c1a5d7db85d5fbdf6d"
+  },
+  {
+    "scene": [
+      "Relaxing",
+      "Cafe",
+      "Evening"
+    ],
+    "genre": [
+      "BGM",
+      "Classical"
+    ],
+    "mood": [
+      "Chill",
+      "Calm",
+      "Healing"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻柔舒缓的钢琴独奏曲，旋律优美宁静，适合放松、咖啡馆背景或夜晚独处时聆听。",
+    "path": "./resource/bgms/music_0014.mp3",
+    "id": "e7a46d556eb5991738d6217ac4a350ae"
+  },
+  {
+    "scene": [
+      "Relaxing",
+      "Cafe",
+      "Evening"
+    ],
+    "genre": [
+      "BGM",
+      "Hip Hop/Rap",
+      "Jazz"
+    ],
+    "mood": [
+      "Chill",
+      "Calm",
+      "Healing"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻柔舒缓的背景音乐，融合了嘻哈节奏与爵士元素，适合在咖啡馆、夜晚或放松时聆听，主要使用吉他和轻柔鼓点营造宁静氛围。",
+    "path": "./resource/bgms/music_0015.mp3",
+    "id": "1905079f8162cda935cad65f1704fc81"
+  },
+  {
+    "scene": [
+      "Vlog",
+      "Travel",
+      "Cafe"
+    ],
+    "genre": [
+      "Pop",
+      "BGM"
+    ],
+    "mood": [
+      "Happy",
+      "Chill",
+      "Inspirational"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻快愉悦的流行背景音乐，适合用于Vlog、旅行或咖啡馆场景，以吉他、钢琴和轻柔鼓点为主，营造轻松治愈的氛围。",
+    "path": "./resource/bgms/music_0016.mp3",
+    "id": "2d7f5fc1e49d0162760a86439aa49b04"
+  },
+  {
+    "scene": [
+      "Club"
+    ],
+    "genre": [
+      "Rock"
+    ],
+    "mood": [
+      "Dynamic",
+      "Excited"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首充满力量的摇滚乐，节奏强劲，电吉他主导，适合派对或激烈场景，营造兴奋动感的氛围。",
+    "path": "./resource/bgms/music_0017.mp3",
+    "id": "768a040d64789393a18b8712337e0f05"
+  },
+  {
+    "scene": [
+      "Vlog",
+      "Cafe",
+      "Relaxing"
+    ],
+    "genre": [
+      "Pop",
+      "BGM"
+    ],
+    "mood": [
+      "Happy",
+      "Chill",
+      "Dynamic"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻快活泼的流行背景音乐，以人声哼唱和电子节拍为主，适合用于Vlog、咖啡馆或轻松日常场景。",
+    "path": "./resource/bgms/music_0018.mp3",
+    "id": "2780528aed096984f0e6df0b0ec54b8d"
+  },
+  {
+    "scene": [
+      "Vlog",
+      "Travel"
+    ],
+    "genre": [
+      "BGM",
+      "Chinese Style"
+    ],
+    "mood": [
+      "Happy",
+      "Excited",
+      "Inspirational"
+    ],
+    "lang": [
+      "zh"
+    ],
+    "description": "这是一首充满活力的中国风背景音乐，融合传统乐器与现代编曲，适合用于旅行Vlog或节日庆典场景，营造欢快振奋的氛围。",
+    "path": "./resource/bgms/music_0019.mp3",
+    "id": "3a8c2be94b9553649e3f1f7d07f92774"
+  },
+  {
+    "scene": [
+      "Vlog",
+      "Relaxing",
+      "Cafe"
+    ],
+    "genre": [
+      "BGM",
+      "Electronic",
+      "Hip Hop/Rap"
+    ],
+    "mood": [
+      "Chill",
+      "Calm",
+      "Healing"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首舒缓的电子嘻哈背景音乐，以柔和的合成器和轻柔的鼓点为主，适合放松、咖啡馆或日常Vlog场景。",
+    "path": "./resource/bgms/music_0020.mp3",
+    "id": "b47b9cffc4dc232e9202418644c0b9e1"
+  },
+  {
+    "scene": [
+      "Relaxing",
+      "Healing"
+    ],
+    "genre": [
+      "BGM",
+      "Electronic"
+    ],
+    "mood": [
+      "Chill",
+      "Calm",
+      "Healing"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首氛围感强烈的电子背景音乐，以低频合成器和空灵音效为主，营造出宁静治愈的氛围，适合放松、冥想或作为放松场景的BGM。",
+    "path": "./resource/bgms/music_0021.mp3",
+    "id": "5b9e50094788792e035727fda25e8730"
+  },
+  {
+    "scene": [
+      "BGM",
+      "Emotion",
+      "Transition"
+    ],
+    "genre": [
+      "BGM",
+      "Classical"
+    ],
+    "mood": [
+      "Dynamic",
+      "Inspirational"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首气势恢宏的管弦乐BGM，节奏激昂，充满力量感，适合用于电影预告、游戏战斗或激励人心的场景。",
+    "path": "./resource/bgms/music_0022.mp3",
+    "id": "87024725c615d934b5c9d30f22ff8df9"
+  },
+  {
+    "scene": [
+      "Relaxing",
+      "Cafe",
+      "Evening"
+    ],
+    "genre": [
+      "BGM",
+      "Classical"
+    ],
+    "mood": [
+      "Chill",
+      "Calm",
+      "Healing"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻柔舒缓的钢琴独奏曲，旋律优美宁静，适合放松、咖啡馆或夜晚场景。",
+    "path": "./resource/bgms/music_0023.mp3",
+    "id": "c8aab4bd827090752a368b80571cb1b7"
+  },
+  {
+    "scene": [
+      "Relaxing",
+      "Cafe",
+      "Vlog"
+    ],
+    "genre": [
+      "BGM",
+      "Electronic",
+      "Hip Hop/Rap"
+    ],
+    "mood": [
+      "Chill",
+      "Calm",
+      "Healing"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻柔舒缓的电子嘻哈背景音乐，带有温暖的合成器和节奏感轻柔的鼓点，适合放松、咖啡馆或日常Vlog使用。",
+    "path": "./resource/bgms/music_0024.mp3",
+    "id": "cef1093d66ae2738b58ea5e3a8fb9e95"
+  },
+  {
+    "scene": [
+      "Club"
+    ],
+    "genre": [
+      "Electronic"
+    ],
+    "mood": [
+      "Dynamic",
+      "Happy"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首节奏动感的电子舞曲，适合夜店或派对场景，以合成器旋律和强劲节拍为主，充满活力与兴奋感。",
+    "path": "./resource/bgms/music_0025.mp3",
+    "id": "1b44bc5b3a735ebc829bdb2e971713b6"
+  },
+  {
+    "scene": [
+      "Vlog",
+      "Cafe",
+      "Relaxing"
+    ],
+    "genre": [
+      "BGM",
+      "Electronic",
+      "Hip Hop/Rap"
+    ],
+    "mood": [
+      "Chill",
+      "Happy",
+      "Calm"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻松愉快的电子嘻哈背景音乐，适合日常Vlog、咖啡馆或放松场景，以合成器旋律和轻快节奏为主。",
+    "path": "./resource/bgms/music_0026.mp3",
+    "id": "1d9a9bbe3de2ee7f82b7892dc3d4ddc3"
+  },
+  {
+    "scene": [
+      "Vlog",
+      "Relaxing",
+      "Cafe"
+    ],
+    "genre": [
+      "BGM",
+      "Electronic",
+      "Hip Hop/Rap"
+    ],
+    "mood": [
+      "Chill",
+      "Calm",
+      "Healing"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻松舒缓的电子嘻哈背景音乐，带有柔和的合成器旋律和节奏感，适合用于Vlog、咖啡馆或放松场景。",
+    "path": "./resource/bgms/music_0027.mp3",
+    "id": "607479f15eac9620af2c6aac5c322f93"
+  },
+  {
+    "scene": [
+      "Vlog",
+      "Travel"
+    ],
+    "genre": [
+      "BGM",
+      "Electronic"
+    ],
+    "mood": [
+      "Chill",
+      "Happy"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻松愉快的电子背景音乐，适合旅行或日常Vlog，主要使用合成器和轻快节奏营造活泼氛围。",
+    "path": "./resource/bgms/music_0028.mp3",
+    "id": "84746bd9bf0b69d1c4ba4ed894ae0be2"
+  },
+  {
+    "scene": [
+      "Vlog",
+      "Relaxing",
+      "Cafe"
+    ],
+    "genre": [
+      "BGM",
+      "Classical"
+    ],
+    "mood": [
+      "Chill",
+      "Calm",
+      "Healing",
+      "Romantic"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻柔舒缓的钢琴BGM，搭配弦乐，营造出宁静治愈的氛围，适合用于Vlog、咖啡馆或放松场景。",
+    "path": "./resource/bgms/music_0029.mp3",
+    "id": "556a9673f1685ed584bf3cbb02a35f59"
+  },
+  {
+    "scene": [
+      "Vlog",
+      "Travel",
+      "Cafe"
+    ],
+    "genre": [
+      "Pop",
+      "BGM"
+    ],
+    "mood": [
+      "Happy",
+      "Chill",
+      "Romantic"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻快愉悦的流行背景音乐，带有口哨旋律和柔和的节奏，适合用于旅行、日常Vlog或咖啡馆场景。",
+    "path": "./resource/bgms/music_0030.mp3",
+    "id": "1f159e76faa3c97a18cae00834b311db"
+  },
+  {
+    "scene": [
+      "Vlog",
+      "Relaxing",
+      "Cafe"
+    ],
+    "genre": [
+      "BGM",
+      "Electronic"
+    ],
+    "mood": [
+      "Chill",
+      "Calm",
+      "Healing"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻柔舒缓的电子背景音乐，以钢琴和合成器为主，适合用于Vlog、咖啡馆或放松场景，营造宁静治愈的氛围。",
+    "path": "./resource/bgms/music_0031.mp3",
+    "id": "3f18ae606a55ad29899bcf5e1f0226fe"
+  },
+  {
+    "scene": [
+      "Relaxing",
+      "Emotion",
+      "Scenery"
+    ],
+    "genre": [
+      "BGM",
+      "Electronic"
+    ],
+    "mood": [
+      "Chill",
+      "Healing",
+      "Inspirational"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首氛围感强烈的电子背景音乐，融合了空灵的合成器与柔和的弦乐，适合放松、冥想或自然风景场景。",
+    "path": "./resource/bgms/music_0032.mp3",
+    "id": "a76e4d0a4920dd66e62f7da871c3ed33"
+  },
+  {
+    "scene": [
+      "Vlog",
+      "Cafe",
+      "Relaxing"
+    ],
+    "genre": [
+      "BGM",
+      "Electronic",
+      "Chill"
+    ],
+    "mood": [
+      "Chill",
+      "Calm",
+      "Happy"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻松惬意的电子背景音乐，节奏舒缓，适合用于Vlog、咖啡馆或放松场景，主要使用合成器和轻柔打击乐营造氛围。",
+    "path": "./resource/bgms/music_0033.mp3",
+    "id": "48bf9f80a258a8e10810e14868a5b016"
+  },
+  {
+    "scene": [
+      "Vlog",
+      "Travel",
+      "Outdoor"
+    ],
+    "genre": [
+      "Folk",
+      "Pop"
+    ],
+    "mood": [
+      "Happy",
+      "Chill",
+      "Excited"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻快活泼的民谣流行乐，以尤克里里和吉他为主奏乐器，节奏明快，适合用于旅行、日常Vlog或户外场景。",
+    "path": "./resource/bgms/music_0034.mp3",
+    "id": "66cd52ed887ad7b3774c9258c59b85a2"
+  },
+  {
+    "scene": [
+      "Vlog",
+      "Outdoor"
+    ],
+    "genre": [
+      "Electronic",
+      "BGM"
+    ],
+    "mood": [
+      "Dynamic",
+      "Excited",
+      "Inspirational"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首充满力量感的电子背景音乐，节奏强劲、旋律激昂，适合用于运动、科技或户外冒险类视频，主要使用合成器和重低音鼓点。",
+    "path": "./resource/bgms/music_0035.mp3",
+    "id": "2134645018a0316be47d4bac97445fa0"
+  },
+  {
+    "scene": [
+      "Relaxing",
+      "Cafe",
+      "Evening"
+    ],
+    "genre": [
+      "Folk",
+      "BGM"
+    ],
+    "mood": [
+      "Chill",
+      "Calm",
+      "Healing"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首舒缓的民谣风格背景音乐，以原声吉他为主，营造宁静放松的氛围，适合咖啡馆、夜晚或冥想场景。",
+    "path": "./resource/bgms/music_0036.mp3",
+    "id": "3a7f2a79d5556ce827056d47f34e70c8"
+  },
+  {
+    "scene": [
+      "Relaxing",
+      "Cafe",
+      "Evening"
+    ],
+    "genre": [
+      "BGM",
+      "Electronic",
+      "Chill"
+    ],
+    "mood": [
+      "Chill",
+      "Calm",
+      "Healing"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首舒缓的电子背景音乐，以柔和的合成器和轻柔的节拍为主，适合放松、咖啡馆或夜晚场景。",
+    "path": "./resource/bgms/music_0037.mp3",
+    "id": "4adcdcbbd575deeee76aa9adbb11fcea"
+  },
+  {
+    "scene": [
+      "Vlog",
+      "Travel",
+      "Relaxing"
+    ],
+    "genre": [
+      "BGM",
+      "Pop"
+    ],
+    "mood": [
+      "Happy",
+      "Chill",
+      "Inspirational"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻快愉悦的背景音乐，融合了钢琴、弦乐和电子元素，适合用于旅行、日常Vlog或放松场景，营造积极温暖的氛围。",
+    "path": "./resource/bgms/music_0038.mp3",
+    "id": "18b7b18976ae49efbf87bb2cc5f16627"
+  },
+  {
+    "scene": [
+      "Vlog",
+      "Travel",
+      "Cafe"
+    ],
+    "genre": [
+      "BGM",
+      "Electronic"
+    ],
+    "mood": [
+      "Chill",
+      "Calm"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻松惬意的电子背景音乐，节奏舒缓，适合用于Vlog、旅行或咖啡馆场景，主要以合成器和轻柔节拍营造放松氛围。",
+    "path": "./resource/bgms/music_0039.mp3",
+    "id": "b5d4d531220485c39cfb4fdcfe6d1029"
+  },
+  {
+    "scene": [
+      "Vlog",
+      "Cafe"
+    ],
+    "genre": [
+      "BGM",
+      "Electronic"
+    ],
+    "mood": [
+      "Chill",
+      "Happy"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻松愉快的电子背景音乐，带有轻快的合成器旋律，适合用于Vlog或咖啡馆场景。",
+    "path": "./resource/bgms/music_0040.mp3",
+    "id": "0173a8dad4ba09a75f36413c7788448c"
+  },
+  {
+    "scene": [
+      "Relaxing",
+      "Vlog",
+      "Cafe"
+    ],
+    "genre": [
+      "Folk",
+      "BGM"
+    ],
+    "mood": [
+      "Chill",
+      "Calm",
+      "Healing"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻柔舒缓的民谣风格背景音乐，以原声吉他为主，适合放松、咖啡馆或日常Vlog场景。",
+    "path": "./resource/bgms/music_0041.mp3",
+    "id": "b994241d27343ef5d45c0b563d2d621c"
+  },
+  {
+    "scene": [
+      "Cafe",
+      "Relaxing",
+      "Vlog"
+    ],
+    "genre": [
+      "BGM",
+      "Electronic",
+      "Pop"
+    ],
+    "mood": [
+      "Chill",
+      "Happy",
+      "Dynamic"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻快愉悦的电子流行BGM，带有合成器和节奏感强的鼓点，适合咖啡馆、日常Vlog或放松场景。",
+    "path": "./resource/bgms/music_0042.mp3",
+    "id": "3644548ea4ee8acfac10f1cebd8e6de4"
+  },
+  {
+    "scene": [
+      "Relaxing",
+      "Cafe"
+    ],
+    "genre": [
+      "R&B/Soul",
+      "Pop"
+    ],
+    "mood": [
+      "Chill",
+      "Sorrow"
+    ],
+    "lang": [
+      "en"
+    ],
+    "description": "这是一首带有慵懒节奏的R&B/Soul风格歌曲，旋律舒缓略带忧伤，适合在咖啡馆或放松时聆听，以人声和吉他为主导乐器。",
+    "path": "./resource/bgms/music_0043.mp3",
+    "id": "b438743af4258b7be4fa433ae493b46e"
+  },
+  {
+    "scene": [
+      "Vlog",
+      "Cafe",
+      "Relaxing"
+    ],
+    "genre": [
+      "BGM",
+      "Hip Hop/Rap",
+      "Electronic"
+    ],
+    "mood": [
+      "Chill",
+      "Calm",
+      "Healing"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首舒缓放松的嘻哈电子背景音乐，适合咖啡馆、日常Vlog或休闲场景，以柔和的钢琴旋律和轻柔的鼓点为主。",
+    "path": "./resource/bgms/music_0044.mp3",
+    "id": "62759190b3f2fdb05bce097e48fda361"
+  },
+  {
+    "scene": [
+      "Emotion",
+      "Transition"
+    ],
+    "genre": [
+      "BGM",
+      "Chinese Style"
+    ],
+    "mood": [
+      "Dynamic",
+      "Inspirational"
+    ],
+    "lang": [
+      "zh"
+    ],
+    "description": "这是一首充满力量与激情的中国风背景音乐，融合了传统乐器与现代交响乐，适合用于史诗场景或情感转折的视频片段。",
+    "path": "./resource/bgms/music_0045.mp3",
+    "id": "6a7c236e80f26ff4146cdf846a9f7dcf"
+  },
+  {
+    "scene": [
+      "Cafe",
+      "Relaxing"
+    ],
+    "genre": [
+      "Jazz",
+      "BGM"
+    ],
+    "mood": [
+      "Chill",
+      "Calm"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻柔舒缓的爵士背景音乐，以萨克斯风为主旋律，搭配轻快的节奏和温暖的和弦，适合咖啡馆或放松场景。",
+    "path": "./resource/bgms/music_0046.mp3",
+    "id": "119c54a2d12de3da7c9af74cfa770865"
+  },
+  {
+    "scene": [
+      "Relaxing",
+      "Cafe",
+      "Evening"
+    ],
+    "genre": [
+      "BGM",
+      "Electronic",
+      "R&B/Soul"
+    ],
+    "mood": [
+      "Chill",
+      "Calm",
+      "Healing"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首舒缓的电子BGM，融合R&B氛围，适合咖啡馆、夜晚放松或Vlog背景，以柔和合成器和轻柔节奏营造宁静治愈感。",
+    "path": "./resource/bgms/music_0047.mp3",
+    "id": "8eb4558bfcbba85b7370299c48a74004"
+  },
+  {
+    "scene": [
+      "Relaxing",
+      "Cafe"
+    ],
+    "genre": [
+      "BGM",
+      "R&B/Soul"
+    ],
+    "mood": [
+      "Chill",
+      "Happy"
+    ],
+    "lang": [
+      "en"
+    ],
+    "description": "这是一首轻松愉悦的R&B/Soul风格音乐，节奏舒缓，适合在咖啡馆或放松场景中播放，带有温暖的旋律和轻快的歌词。",
+    "path": "./resource/bgms/music_0048.mp3",
+    "id": "7922266590195123ff8705847f7dd1c9"
+  },
+  {
+    "scene": [
+      "Club"
+    ],
+    "genre": [
+      "Electronic"
+    ],
+    "mood": [
+      "Dynamic",
+      "Excited"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首充满能量的电子舞曲，节奏强劲，适合夜店或派对场景，主要使用合成器和电子鼓点营造动感氛围。",
+    "path": "./resource/bgms/music_0049.mp3",
+    "id": "954e25560e3012f87c9bd430568f15f3"
+  },
+  {
+    "scene": [
+      "Cafe",
+      "Relaxing"
+    ],
+    "genre": [
+      "Jazz",
+      "BGM"
+    ],
+    "mood": [
+      "Chill",
+      "Romantic",
+      "Calm"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首舒缓浪漫的爵士背景音乐，以钢琴为主导，搭配柔和的鼓点和萨克斯风，适合咖啡馆或放松场景。",
+    "path": "./resource/bgms/music_0050.mp3",
+    "id": "f146a9404bc9dfc7cbc6ce7844304f21"
+  },
+  {
+    "scene": [
+      "Relaxing",
+      "Cafe",
+      "Evening"
+    ],
+    "genre": [
+      "BGM",
+      "Electronic",
+      "R&B/Soul"
+    ],
+    "mood": [
+      "Chill",
+      "Calm",
+      "Healing"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首舒缓的电子氛围音乐，融合了柔和的合成器与轻柔的节奏，适合放松、咖啡馆或夜晚场景。",
+    "path": "./resource/bgms/music_0051.mp3",
+    "id": "68ba9949a093d6e9f6d2bd260c9d8fda"
+  },
+  {
+    "scene": [
+      "Cafe",
+      "Relaxing",
+      "Vlog"
+    ],
+    "genre": [
+      "BGM",
+      "Electronic",
+      "R&B/Soul"
+    ],
+    "mood": [
+      "Chill",
+      "Happy",
+      "Calm"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻松愉悦的电子放克风格BGM，融合柔和的合成器与律动感强烈的鼓点，适合咖啡馆、日常Vlog或放松场景。",
+    "path": "./resource/bgms/music_0052.mp3",
+    "id": "d3dff7e244c0f663f5c00c6775364874"
+  },
+  {
+    "scene": [
+      "Club"
+    ],
+    "genre": [
+      "Electronic",
+      "Pop"
+    ],
+    "mood": [
+      "Happy",
+      "Excited",
+      "Dynamic"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首充满活力的电子流行音乐，节奏强劲，适合派对或俱乐部场景，主要使用合成器和鼓点营造欢快氛围。",
+    "path": "./resource/bgms/music_0053.mp3",
+    "id": "a35ce8c670d5263a63dfc1b903a05bbe"
+  },
+  {
+    "scene": [
+      "Vlog",
+      "Travel",
+      "Relaxing"
+    ],
+    "genre": [
+      "BGM",
+      "Folk"
+    ],
+    "mood": [
+      "Happy",
+      "Chill",
+      "Romantic"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻快愉悦的民谣风格背景音乐，以吉他为主奏乐器，适合用于旅行、日常Vlog或放松场景。",
+    "path": "./resource/bgms/music_0054.mp3",
+    "id": "4ccb41121bd66cebb6d3302e91a5f629"
+  },
+  {
+    "scene": [
+      "Relaxing",
+      "Cafe",
+      "Scenery"
+    ],
+    "genre": [
+      "Folk",
+      "BGM"
+    ],
+    "mood": [
+      "Chill",
+      "Calm",
+      "Healing"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻柔的民谣风格背景音乐，以原声吉他为主，旋律舒缓治愈，适合放松、咖啡馆或自然风景场景。",
+    "path": "./resource/bgms/music_0055.mp3",
+    "id": "e309d333c6d8cf81bc3e9b631275c7fd"
+  },
+  {
+    "scene": [
+      "Vlog",
+      "Cafe",
+      "Outdoor"
+    ],
+    "genre": [
+      "Pop",
+      "BGM"
+    ],
+    "mood": [
+      "Happy",
+      "Chill",
+      "Dynamic"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻快活泼的流行背景音乐，融合电子节拍与吉他旋律，适合用于日常Vlog、咖啡馆或户外场景，营造轻松愉悦的氛围。",
+    "path": "./resource/bgms/music_0056.mp3",
+    "id": "2103f7bbc231f6a7782a1e968139b0b1"
+  },
+  {
+    "scene": [
+      "Vlog",
+      "Travel",
+      "Cafe"
+    ],
+    "genre": [
+      "Pop",
+      "BGM"
+    ],
+    "mood": [
+      "Happy",
+      "Chill",
+      "Excited"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻快活泼的流行背景音乐，以尤克里里和打击乐为主，适合用于Vlog、旅行或咖啡馆场景，营造轻松愉悦的氛围。",
+    "path": "./resource/bgms/music_0057.mp3",
+    "id": "77f2b8985bd952f1fa309eecf74da47b"
+  },
+  {
+    "scene": [
+      "Vlog",
+      "Outdoor"
+    ],
+    "genre": [
+      "Rock"
+    ],
+    "mood": [
+      "Dynamic",
+      "Excited"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首充满力量感的摇滚乐，节奏强劲、电吉他主导，适合用于运动、冒险或高能场景的Vlog或户外视频。",
+    "path": "./resource/bgms/music_0058.mp3",
+    "id": "a463b7a12b0a12123c51ab226d3b321d"
+  },
+  {
+    "scene": [
+      "Vlog",
+      "Relaxing",
+      "Cafe"
+    ],
+    "genre": [
+      "BGM",
+      "Electronic"
+    ],
+    "mood": [
+      "Chill",
+      "Calm",
+      "Healing"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻柔舒缓的电子背景音乐，以合成器为主，适合放松、咖啡馆或日常Vlog场景。",
+    "path": "./resource/bgms/music_0059.mp3",
+    "id": "dc67ac19a6d453b969be4ae3244719c2"
+  },
+  {
+    "scene": [
+      "Relaxing",
+      "Cafe",
+      "Scenery"
+    ],
+    "genre": [
+      "Classical",
+      "BGM"
+    ],
+    "mood": [
+      "Chill",
+      "Calm",
+      "Healing"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻柔舒缓的古典背景音乐，以钢琴为主导，搭配弦乐，营造出宁静治愈的氛围，适合放松、咖啡馆或自然风景场景。",
+    "path": "./resource/bgms/music_0060.mp3",
+    "id": "2291531b1a5a103d1b730cdc82743c23"
+  },
+  {
+    "scene": [
+      "Vlog",
+      "Travel",
+      "Cafe"
+    ],
+    "genre": [
+      "Pop",
+      "BGM"
+    ],
+    "mood": [
+      "Happy",
+      "Chill",
+      "Excited"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻快活泼的流行背景音乐，以吉他和打击乐为主，适合用于Vlog、旅行或咖啡馆场景，营造轻松愉悦的氛围。",
+    "path": "./resource/bgms/music_0061.mp3",
+    "id": "a3bcef59c0eb459ad4cb4c343cac67b1"
+  },
+  {
+    "scene": [
+      "Vlog",
+      "Travel",
+      "Cafe"
+    ],
+    "genre": [
+      "BGM",
+      "Jazz"
+    ],
+    "mood": [
+      "Happy",
+      "Chill",
+      "Dynamic"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻快活泼的爵士风格背景音乐，融合了铜管、钢琴和打击乐，适合用于旅行、日常Vlog或咖啡馆场景，营造轻松愉悦的氛围。",
+    "path": "./resource/bgms/music_0062.mp3",
+    "id": "7d11cd9d58c00e61bd558c34910114eb"
+  },
+  {
+    "scene": [
+      "Vlog",
+      "Relaxing",
+      "Cafe"
+    ],
+    "genre": [
+      "BGM",
+      "Electronic",
+      "Hip Hop/Rap"
+    ],
+    "mood": [
+      "Chill",
+      "Calm",
+      "Healing"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻柔舒缓的电子嘻哈背景音乐，以钢琴和合成器为主，适合放松、咖啡馆或日常Vlog场景。",
+    "path": "./resource/bgms/music_0063.mp3",
+    "id": "eb5e343d32499d691eb7c2cc801bbceb"
+  },
+  {
+    "scene": [
+      "Vlog",
+      "Relaxing",
+      "Cafe"
+    ],
+    "genre": [
+      "BGM",
+      "Electronic",
+      "Hip Hop/Rap"
+    ],
+    "mood": [
+      "Chill",
+      "Calm",
+      "Healing"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻柔舒缓的电子嘻哈背景音乐，以合成器旋律和轻快节拍为主，适合用于Vlog、咖啡馆或放松场景。",
+    "path": "./resource/bgms/music_0064.mp3",
+    "id": "96686bf800d38364a5f1c76a726795c9"
+  },
+  {
+    "scene": [
+      "Vlog",
+      "Travel",
+      "Relaxing"
+    ],
+    "genre": [
+      "BGM",
+      "Chinese Style"
+    ],
+    "mood": [
+      "Chill",
+      "Calm",
+      "Healing"
+    ],
+    "lang": [
+      "zh"
+    ],
+    "description": "这是一首融合传统中国乐器与现代BGM风格的轻音乐，旋律舒缓宁静，适合放松、旅行或Vlog背景音乐。",
+    "path": "./resource/bgms/music_0065.mp3",
+    "id": "84d874d30ff13f985042298a0a7c0fbd"
+  },
+  {
+    "scene": [
+      "Relaxing",
+      "Travel"
+    ],
+    "genre": [
+      "Folk",
+      "Chinese Style"
+    ],
+    "mood": [
+      "Chill",
+      "Calm"
+    ],
+    "lang": [
+      "zh"
+    ],
+    "description": "这是一首具有中国风格的民乐，以悠扬的弦乐为主，营造出宁静放松的氛围，适合冥想或旅行背景音乐。",
+    "path": "./resource/bgms/music_0066.mp3",
+    "id": "500a58aeea3bc96dca11c2107ab62b61"
+  },
+  {
+    "scene": [
+      "Vlog",
+      "Outdoor"
+    ],
+    "genre": [
+      "Rock"
+    ],
+    "mood": [
+      "Dynamic",
+      "Excited"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首充满力量感的摇滚乐，节奏强劲，适合用于运动、户外活动或Vlog背景音乐，主要乐器包括电吉他、鼓和贝斯。",
+    "path": "./resource/bgms/music_0067.mp3",
+    "id": "4e1eb8687e6ee6642aa4ae60d281fe44"
+  },
+  {
+    "scene": [
+      "Relaxing",
+      "Cafe",
+      "Evening"
+    ],
+    "genre": [
+      "BGM",
+      "Electronic",
+      "Hip Hop/Rap"
+    ],
+    "mood": [
+      "Chill",
+      "Calm",
+      "Healing"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻柔舒缓的电子嘻哈背景音乐，带有温暖的钢琴旋律和轻柔的鼓点，适合放松、咖啡馆或夜晚场景。",
+    "path": "./resource/bgms/music_0068.mp3",
+    "id": "4172a7d688a394084898c85f78505720"
+  },
+  {
+    "scene": [
+      "Club"
+    ],
+    "genre": [
+      "Electronic"
+    ],
+    "mood": [
+      "Dynamic"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首节奏强劲的电子舞曲，适合夜店或派对场景，以合成器和鼓点为主导，充满动感与能量。",
+    "path": "./resource/bgms/music_0069.mp3",
+    "id": "2f4bd7111499103379cccb2c2a13a966"
+  },
+  {
+    "scene": [
+      "Cafe",
+      "Relaxing"
+    ],
+    "genre": [
+      "Jazz"
+    ],
+    "mood": [
+      "Chill",
+      "Calm",
+      "Romantic"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻柔舒缓的爵士钢琴曲，适合咖啡馆背景或放松时刻，旋律优雅且富有情感。",
+    "path": "./resource/bgms/music_0070.mp3",
+    "id": "dd7a425d13539b23e0849821ec5aff81"
+  },
+  {
+    "scene": [
+      "BGM",
+      "Scenery"
+    ],
+    "genre": [
+      "Classical",
+      "Chinese Style"
+    ],
+    "mood": [
+      "Inspirational",
+      "Dynamic"
+    ],
+    "lang": "zh",
+    "description": "这是一首气势恢宏的中西合璧管弦乐，融合中国元素与交响乐，情绪激昂振奋，适合史诗场景或自然风光展示。",
+    "path": "./resource/bgms/music_0071.mp3",
+    "id": "bb9bf0d1ecdac8bdd8b51895322bb52d"
+  },
+  {
+    "scene": [
+      "Cafe",
+      "Relaxing"
+    ],
+    "genre": [
+      "Jazz"
+    ],
+    "mood": [
+      "Chill",
+      "Calm",
+      "Romantic"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首舒缓优雅的爵士乐，以钢琴、贝斯和轻柔鼓点为主，适合咖啡馆或放松场景，营造宁静浪漫的氛围。",
+    "path": "./resource/bgms/music_0072.mp3",
+    "id": "a3752ae97c9450c04c649828b931ff00"
+  },
+  {
+    "scene": [
+      "Vlog",
+      "Travel",
+      "Cafe"
+    ],
+    "genre": [
+      "BGM",
+      "Pop"
+    ],
+    "mood": [
+      "Happy",
+      "Chill",
+      "Calm"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻快愉悦的背景音乐，以尤克里里和轻柔打击乐为主，适合用于Vlog、旅行或咖啡馆场景，营造轻松治愈的氛围。",
+    "path": "./resource/bgms/music_0073.mp3",
+    "id": "0490da84d97de2486e67bb9482245c45"
+  },
+  {
+    "scene": [
+      "Cafe",
+      "Relaxing"
+    ],
+    "genre": [
+      "BGM",
+      "Hip Hop/Rap",
+      "R&B/Soul"
+    ],
+    "mood": [
+      "Chill",
+      "Calm"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻松惬意的嘻哈灵魂乐，带有柔和的节奏和温暖的旋律，适合咖啡馆或放松场景。",
+    "path": "./resource/bgms/music_0074.mp3",
+    "id": "35e5bb9c987e3331a1292e10e3aae5da"
+  },
+  {
+    "scene": [
+      "Vlog",
+      "Travel"
+    ],
+    "genre": [
+      "BGM",
+      "Chinese Style"
+    ],
+    "mood": [
+      "Dynamic",
+      "Inspirational"
+    ],
+    "lang": [
+      "zh"
+    ],
+    "description": "这是一首充满力量与激情的中国风背景音乐，融合传统乐器与现代编曲，适合用于旅行或Vlog视频，营造振奋人心的氛围。",
+    "path": "./resource/bgms/music_0075.mp3",
+    "id": "1b91aee91b5df378eed4d242aad41bff"
+  },
+  {
+    "scene": [
+      "Relaxing",
+      "Cafe",
+      "Scenery"
+    ],
+    "genre": [
+      "BGM",
+      "Chinese Style"
+    ],
+    "mood": [
+      "Chill",
+      "Calm",
+      "Healing"
+    ],
+    "lang": [
+      "zh"
+    ],
+    "description": "这是一首具有中国风格的轻柔BGM，以古筝等传统乐器为主，营造宁静治愈的氛围，适合放松、咖啡馆或自然风景场景。",
+    "path": "./resource/bgms/music_0076.mp3",
+    "id": "25463f2a211db74735ccd43403974c71"
+  },
+  {
+    "scene": [
+      "Vlog",
+      "Cafe",
+      "Evening"
+    ],
+    "genre": [
+      "BGM",
+      "Electronic",
+      "Pop"
+    ],
+    "mood": [
+      "Happy",
+      "Chill",
+      "Dynamic"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻快愉悦的电子流行背景音乐，融合合成器与节奏感强的鼓点，适合用于Vlog、咖啡馆或傍晚休闲场景。",
+    "path": "./resource/bgms/music_0077.mp3",
+    "id": "ca78d99835dfed4f9534124e1a71a2d5"
+  },
+  {
+    "scene": [
+      "Relaxing",
+      "Cafe"
+    ],
+    "genre": [
+      "Reggae"
+    ],
+    "mood": [
+      "Chill",
+      "Happy"
+    ],
+    "lang": [
+      "en"
+    ],
+    "description": "这是一首轻松愉快的雷鬼音乐，节奏舒缓，适合在咖啡馆或休闲场景中播放，带有明显的贝斯线和轻快的打击乐。",
+    "path": "./resource/bgms/music_0078.mp3",
+    "id": "e5c605d17a2c934cf049ced23b9b84d8"
+  },
+  {
+    "scene": [
+      "Relaxing",
+      "Scenery"
+    ],
+    "genre": [
+      "BGM",
+      "Classical"
+    ],
+    "mood": [
+      "Calm",
+      "Healing",
+      "Romantic"
+    ],
+    "lang": "bgm",
+    "description": "这是一首舒缓优美的管弦乐BGM，以弦乐和钢琴为主，营造宁静治愈的氛围，适合放松、自然风景或浪漫场景。",
+    "path": "./resource/bgms/music_0079.mp3",
+    "id": "9ee918357657f4fa239df5f471bd259f"
+  },
+  {
+    "scene": [
+      "Cafe",
+      "Relaxing"
+    ],
+    "genre": [
+      "Jazz",
+      "BGM"
+    ],
+    "mood": [
+      "Chill",
+      "Calm"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻柔舒缓的爵士乐，以钢琴和铜管乐器为主，适合咖啡馆或放松场景，营造宁静惬意的氛围。",
+    "path": "./resource/bgms/music_0080.mp3",
+    "id": "21aa3bf2d5079adea731e6d60a28a964"
+  },
+  {
+    "scene": [
+      "Club"
+    ],
+    "genre": [
+      "Electronic",
+      "Pop"
+    ],
+    "mood": [
+      "Happy",
+      "Excited",
+      "Dynamic"
+    ],
+    "lang": [
+      "en"
+    ],
+    "description": "这是一首充满活力的电子流行舞曲，节奏强劲，适合派对或夜店场景，以合成器和鼓点为主导，搭配欢快的女声演唱。",
+    "path": "./resource/bgms/music_0081.mp3",
+    "id": "33729b1a49773197ed8cba64bdfa8934"
+  },
+  {
+    "scene": [
+      "Cafe",
+      "Relaxing"
+    ],
+    "genre": [
+      "Jazz"
+    ],
+    "mood": [
+      "Chill",
+      "Calm"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻柔舒缓的爵士乐，以钢琴为主导，搭配贝斯与轻柔鼓点，适合咖啡馆或放松场景。",
+    "path": "./resource/bgms/music_0082.mp3",
+    "id": "d4476691e9ad6c094d8948065d0294e9"
+  },
+  {
+    "scene": [
+      "Vlog",
+      "Relaxing",
+      "Cafe"
+    ],
+    "genre": [
+      "BGM",
+      "Electronic",
+      "Chill"
+    ],
+    "mood": [
+      "Chill",
+      "Calm",
+      "Healing"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻柔舒缓的电子BGM，带有温暖的合成器和轻快的节奏，适合用于Vlog、咖啡馆或放松场景。",
+    "path": "./resource/bgms/music_0083.mp3",
+    "id": "cf543d936f39f2ac858c7b3d664e4a16"
+  },
+  {
+    "scene": [
+      "Vlog",
+      "Cafe",
+      "Club"
+    ],
+    "genre": [
+      "Pop",
+      "Electronic"
+    ],
+    "mood": [
+      "Happy",
+      "Excited",
+      "Dynamic"
+    ],
+    "lang": [
+      "en"
+    ],
+    "description": "这是一首轻快活泼的电子流行乐，节奏感强，适合用于Vlog、咖啡馆或派对场景，以合成器和鼓点为主导，充满自信与趣味感。",
+    "path": "./resource/bgms/music_0084.mp3",
+    "id": "129b3292da2642ac8bf65352cef08880"
+  },
+  {
+    "scene": [
+      "Vlog",
+      "Travel"
+    ],
+    "genre": [
+      "Pop"
+    ],
+    "mood": [
+      "Happy",
+      "Chill"
+    ],
+    "lang": [
+      "en"
+    ],
+    "description": "这是一首轻快活泼的流行歌曲，以海洋和海豚为主题，适合儿童或轻松旅行场景，主要乐器包括吉他、鼓和合成器。",
+    "path": "./resource/bgms/music_0085.mp3",
+    "id": "e37642c77424158d12a4d974c7b3b659"
+  },
+  {
+    "scene": [
+      "Vlog",
+      "Travel",
+      "Club"
+    ],
+    "genre": [
+      "Electronic",
+      "Pop"
+    ],
+    "mood": [
+      "Dynamic",
+      "Happy",
+      "Excited"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首充满活力的电子流行音乐，节奏强劲，合成器旋律突出，适合派对、旅行或Vlog背景音乐。",
+    "path": "./resource/bgms/music_0086.mp3",
+    "id": "be7a561f59cae3a8c149e52653360881"
+  },
+  {
+    "scene": [
+      "Relaxing",
+      "Cafe",
+      "Evening"
+    ],
+    "genre": [
+      "BGM",
+      "Classical"
+    ],
+    "mood": [
+      "Chill",
+      "Calm",
+      "Healing"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻柔舒缓的钢琴背景音乐，适合放松、咖啡馆或夜晚场景，营造宁静治愈的氛围。",
+    "path": "./resource/bgms/music_0087.mp3",
+    "id": "ac3f334f2467723aaabeb8ee08e750ad"
+  },
+  {
+    "scene": [
+      "Relaxing",
+      "Cafe",
+      "Evening"
+    ],
+    "genre": [
+      "BGM",
+      "Electronic"
+    ],
+    "mood": [
+      "Chill",
+      "Calm",
+      "Healing"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首舒缓的电子背景音乐，以柔和的合成器音色为主，适合放松、咖啡馆或夜晚场景。",
+    "path": "./resource/bgms/music_0088.mp3",
+    "id": "4c20101dfd75baae6925ca68b78604dd"
+  },
+  {
+    "scene": [
+      "Vlog",
+      "Travel",
+      "Relaxing"
+    ],
+    "genre": [
+      "BGM",
+      "Chinese Style"
+    ],
+    "mood": [
+      "Chill",
+      "Calm",
+      "Healing"
+    ],
+    "lang": [
+      "zh"
+    ],
+    "description": "这是一首融合中国传统乐器的轻柔背景音乐，旋律舒缓宁静，适合放松、旅行或Vlog配乐。",
+    "path": "./resource/bgms/music_0089.mp3",
+    "id": "d5249208319bdc1d0eace6d1b1422777"
+  },
+  {
+    "scene": [
+      "Cafe",
+      "Relaxing"
+    ],
+    "genre": [
+      "Jazz",
+      "BGM"
+    ],
+    "mood": [
+      "Chill",
+      "Calm"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻柔舒缓的爵士风格背景音乐，以钢琴和轻柔打击乐为主，适合咖啡馆或放松场景。",
+    "path": "./resource/bgms/music_0090.mp3",
+    "id": "0d26985c9a36967945265bf00b8203cc"
+  },
+  {
+    "scene": [
+      "Vlog",
+      "Travel",
+      "Cafe"
+    ],
+    "genre": [
+      "Pop",
+      "BGM",
+      "Electronic"
+    ],
+    "mood": [
+      "Happy",
+      "Chill",
+      "Dynamic"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻快活泼的电子流行乐，带有合成器和节奏感强的打击乐，适合用于Vlog、旅行或咖啡馆场景，营造轻松愉快的氛围。",
+    "path": "./resource/bgms/music_0091.mp3",
+    "id": "f6c3825f8e1e5325560eab2585a47c67"
+  },
+  {
+    "scene": [
+      "Vlog",
+      "Relaxing",
+      "Scenery"
+    ],
+    "genre": [
+      "BGM",
+      "Folk"
+    ],
+    "mood": [
+      "Chill",
+      "Calm",
+      "Healing",
+      "Inspirational"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻柔舒缓的民谣风格BGM，以吉他和钢琴为主，营造宁静治愈的氛围，适合用于Vlog、放松或自然风景场景。",
+    "path": "./resource/bgms/music_0092.mp3",
+    "id": "9ac5aeafb6187147c75cb202c07eda9b"
+  },
+  {
+    "scene": [
+      "Cafe",
+      "Relaxing"
+    ],
+    "genre": [
+      "BGM",
+      "R&B/Soul",
+      "Electronic"
+    ],
+    "mood": [
+      "Chill",
+      "Happy"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻松愉悦的R&B电子背景音乐，以电吉他和合成器为主，适合咖啡馆或放松场景。",
+    "path": "./resource/bgms/music_0093.mp3",
+    "id": "f6d04cd7574d295abf5ba480c9820823"
+  },
+  {
+    "scene": [
+      "Vlog",
+      "Relaxing",
+      "Cafe"
+    ],
+    "genre": [
+      "BGM",
+      "Electronic"
+    ],
+    "mood": [
+      "Chill",
+      "Calm",
+      "Healing"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻柔舒缓的电子背景音乐，适合用于Vlog、咖啡馆或放松场景，主要使用合成器营造宁静氛围。",
+    "path": "./resource/bgms/music_0094.mp3",
+    "id": "75c70ef9ac122a007e0b619587a2bebf"
+  },
+  {
+    "scene": [
+      "Relaxing",
+      "Cafe",
+      "Evening"
+    ],
+    "genre": [
+      "BGM",
+      "Electronic",
+      "Hip Hop/Rap"
+    ],
+    "mood": [
+      "Chill",
+      "Calm",
+      "Healing"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首舒缓的电子嘻哈背景音乐，融合柔和的合成器旋律与轻柔的鼓点，适合放松、咖啡馆或夜晚场景。",
+    "path": "./resource/bgms/music_0095.mp3",
+    "id": "c631effe24d3bc1129d5641b7678173e"
+  },
+  {
+    "scene": [
+      "Cafe",
+      "Relaxing"
+    ],
+    "genre": [
+      "BGM",
+      "R&B/Soul",
+      "Electronic"
+    ],
+    "mood": [
+      "Chill",
+      "Calm",
+      "Romantic"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻柔舒缓的电子R&B风格背景音乐，适合咖啡馆或放松场景，以合成器和柔和节奏营造浪漫氛围。",
+    "path": "./resource/bgms/music_0096.mp3",
+    "id": "4d8c176a9d3a154bd4c38dc01f69429d"
+  },
+  {
+    "scene": [
+      "Vlog",
+      "Travel",
+      "Relaxing"
+    ],
+    "genre": [
+      "BGM",
+      "Classical"
+    ],
+    "mood": [
+      "Happy",
+      "Calm",
+      "Inspirational"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首轻快愉悦的管弦乐BGM，适合用于旅行、日常Vlog或放松场景，主要由弦乐和木管乐器构成，营造出温暖治愈的氛围。",
+    "path": "./resource/bgms/music_0097.mp3",
+    "id": "7efb1150e3b8632126703292125c0c03"
+  },
+  {
+    "scene": [
+      "Club"
+    ],
+    "genre": [
+      "Electronic"
+    ],
+    "mood": [
+      "Dynamic",
+      "Excited"
+    ],
+    "lang": [
+      "bgm"
+    ],
+    "description": "这是一首充满活力的电子舞曲，节奏强劲，合成器旋律突出，适合夜店或派对场景。",
+    "path": "./resource/bgms/music_0098.mp3",
+    "id": "5893786a38a56dd78a62f3ddc4704aec"
+  }
+]

@@ -1,0 +1,218 @@
+[
+  {
+    "description": "以宁静治愈的笔触描绘家庭旅行中的慢生活感悟。",
+    "tags": [
+      "Travel",
+      "Family",
+      "Life"
+    ],
+    "id": "28640de03779357955b80a9c848d1f02",
+    "path": "resource/script_templates/travel_2.txt"
+  },
+  {
+    "description": "以宠物视角分享生活趣事，语言活泼可爱，适合社交媒体分享。",
+    "tags": [
+      "Pets",
+      "Life",
+      "Entertainment"
+    ],
+    "id": "de8908be66fbaba6a92054a64eb787f5",
+    "path": "resource/script_templates/pet_1.txt"
+  },
+  {
+    "description": "活泼生动的旅行日记，记录行程亮点与个人感受，适合分享游记。",
+    "tags": [
+      "Travel",
+      "Entertainment"
+    ],
+    "id": "d5b3dd8d8624146cda6dee980d9a1048",
+    "path": "resource/script_templates/travel_3.txt"
+  },
+  {
+    "description": "充满活力的青春派对记录，适合分享周末休闲时光",
+    "tags": [
+      "Life",
+      "Entertainment"
+    ],
+    "id": "77bcf3dc48a97446503133a658dc3f2f",
+    "path": "resource/script_templates/travel_1.txt"
+  },
+  {
+    "description": "以小狗视角记录日常散步与美食，充满童趣与温情。",
+    "tags": [
+      "Pets",
+      "Family",
+      "Life"
+    ],
+    "id": "47cc8e0dc18f673a2cfad7f8ce942e47",
+    "path": "resource/script_templates/pet_3.txt"
+  },
+  {
+    "description": "以猫咪视角幽默记录日常，展现宠物与主人的温馨互动。",
+    "tags": [
+      "Pets",
+      "Life",
+      "Family"
+    ],
+    "id": "da4e4ec310625bda86cde0ae6a474215",
+    "path": "resource/script_templates/pet_2.txt"
+  },
+  {
+    "description": "口语化、生动活泼的汽车体验分享，适合社交媒体传播。",
+    "tags": [
+      "Vehicle",
+      "Entertainment"
+    ],
+    "id": "310f0d400fe8c4621e8e664831839b46",
+    "path": "resource/script_templates/car_review.txt"
+  },
+  {
+    "description": "生活化、口语化的美食制作记录，适合分享烹饪日常。",
+    "tags": [
+      "Food",
+      "Life"
+    ],
+    "id": "2930454bc7e6a3678cfd7415fd4ea7c4",
+    "path": "resource/script_templates/food_4.txt"
+  },
+  {
+    "description": "以细腻的感官描写和怀旧温情笔触，展现传统美食制作与市井生活场景。",
+    "tags": [
+      "Food",
+      "Life",
+      "Family"
+    ],
+    "id": "779ae3c8da6c79a1b59abe2f6986305c",
+    "path": "resource/script_templates/food_2.txt"
+  },
+  {
+    "description": "生动描述美食体验，适合美食探店与生活分享。",
+    "tags": [
+      "Food",
+      "Life"
+    ],
+    "id": "587c97ce80145c32445a95ed1c2cc982",
+    "path": "resource/script_templates/food_3.txt"
+  },
+  {
+    "description": "描述日常生活中的精致仪式感，强调自我护理与独处时光的治愈力量。",
+    "tags": [
+      "Life",
+      "Beauty",
+      "Health"
+    ],
+    "id": "5d569eb9797a21aeb0c512e1fedd6911",
+    "path": "resource/script_templates/life_1.txt"
+  },
+  {
+    "description": "夸张表达强烈情感，常用于追星或分享激动时刻",
+    "tags": [
+      "Entertainment",
+      "Beauty"
+    ],
+    "id": "230d84930f7fe5daf9efbdabbe3b5515",
+    "path": "resource/script_templates/crazy.txt"
+  },
+  {
+    "description": "家常美食制作教程，强调烹饪过程的治愈感和生活情趣。",
+    "tags": [
+      "Food",
+      "Life"
+    ],
+    "id": "88a2e1364c0f23b23576674bafec9249",
+    "path": "resource/script_templates/food_1.txt"
+  },
+  {
+    "description": "通过烹饪细节传递生活治愈感，强调日常小事带来的具体快乐。",
+    "tags": [
+      "Food",
+      "Life"
+    ],
+    "id": "c17dded2123f5037e1ac4a694b0dd6c3",
+    "path": "resource/script_templates/life_2.txt"
+  },
+  {
+    "description": "冷清中式风格，以古典园林为背景，描绘闲适雅致的东方生活意境。",
+    "tags": [
+      "Travel",
+      "Life",
+      "Beauty"
+    ],
+    "id": "92467e77c9629afb8d99e936717f1f74",
+    "path": "resource/script_templates/cold_chinese.txt"
+  },
+  {
+    "description": "以古装宫廷剧（甄嬛体）口吻幽默吐槽职场压力，适合社交媒体发泄情绪",
+    "tags": [
+      "Entertainment",
+      "Business",
+      "Life"
+    ],
+    "id": "2296f514eeb296639c34824b6168c4b8",
+    "path": "resource/script_templates/zhenhuan.txt"
+  },
+  {
+    "description": "温馨记录宝宝日常，充满母爱与生活细节的亲子日记。",
+    "tags": [
+      "Family",
+      "Life",
+      "Pets"
+    ],
+    "id": "69181bbad2e8321df97d4a886a493039",
+    "path": "resource/script_templates/family_1.txt"
+  },
+  {
+    "description": "时尚穿搭分享，强调产品细节与搭配技巧，适合美妆服饰类内容。",
+    "tags": [
+      "Beauty",
+      "Life"
+    ],
+    "id": "54861fc5904584ebb19c16e19ccb1b58",
+    "path": "resource/script_templates/advertisement_1.txt"
+  },
+  {
+    "description": "温馨的家庭生活记录，聚焦宝宝周岁庆生的珍贵瞬间和亲子情感",
+    "tags": [
+      "Family",
+      "Life"
+    ],
+    "id": "00828ef2f94530f5351c130fc9595892",
+    "path": "resource/script_templates/family_2.txt"
+  },
+  {
+    "description": "热情洋溢的种草文案，突出产品高性价比和穿搭效果。",
+    "tags": [
+      "Life",
+      "Beauty"
+    ],
+    "id": "d9106369adfec62b348812786ad0002b",
+    "path": "resource/script_templates/advertisement_2.txt"
+  },
+  {
+    "description": "李诞风格，慵懒幽默的沙发测评，适合生活分享和产品种草。",
+    "tags": [
+      "Life",
+      "Entertainment"
+    ],
+    "id": "310b5d74602d80047764d1132365ddf7",
+    "path": "resource/script_templates/lidan.txt"
+  },
+  {
+    "description": "活泼亲切的分享式美妆产品推荐，适合熬夜护肤场景",
+    "tags": [
+      "Beauty",
+      "Health",
+      "Life"
+    ],
+    "id": "f5e12af62f7dc65e67f9fd33669ee74c",
+    "path": "resource/script_templates/beauty_2.txt"
+  },
+  {
+    "description": "生动分享美妆产品使用体验，突出妆效和持妆力，适合美妆种草场景。",
+    "tags": [
+      "Beauty"
+    ],
+    "id": "ac4ef8a62fbc9ef07be2649bf7eb1753",
+    "path": "resource/script_templates/beauty_1.txt"
+  }
+]

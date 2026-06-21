@@ -1,0 +1,19 @@
+{
+  "providers": {
+    "bytedance": {
+      "voice_type": { "type": "str", "enum": ["BV001_streaming", "BV002_streaming"], "description": "音色类型，BV001女声，BV002男声" },
+      "speed_ratio":  { "type": "float", "range": [0.1, 2.0], "description": "语速 [0.1,2]" },
+      "emotion": { "type": "str", "enum": ["happy", "sad", "angry", "neutral"], "description": "情感" }
+    },
+    "minimax": {
+      "model": { "type": "str", "enum": ["speech-02-hd", "speech-02-turbo", "speech-2.6-hd"], "description": "模型" },
+      "voice_id": { "type": "str", "enum": ["Chinese (Mandarin)_Gentleman", "female-shaonv-jingpin"], "description": "Chinese (Mandarin)_Gentleman：温润男声；female-shaonv-jingpin：少女音色" },
+      "speed": { "type": "float", "range": [0.5, 2.0], "description": "语速" }
+    },
+    "302": {
+      "model": { "type": "str", "enum": ["speech-02-hd"], "description": "底层 TTS 提供商" },
+      "voice": { "type": "str", "enum": ["Chinese (Mandarin)_Gentleman", "female-shaonv-jingpin"], "description": "Chinese (Mandarin)_Gentleman：温润男声；female-shaonv-jingpin：少女音色" },
+      "emotion": { "type": "str", "enum": ["angry", "happy", "sad", "neutral"], "description": "情感" }
+    }
+  }
+}

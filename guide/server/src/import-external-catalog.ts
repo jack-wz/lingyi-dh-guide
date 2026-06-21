@@ -26,7 +26,7 @@ export interface CatalogImportResult {
   sources: { openStoryline: string; opentalking: string };
 }
 
-const DEFAULT_OPENSTORYLINE = '/Users/wuzhu/Documents/AI 项目/FireRed-OpenStoryline';
+const DEFAULT_OPENSTORYLINE = join(__dirname, '../../data/external/openstoryline');
 const DEFAULT_OPENTALKING = '/Users/wuzhu/Documents/AI 产品/数字人/零一数字人导购平台/项目demo/opentalking';
 
 function resolveRoots(options: CatalogImportOptions = {}) {
@@ -94,6 +94,7 @@ function resolveOpenStorylinePath(root: string, catalogPath: string): string {
   const normalized = catalogPath.replace(/^\.\//, '').replace(/^resource\//, '');
   const candidates = [
     join(root, normalized),
+    join(root, 'resource', normalized),
     join(root, 'resource', normalized.replace(/^script_templates\//, 'script_templates/')),
     join(root, basename(normalized)),
   ];
@@ -102,6 +103,7 @@ function resolveOpenStorylinePath(root: string, catalogPath: string): string {
   }
   if (normalized.includes('bgms/')) {
     candidates.unshift(join(root, 'bgms', basename(normalized)));
+    candidates.unshift(join(root, 'resource', 'bgms', basename(normalized)));
   }
   return candidates.find((p) => existsSync(p)) || candidates[0];
 }
