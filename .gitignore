@@ -57,8 +57,6 @@ test_outputs/
 /test_*.py
 !guide/worker/tests/test_*.py
 
-!bgm/default.mp3
-
 # Temp files
 temp/
 tmp/
@@ -66,9 +64,6 @@ tmp/
 
 # MkDocs build output
 site/
-
-/data
-/output
 
 # Guide platform (Node)
 guide/node_modules/

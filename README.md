@@ -6,7 +6,8 @@
 
 **集成方入口：** [guide/docs/INTEGRATOR_QUICKSTART.md](guide/docs/INTEGRATOR_QUICKSTART.md)  
 **模块说明：** [guide/README.md](guide/README.md)  
-**变更记录：** [guide/CHANGELOG.md](guide/CHANGELOG.md)
+**变更记录：** [guide/CHANGELOG.md](guide/CHANGELOG.md)  
+**架构上下文：** [guide/CONTEXT.md](guide/CONTEXT.md)
 
 ## 能力概览
 
@@ -41,7 +42,7 @@ uv run python guide/scripts/verify_providers.py
 make -C guide start-guide-internal
 ```
 
-## 目录结构
+## 项目结构
 
 | 路径 | 说明 |
 |------|------|
@@ -50,7 +51,10 @@ make -C guide start-guide-internal
 | `guide/web/` | React 前端 |
 | `guide/shared/` | 共享类型与 HyperFrames 合成逻辑 |
 | `guide/data/` | SQLite、配置、上传与成片（本地，不入库） |
+| `guide/docs/` | 导购平台文档与 ADR |
 | `api/` | FastAPI 网关（代理导购 API 与静态资源） |
+| `pixelle_video/` | 遗留 Python 包，仅被 `api/` 导入以兼容启动，**请勿修改** |
+| `archive/legacy-pixelle/` | 旧 Pixelle-Video 代码、文档与配置，已归档不再维护 |
 
 ## 测试
 
@@ -67,6 +71,6 @@ make test-guide-fast
 - 模型与流水线参数可在 **调试控制台 → 模型配置** 调整（口型供应商、场景融合顺序等）
 - 修改配置后执行 `make -C guide restart-worker`
 
-## 关于仓库中的其他代码
+## 历史代码
 
-根目录 `api/` 除导购代理外，还保留部分历史媒体路由；`pixelle_video/`、`web/` 旧 UI、`docs/en/` 等为遗留模块，**与当前导购产品线无关**，日常开发与部署以 `guide/` 为准。
+本仓库早期包含 Pixelle-Video 产品线代码（Streamlit UI、ComfyUI workflows、MkDocs 文档等）。为避免与当前导购产品线混淆，这些代码已整体归档到 `archive/legacy-pixelle/`。日常开发与部署以 `guide/` 为准。
