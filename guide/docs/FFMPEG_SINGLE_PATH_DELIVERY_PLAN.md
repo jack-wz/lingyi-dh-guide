@@ -16,6 +16,7 @@
 | A7 | 单元测试 + timeline 测试通过 | `make test-guide-fast` |
 | A8 | 共享 TS 测试通过 | `make test-guide-shared` |
 | A9 | 全链路 Worker E2E（非仅 reassemble） | 飞鹤模板 job `c6b0e511-…` → `final.mp4`，日志含 xfade、无 `hf_style_pass` |
+| A10 | Playwright E2E + 发布门禁 | `make test-guide-e2e`（37 项）+ `make verify-delivery-complete` |
 
 ## 切片任务
 

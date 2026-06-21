@@ -17,6 +17,7 @@ make poll-render-job JOB=<id>            # 轻量轮询 ?summary=1
 make verify-final-delivery JOB=<id>      # 成片单路径验收
 make validate-render-job JOB=<id>        # 时间轴/字幕对齐审计
 make test-guide-e2e                      # Playwright 37 项
+make verify-delivery-complete            # 发布前全门禁（一键）
 ```
 
 参考 E2E 任务：`c6b0e511-1b11-41d7-bbe9-3cd8b47db350`（飞鹤模板全链路 Worker 成片）。

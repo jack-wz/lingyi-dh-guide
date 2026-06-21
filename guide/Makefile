@@ -13,7 +13,7 @@ RUN_PYTEST := "$(SCRIPTS)/run_pytest.sh"
 TEMPLATE_ID ?= 517a1920-6376-47ef-871b-9badbaa16b53
 MIN_SEGMENTS ?= 4
 
-.PHONY: help setup-worker-venv test-guide test-guide-server test-guide-shared test-guide-e2e test-guide-fast test-guide-timeline smoke-brand-render smoke-hf-render smoke-integrator smoke-integrator-hf smoke-integrator-hf-ci smoke-integrator-ci verify-playground verify-final-delivery poll-render-job start-guide-internal restart-worker lint-guide \
+.PHONY: help setup-worker-venv test-guide test-guide-server test-guide-shared test-guide-e2e test-guide-fast test-guide-timeline smoke-brand-render smoke-hf-render smoke-integrator smoke-integrator-hf smoke-integrator-hf-ci smoke-integrator-ci verify-playground verify-final-delivery verify-delivery-complete poll-render-job start-guide-internal restart-worker lint-guide \
 	validate-renders validate-renders-strict validate-renders-ci validate-render-job \
 	batch-reassemble batch-reassemble-dry preflight
 
@@ -24,6 +24,7 @@ help:
 	@echo "  test-guide-shared       Run shared TS unit tests (HF adapters, composer)"
 	@echo "  test-guide-e2e          Playwright E2E (isolated :3100/:5180, incl. HF smoke)"
 	@echo "  verify-final-delivery   FFmpeg single-path acceptance (JOB=<id>)"
+	@echo "  verify-delivery-complete  Full release gate (tests + E2E + reference job)"
 	@echo "  poll-render-job         Poll render until done (JOB=<id>, lightweight API)"
 	@echo "  test-guide-fast         Timeline / ASS / audit unit tests only"
 	@echo "  smoke-brand-render      E2E: brand TTF → ASS → FFmpeg MP4 (needs ffmpeg-full)"
@@ -103,6 +104,10 @@ verify-playground:
 verify-final-delivery:
 	@test -n "$(JOB)" || { echo "Usage: make verify-final-delivery JOB=<render-job-id>"; exit 2; }
 	$(RUN_PY) "$(SCRIPTS)/verify_final_delivery.py" "$(JOB)"
+
+verify-delivery-complete:
+	@chmod +x "$(SCRIPTS)/verify_delivery_complete.sh" 2>/dev/null || true
+	@"$(SCRIPTS)/verify_delivery_complete.sh"
 
 poll-render-job:
 	@test -n "$(JOB)" || { echo "Usage: make poll-render-job JOB=<render-job-id>"; exit 2; }
