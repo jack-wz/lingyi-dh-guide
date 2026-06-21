@@ -263,11 +263,17 @@ export default function RenderResultPage() {
               onClick={reassembleJob}
               disabled={reassembling}
               className="px-3 py-1.5 text-sm border border-brand-blue/30 text-brand-blue rounded-lg hover:bg-brand-blue/10 disabled:opacity-50"
+              title="仅当各分镜 clip 已生成时可跳过 TTS/口型，直接 FFmpeg 组装"
             >
               {reassembling ? '重拼中...' : '重拼成片'}
             </button>
           )}
         </div>
+        {job.status === 'failed' && /LipSync|对口型/i.test(job.error_message || '') && (
+          <p className="mt-3 text-[12px] text-muted-foreground leading-relaxed">
+            对口型阶段失败时：请用「复制再生成」重新跑完整流水线。「重拼成片」仅在所有分镜 clip 已存在时可用（本任务可能只有部分 clip）。
+          </p>
+        )}
       </div>
 
       <div className="bg-card border border-border rounded-xl p-4 mb-6">

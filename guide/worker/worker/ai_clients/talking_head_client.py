@@ -1,6 +1,7 @@
 """Talking head video generation client - WaveSpeed InfiniteTalk."""
 
 import os
+import threading
 import time
 import requests
 from worker.config import get_prompt, get_wavespeed_config
@@ -54,6 +55,10 @@ def resolve_wavespeed_submit_url(base_url: str, model: str) -> str:
 DEFAULT_MAX_ATTEMPTS = int(os.getenv("WAVESPEED_MAX_ATTEMPTS", "3"))
 DEFAULT_RETRY_BACKOFF = float(os.getenv("WAVESPEED_RETRY_BACKOFF", "2.0"))
 
+# Reuse upload URLs when multiple lip-sync jobs share the same local image/audio paths.
+_upload_url_cache: dict[str, str] = {}
+_upload_cache_lock = threading.Lock()
+
 
 def _is_retriable_http_error(exc: Exception) -> bool:
     response = getattr(exc, "response", None)
@@ -88,6 +93,13 @@ class TalkingHeadClient:
             print(f"[TalkingHead] File not found: {file_path}")
             return ""
 
+        cache_key = os.path.abspath(file_path)
+        with _upload_cache_lock:
+            cached = _upload_url_cache.get(cache_key)
+        if cached:
+            print(f"[TalkingHead] Reusing cached upload URL for {cache_key}")
+            return cached
+
         for attempt in range(1, max_attempts + 1):
             try:
                 file_size = os.path.getsize(file_path)
@@ -113,6 +125,8 @@ class TalkingHeadClient:
                 download_url = result.get("data", {}).get("download_url", "")
                 if download_url:
                     print(f"[TalkingHead] File uploaded: {download_url}")
+                    with _upload_cache_lock:
+                        _upload_url_cache[cache_key] = download_url
                     return download_url
                 print(f"[TalkingHead] Upload attempt {attempt} returned empty download_url")
             except ProviderTimeoutError:

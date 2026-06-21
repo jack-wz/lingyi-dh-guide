@@ -409,6 +409,7 @@ def _generate_clip_for_segment(
     strict: bool,
     log: PipelineLogger,
     stage: str,
+    fail_fast: bool = True,
 ) -> str:
     i = work.index
     seg = work.seg
@@ -419,12 +420,11 @@ def _generate_clip_for_segment(
     if work.has_narration:
         if not work.can_use_talking_head:
             if strict:
-                log.fail(
-                    stage,
-                    "LipSync",
-                    f"无法启动对口型（scene={bool(work.scene_path)} tts={bool(work.tts_path)}）",
-                    segment=i,
-                )
+                msg = f"无法启动对口型（scene={bool(work.scene_path)} tts={bool(work.tts_path)}）"
+                if fail_fast:
+                    log.fail(stage, "LipSync", msg, segment=i)
+                else:
+                    log.error(stage, "LipSync", msg, segment=i)
         else:
             log.info(stage, "LipSync", "开始 InfiniteTalk 对口型生成", segment=i)
             avatar_image = work.scene_path if work.scene_path and os.path.exists(work.scene_path) else work.human_face_path
@@ -457,14 +457,20 @@ def _generate_clip_for_segment(
                     seg["duration_sec"] = round(aligned_dur, 2)
                 log.info(stage, "LipSync", f"对口型成功 → {clip_path}", segment=i)
             elif strict:
-                log.fail(stage, "LipSync", "对口型视频生成失败", segment=i)
+                if fail_fast:
+                    log.fail(stage, "LipSync", "对口型视频生成失败", segment=i)
+                else:
+                    log.error(stage, "LipSync", "对口型视频生成失败", segment=i)
     elif work.scene_path and os.path.exists(work.scene_path):
         log.info(stage, "Broll", "无旁白文本，生成 Ken Burns 空镜", segment=i)
         clip_path = _generate_ken_burns_clip(
             i, work.scene_path, work.duration, work_dir, canvas_w, canvas_h, fps,
         )
     elif strict:
-        log.fail(stage, "Clip", "无旁白且无场景图，无法生成分镜视频", segment=i)
+        if fail_fast:
+            log.fail(stage, "Clip", "无旁白且无场景图，无法生成分镜视频", segment=i)
+        else:
+            log.error(stage, "Clip", "无旁白且无场景图，无法生成分镜视频", segment=i)
 
     if not clip_path and not strict:
         if (
@@ -512,10 +518,12 @@ def _generate_clips_parallel(
     total_segments: int,
 ) -> None:
     """Run lip-sync for narration segments concurrently; handle non-lipsync segments serially."""
+    import time
+
     lipsync_indices = {w.index for w in lipsync_jobs}
     completed_lipsync = 0
 
-    def _run_lipsync(work: _SegmentWork) -> tuple[int, str]:
+    def _run_lipsync(work: _SegmentWork, *, fail_fast: bool) -> tuple[int, str]:
         from worker.avatar_provider import resolve_avatar_adapter
 
         avatar = resolve_avatar_adapter(server_base_url)
@@ -531,11 +539,12 @@ def _generate_clips_parallel(
             strict=strict,
             log=log,
             stage=stage,
+            fail_fast=fail_fast,
         )
         return work.index, clip_path
 
     with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="lipsync") as pool:
-        futures = {pool.submit(_run_lipsync, work): work for work in lipsync_jobs}
+        futures = {pool.submit(_run_lipsync, work, fail_fast=False): work for work in lipsync_jobs}
         for future in as_completed(futures):
             work = futures[future]
             future.result()
@@ -547,6 +556,20 @@ def _generate_clips_parallel(
                     pct,
                     f"对口型完成 ({completed_lipsync}/{len(lipsync_jobs)})...",
                 )
+
+    failed_lipsync = [
+        work for work in lipsync_jobs
+        if not (work.seg.get("clip_path") and os.path.exists(work.seg.get("clip_path") or ""))
+    ]
+    if failed_lipsync and strict:
+        log.warn(
+            stage,
+            "LipSync",
+            f"{len(failed_lipsync)} 段并行对口型失败，串行重试（避免并发上传/限流）",
+        )
+        for work in sorted(failed_lipsync, key=lambda item: item.index):
+            time.sleep(1.0)
+            _run_lipsync(work, fail_fast=True)
 
     for work in work_items:
         if work.index in lipsync_indices:

@@ -200,11 +200,11 @@ def get_pipeline_config():
 def get_lipsync_parallel_workers() -> int:
     """Max concurrent lip-sync API jobs in Stage3 (1 = sequential)."""
     cfg = _load_json().get("pipeline", {})
-    raw = os.getenv("LIPSYNC_PARALLEL_WORKERS", cfg.get("lipsync_parallel_workers", 4))
+    raw = os.getenv("LIPSYNC_PARALLEL_WORKERS", cfg.get("lipsync_parallel_workers", 2))
     try:
         workers = int(raw)
     except (TypeError, ValueError):
-        workers = 4
+        workers = 2
     return max(1, min(workers, 8))
 
 
