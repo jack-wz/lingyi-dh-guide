@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import type { DSL, Segment } from '../store/editorStore';
 import ScriptPanel from './ScriptPanel';
 import TimelinePanel from './TimelinePanel';
@@ -10,6 +10,7 @@ interface Props {
   currentSegIndex: number;
   variableValues: Record<string, string>;
   editorId?: string;
+  columnRef?: RefObject<HTMLElement | null>;
   onSelectScene: (index: number) => void;
   onUpdateSegment: (index: number, patch: Partial<Segment>) => void;
   onPickScript?: () => void;
@@ -25,41 +26,133 @@ const MODE_HINT: Record<BottomMode, string> = {
   timeline: '点击分镜块切换 · 拖动元素层调整出现时间',
 };
 
+const STORAGE_KEY = 'guide.editor.bottomPanelHeight';
+const DEFAULT_HEIGHT = 300;
+const MIN_PANEL_HEIGHT = 120;
+const MIN_CANVAS_HEIGHT = 140;
+
+function readStoredHeight(): number {
+  if (typeof window === 'undefined') return DEFAULT_HEIGHT;
+  const raw = window.localStorage.getItem(STORAGE_KEY);
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed >= MIN_PANEL_HEIGHT ? parsed : DEFAULT_HEIGHT;
+}
+
+function clampPanelHeight(requested: number, columnHeight: number): number {
+  const maxPanel = Math.max(MIN_PANEL_HEIGHT, columnHeight - MIN_CANVAS_HEIGHT);
+  return Math.max(MIN_PANEL_HEIGHT, Math.min(maxPanel, requested));
+}
+
 export default function EditorBottomPanel({
   dsl,
   currentSegIndex,
   variableValues,
   editorId,
+  columnRef,
   onSelectScene,
   onUpdateSegment,
   onPickScript,
 }: Props) {
   const [mode, setMode] = useState<BottomMode>('script');
-  const [panelHeight, setPanelHeight] = useState(200);
+  const [panelHeight, setPanelHeight] = useState(readStoredHeight);
   const [isDragging, setIsDragging] = useState(false);
+  const dragRef = useRef({ active: false, pointerId: -1 });
 
-  const handleOuterMouseMove = useCallback((e: React.MouseEvent) => {
-    if (!isDragging) return;
-    const next = window.innerHeight - e.clientY;
-    setPanelHeight(Math.max(140, Math.min(360, next)));
-  }, [isDragging]);
+  const resolveColumnHeight = useCallback(() => {
+    const column = columnRef?.current;
+    if (column) return column.getBoundingClientRect().height;
+    return Math.max(480, window.innerHeight * 0.55);
+  }, [columnRef]);
+
+  const applyHeightFromPointer = useCallback((clientY: number) => {
+    const column = columnRef?.current;
+    const columnRect = column?.getBoundingClientRect();
+    const columnBottom = columnRect?.bottom ?? window.innerHeight;
+    const columnHeight = columnRect?.height ?? resolveColumnHeight();
+    const next = columnBottom - clientY;
+    setPanelHeight(clampPanelHeight(next, columnHeight));
+  }, [columnRef, resolveColumnHeight]);
+
+  useEffect(() => {
+    const column = columnRef?.current;
+    if (!column) return undefined;
+    const sync = () => {
+      setPanelHeight((current) => clampPanelHeight(current, column.getBoundingClientRect().height));
+    };
+    sync();
+    const observer = new ResizeObserver(sync);
+    observer.observe(column);
+    return () => observer.disconnect();
+  }, [columnRef]);
+
+  useEffect(() => {
+    if (!isDragging) return undefined;
+    const onMove = (e: PointerEvent) => {
+      if (!dragRef.current.active || e.pointerId !== dragRef.current.pointerId) return;
+      applyHeightFromPointer(e.clientY);
+    };
+    const onUp = (e: PointerEvent) => {
+      if (!dragRef.current.active || e.pointerId !== dragRef.current.pointerId) return;
+      dragRef.current.active = false;
+      setIsDragging(false);
+    };
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
+    window.addEventListener('pointercancel', onUp);
+    return () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onUp);
+    };
+  }, [isDragging, applyHeightFromPointer]);
+
+  useEffect(() => {
+    if (isDragging) return;
+    window.localStorage.setItem(STORAGE_KEY, String(Math.round(panelHeight)));
+  }, [panelHeight, isDragging]);
+
+  const handleResizePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    dragRef.current = { active: true, pointerId: e.pointerId };
+    setIsDragging(true);
+    applyHeightFromPointer(e.clientY);
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const handleResizePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerId !== dragRef.current.pointerId) return;
+    dragRef.current.active = false;
+    setIsDragging(false);
+    e.currentTarget.releasePointerCapture(e.pointerId);
+  };
+
+  const handleResizeDoubleClick = () => {
+    const columnHeight = resolveColumnHeight();
+    setPanelHeight(clampPanelHeight(DEFAULT_HEIGHT, columnHeight));
+  };
 
   return (
     <>
       <div
-        onMouseDown={() => setIsDragging(true)}
-        className="flex h-2 shrink-0 cursor-row-resize items-center justify-center bg-secondary/80 hover:bg-accent border-t border-border"
-        title="拖动调整面板高度"
+        role="separator"
+        aria-orientation="horizontal"
+        aria-valuenow={Math.round(panelHeight)}
+        onPointerDown={handleResizePointerDown}
+        onPointerUp={handleResizePointerUp}
+        onPointerCancel={handleResizePointerUp}
+        onDoubleClick={handleResizeDoubleClick}
+        className={`flex h-3 shrink-0 cursor-row-resize touch-none select-none items-center justify-center border-t border-border transition-colors ${
+          isDragging ? 'bg-primary/20' : 'bg-secondary/80 hover:bg-accent'
+        }`}
+        title="拖动调整面板高度（双击恢复默认）"
+        data-testid="editor-bottom-resize-handle"
       >
-        <div className="h-1 w-8 rounded-full bg-muted-foreground/30" />
+        <div className={`h-1 w-10 rounded-full transition-colors ${isDragging ? 'bg-primary' : 'bg-muted-foreground/35'}`} />
       </div>
       <div
         data-bottom-panel
         className="flex shrink-0 flex-col border-t border-border bg-card overflow-hidden"
         style={{ height: panelHeight }}
-        onMouseMove={handleOuterMouseMove}
-        onMouseUp={() => setIsDragging(false)}
-        onMouseLeave={() => setIsDragging(false)}
       >
         <div className="flex items-center gap-1 border-b border-border px-3 py-1.5 shrink-0 h-9">
           {MODE_BUTTONS.map((btn) => (

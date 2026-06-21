@@ -114,6 +114,7 @@ export default function EditorPage() {
     scriptMode?: 'full' | 'segment';
   }>({ open: false, category: 'digital_human' });
   const generateSettingsRef = useRef<HTMLDivElement | null>(null);
+  const centerColumnRef = useRef<HTMLDivElement | null>(null);
   const previousSelectionKey = useRef('');
   const pageRefreshTick = usePageVisibleRefresh();
 
@@ -961,8 +962,8 @@ export default function EditorPage() {
         <PanelResizer onResize={(delta) => setLeftPanelWidth(w => Math.max(160, Math.min(320, w + delta)))} />
 
         {/* 中间：画布 + 底部脚本/时间轴面板（参考 opentalking） */}
-        <div className="flex-1 flex flex-col overflow-hidden min-h-0 min-w-0">
-          <div className="flex-1 min-h-[180px] overflow-hidden">
+        <div ref={centerColumnRef} className="flex-1 flex flex-col overflow-hidden min-h-0 min-w-0">
+          <div className="flex-1 min-h-[140px] overflow-hidden">
             <VideoCanvas />
           </div>
           <EditorBottomPanel
@@ -970,6 +971,7 @@ export default function EditorPage() {
             currentSegIndex={currentSegIndex}
             variableValues={variableValues}
             editorId={id}
+            columnRef={centerColumnRef}
             onSelectScene={(index) => {
               setCurrentSegIndex(index);
               seekToTime(getSegmentStartTime(index), { syncSegment: true, clearSelection: false, stopPlayback: true });
