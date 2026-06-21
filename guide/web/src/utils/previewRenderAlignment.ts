@@ -28,9 +28,8 @@ export function getPreviewRenderAlignment(pipelineKey: string | undefined): {
     case 'template_editor':
       return {
         tier: 'layout',
-        title: '布局高度一致',
-        detail: '按编辑器 DSL 的 objects[]、字幕与贴片走 FFmpeg 合成；口型与动态字幕以 worker 生成为准，与 HF 动画细节可能略有差异。',
-        recommendPipeline: 'hyperframes_template',
+        title: '流程与预览一致',
+        detail: '按标准四阶段生成场景与口播视频，FFmpeg 单路径合成（ASS 字幕、xfade 转场、质感滤镜）；画面来自 AI 场景与数字人。HF 预览用于核对版式，复杂动效以 FFmpeg 交付为准。',
       };
     case 'digital_human':
     case 'avatar_talk':

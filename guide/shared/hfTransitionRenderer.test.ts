@@ -23,6 +23,7 @@ describe('hfTransitionRenderer', () => {
       canvasWidth: 1080,
       canvasHeight: 1920,
       accentColor: '#2563eb',
+      trackIndex: 20,
     });
     assert.match(clip.html, /data-hf-component="transitions-dissolve"/);
     assert.match(clip.script, /dissolve-veil/);
@@ -92,6 +93,7 @@ describe('hfTransitionRenderer', () => {
         canvasWidth: 1080,
         canvasHeight: 1920,
         accentColor: '#ff1745',
+        trackIndex: 20,
       });
       assert.ok(clip);
       assert.match(clip!.html, /transitions-push/);
@@ -108,11 +110,28 @@ describe('hfTransitionRenderer', () => {
         canvasWidth: 1080,
         canvasHeight: 1920,
         accentColor: '#2563eb',
+        trackIndex: 20,
       });
       assert.ok(clip);
       assert.match(clip!.html, /transitions-wipe/);
       assert.equal(isHyperframesTransitionType(type), true);
     }
+  });
+
+  it('renders circle reveal transition clip', () => {
+    const clip = renderHfTransitionClip({
+      segmentId: 's1',
+      transitionType: 'hf-circle-reveal',
+      clipStart: 2,
+      clipDuration: 0.6,
+      canvasWidth: 1080,
+      canvasHeight: 1920,
+      accentColor: '#be185d',
+      trackIndex: 20,
+    });
+    assert.ok(clip);
+    assert.match(clip!.html, /transitions-circle-reveal/);
+    assert.equal(isHyperframesTransitionType('hf-circle-reveal'), true);
   });
 
   it('renders zoom transition clip', () => {
@@ -124,6 +143,7 @@ describe('hfTransitionRenderer', () => {
       canvasWidth: 1080,
       canvasHeight: 1920,
       accentColor: '#2563eb',
+      trackIndex: 20,
     });
     assert.ok(clip);
     assert.match(clip!.html, /transitions-zoom/);

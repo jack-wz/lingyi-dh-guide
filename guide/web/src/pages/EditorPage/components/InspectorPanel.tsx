@@ -3,9 +3,10 @@ import type { CanvasElement, DSL } from '@shared/types/editor';
 import type { LibraryItem } from '../../../types/library';
 import type { PickerCategory } from '../../../components/AssetPickerModal';
 import LayersPanel from '../../../components/LayersPanel';
-import { IconLayers } from '../../../components/Icons';
+import { IconLayers, IconZap } from '../../../components/Icons';
 import type { InspectorTab } from '../types';
 import DesignPanel from './panels/DesignPanel';
+import MotionPanel from './panels/MotionPanel';
 import ObjectPanel from './panels/ObjectPanel';
 import SceneQuickPanel from './panels/SceneQuickPanel';
 
@@ -42,20 +43,28 @@ export default function InspectorPanel({
       <div className="h-11 border-b border-border flex shrink-0">
         <button
           onClick={() => setTab('design')}
-          className={`flex-1 text-sm font-medium ${tab === 'design' ? 'text-foreground border-b-2 border-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+          className={`flex-1 text-xs font-medium ${tab === 'design' ? 'text-foreground border-b-2 border-foreground' : 'text-muted-foreground hover:text-foreground'}`}
         >
           设计
         </button>
         <button
-          onClick={() => setTab('layers')}
-          className={`flex-1 text-sm font-medium flex items-center justify-center gap-1 ${tab === 'layers' ? 'text-foreground border-b-2 border-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+          onClick={() => setTab('motion')}
+          className={`flex-1 text-xs font-medium flex items-center justify-center gap-0.5 ${tab === 'motion' ? 'text-foreground border-b-2 border-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+          data-testid="inspector-tab-motion"
         >
-          <IconLayers size={14} />
+          <IconZap size={12} />
+          动效
+        </button>
+        <button
+          onClick={() => setTab('layers')}
+          className={`flex-1 text-xs font-medium flex items-center justify-center gap-0.5 ${tab === 'layers' ? 'text-foreground border-b-2 border-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+        >
+          <IconLayers size={12} />
           图层
         </button>
         <button
           onClick={() => setTab('object')}
-          className={`flex-1 text-sm font-medium ${tab === 'object' ? 'text-foreground border-b-2 border-foreground' : hasObjectSelection ? 'text-muted-foreground hover:text-foreground' : 'text-muted-foreground/50'}`}
+          className={`flex-1 text-xs font-medium ${tab === 'object' ? 'text-foreground border-b-2 border-foreground' : hasObjectSelection ? 'text-muted-foreground hover:text-foreground' : 'text-muted-foreground/50'}`}
         >
           对象
         </button>
@@ -89,6 +98,13 @@ export default function InspectorPanel({
               onInsertFrameShot={onInsertFrameShot}
               onPickBgm={() => onOpenAssetPicker('voice', 'bgm')}
               onApplyBgm={onApplyBgm}
+            />
+          ) : tab === 'motion' ? (
+            <MotionPanel
+              dsl={dsl}
+              editorId={editorId}
+              currentSegIndex={currentSegIndex}
+              updateDsl={updateDsl}
             />
           ) : (
             <ObjectPanel dsl={dsl} currentSegIndex={currentSegIndex} selectedElement={selectedElement} updateDsl={updateDsl} />

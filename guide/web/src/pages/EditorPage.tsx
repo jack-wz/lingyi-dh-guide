@@ -5,6 +5,7 @@ import EditorLeftPanel from '../components/EditorLeftPanel';
 import { getSegmentIssues } from '../utils/segmentIssues';
 import { useEditorStore } from '../store/editorStore';
 import type { PipelineOption } from '@shared/data/pipelines';
+import { resolveEditorPipelineKey } from '@shared/data/pipelines';
 import type {
   ApiSegment,
   CanvasElement,
@@ -44,6 +45,9 @@ import EditorCoachmark from '../components/EditorCoachmark';
 import { formatApiErrorMessage, parseApiErrorResponse } from '../utils/apiError';
 
 import { applyBrandLibraryItemToDsl } from '../utils/applyBrandPack';
+import HfPipelineStatusBar from '../components/HfPipelineStatusBar';
+import BrandLookPresetBanner from '../components/BrandLookPresetBanner';
+import { applyLookPresetToDsl, migrateLookPresetPayload, parseLookPresetPayload } from '@shared/lookPreset';
 import { createEditorObject, getObjectLabel } from '../utils/editorObjects';
 import {
   applyDigitalHumanCatalogToDsl,
@@ -99,6 +103,7 @@ export default function EditorPage() {
   const [messageDialog, setMessageDialog] = useState<{ title: string; message: string; destructive?: boolean } | null>(null);
   const [showExitDialog, setShowExitDialog] = useState(false);
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('layers');
+  const [dismissBrandLookBanner, setDismissBrandLookBanner] = useState(false);
   const [activeTool, setActiveTool] = useState<ToolKey | null>(null);
   const [leftPanelWidth, setLeftPanelWidth] = useState(176);
   const [rightPanelWidth, setRightPanelWidth] = useState(288);
@@ -174,7 +179,7 @@ export default function EditorPage() {
           })
           .catch(() => {});
       }
-      setPipelineKey(raw.meta?.pipeline_key || 'digital_human');
+      setPipelineKey(resolveEditorPipelineKey(raw.meta?.pipeline_key));
       setInputMode(raw.meta?.input_mode || 'template');
       setTopic(raw.meta?.topic || '');
       setScriptText(raw.meta?.script_text || '');
@@ -210,8 +215,13 @@ export default function EditorPage() {
     if (id) localStorage.setItem('guide-last-editor-id', id);
   }, [id]);
 
+  useEffect(() => {
+    setDismissBrandLookBanner(false);
+  }, [dsl?.globalConfig.brand_pack_id]);
+
   const appliedDhFromUrlRef = useRef<string | null>(null);
   const appliedBrandFromUrlRef = useRef<string | null>(null);
+  const appliedLookFromUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
     const dhId = searchParams.get('dh_id');
@@ -265,6 +275,28 @@ export default function EditorPage() {
     // Force open brand picker (bypass the one-time auto prompt guard)
     setAssetPicker({ open: true, category: 'brand' });
   }, [searchParams, loading, dsl]);
+
+  useEffect(() => {
+    const lookId = searchParams.get('apply_look');
+    if (!lookId || loading || !dsl || appliedLookFromUrlRef.current === lookId) return;
+    let cancelled = false;
+    fetchLibraryItem(lookId)
+      .then((item) => {
+        if (cancelled || !item?.id) return;
+        const parsed = parseLookPresetPayload(item.payload);
+        if (!parsed) return;
+        const { payload } = migrateLookPresetPayload(parsed);
+        appliedLookFromUrlRef.current = lookId;
+        updateEditorDsl((draft) => applyLookPresetToDsl(draft, payload, { currentSegIndex }));
+        if (payload.pipeline_required === 'template_editor' || payload.pipeline_required === 'hyperframes_template') {
+          setPipelineKey('template_editor');
+        }
+        setInspectorTab('motion');
+        setShowProps(true);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [searchParams, loading, dsl, currentSegIndex, updateEditorDsl]);
 
   useEffect(() => {
     if (loading || !dsl || dsl.globalConfig.brand_pack_id) return;
@@ -391,14 +423,16 @@ export default function EditorPage() {
 
     if (selectedElement.type === 'scene') {
       setInspectorTab('layers');
+    } else if (selectedElement.type === 'subtitle') {
+      setInspectorTab('motion');
+      setShowProps(true);
     } else if (
       selectedElement.type === 'object' ||
       selectedElement.type === 'overlay' ||
-      selectedElement.type === 'digital_human' ||
-      selectedElement.type === 'subtitle'
+      selectedElement.type === 'digital_human'
     ) {
       setInspectorTab('object');
-    } else if (inspectorTab === 'object') {
+    } else if (inspectorTab === 'object' || inspectorTab === 'motion') {
       setInspectorTab('layers');
     }
   }, [inspectorTab, selectedElement]);
@@ -884,6 +918,29 @@ export default function EditorPage() {
         ) : null;
       })()}
 
+      <HfPipelineStatusBar
+        dsl={dsl}
+        pipelineKey={pipelineKey}
+        onOpenMotionPanel={() => {
+          setInspectorTab('motion');
+          setShowProps(true);
+        }}
+      />
+
+      {!dismissBrandLookBanner && (
+        <BrandLookPresetBanner
+          dsl={dsl}
+          editorId={id || ''}
+          onApply={(updater, options) => {
+            updateEditorDsl(updater);
+            if (options?.pipelineKey) setPipelineKey(options.pipelineKey);
+            setInspectorTab('motion');
+            setShowProps(true);
+          }}
+          onDismiss={() => setDismissBrandLookBanner(true)}
+        />
+      )}
+
       {/* 主体 */}
       <div className="flex-1 flex overflow-hidden">
         <EditorLeftPanel
@@ -958,8 +1015,6 @@ export default function EditorPage() {
           onCancel={() => setShowRenderReview(false)}
           onConfirm={executeRender}
           onIssueClick={jumpToRenderIssue}
-          hfPipelineAvailable={pipelines.some((p) => p.key === 'hyperframes_template')}
-          onSwitchToHfPipeline={() => setPipelineKey('hyperframes_template')}
         />
       )}
       <EditorCoachmark />

@@ -189,7 +189,7 @@ def get_subtitle_style_definition(style_id: str) -> SubtitleStyleDefinition | No
 
 def is_hyperframes_subtitle_style(style_id: str) -> bool:
     raw = str(style_id or "").strip()
-    return raw in HF_ASS_FALLBACKS
+    return raw.startswith("hf-caption-") or raw in HF_ASS_FALLBACKS
 
 
 def resolve_ass_subtitle_style_id(style_id: str) -> str:

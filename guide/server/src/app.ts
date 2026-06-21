@@ -35,6 +35,11 @@ export function createApp() {
     res.json({ status: 'ok', timestamp: new Date().toISOString() });
   });
 
+  // Alias for integrator smoke when hitting guide server directly (CI / start-guide-internal).
+  app.get('/api/guide/health', (_req, res) => {
+    res.json({ status: 'ok', service: 'guide', timestamp: new Date().toISOString() });
+  });
+
   app.use('/api/templates', templatesRouter);
   app.use('/api/digital-humans', digitalHumansRouter);
   app.use('/api/uploads', uploadsRouter);

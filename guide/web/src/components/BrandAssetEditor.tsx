@@ -33,6 +33,13 @@ import { SimpleListEditor, TextArea, TextField, TokenEditor, uid } from './brand
 import type { BrandLogoSettings } from '@shared/brandTypes';
 import { useFontCatalog } from '../utils/brandFonts';
 import { SECTIONS, type EditorMode, type VisualSection } from './brand-editor/types';
+import { mergeBrandLookBundlePayload } from '@shared/brandLookBundleExport';
+import BrandLookPresetEditor, {
+  brandPayloadToLookPresetSettings,
+  defaultBrandLookPresetSettings,
+  lookPresetSettingsToPayload,
+  type BrandLookPresetSettings,
+} from './brand-editor/BrandLookPresetEditor';
 
 export type BrandEditorMode = 'create' | 'edit';
 
@@ -112,13 +119,20 @@ function buildDocMarkdown(doc: BrandAssetDoc, logoSettings: BrandLogoSettings): 
   };
 }
 
-function docToPayload(doc: BrandAssetDoc, prev: Record<string, unknown>, logoSettings: BrandLogoSettings) {
+function docToPayload(
+  doc: BrandAssetDoc,
+  prev: Record<string, unknown>,
+  logoSettings: BrandLogoSettings,
+  lookPresetSettings: BrandLookPresetSettings,
+  brandPayloadPatch: Record<string, unknown> = {},
+) {
   const synced = buildDocMarkdown(doc, logoSettings);
   const fonts = Array.isArray((synced.design.typography as { fonts?: unknown[] }).fonts)
     ? (synced.design.typography as { fonts: unknown[] }).fonts
     : [];
   return {
     ...prev,
+    ...brandPayloadPatch,
     ...logoSettingsToPayload(logoSettings),
     design_markdown: synced.design_markdown,
     frame_markdown: synced.frame_markdown,
@@ -135,6 +149,7 @@ function docToPayload(doc: BrandAssetDoc, prev: Record<string, unknown>, logoSet
     presets: synced.presets,
     frames: synced.frames,
     fonts,
+    ...lookPresetSettingsToPayload(lookPresetSettings),
   };
 }
 
@@ -150,6 +165,10 @@ export default function BrandAssetEditor({ open, mode, itemId, onClose, onSaved 
   const [designMd, setDesignMd] = useState('');
   const [frameMd, setFrameMd] = useState('');
   const [logoSettings, setLogoSettings] = useState<BrandLogoSettings>(defaultLogoSettings());
+  const [lookPresetSettings, setLookPresetSettings] = useState<BrandLookPresetSettings>(
+    defaultBrandLookPresetSettings(),
+  );
+  const [brandPayloadPatch, setBrandPayloadPatch] = useState<Record<string, unknown>>({});
   const { catalog: fontCatalog } = useFontCatalog();
 
   const load = useCallback(async () => {
@@ -169,6 +188,8 @@ export default function BrandAssetEditor({ open, mode, itemId, onClose, onSaved 
         setItem(data);
         setDoc(nextDoc);
         setLogoSettings(resolveLogoSettings(nextDoc.design, data.payload || {}));
+        setLookPresetSettings(brandPayloadToLookPresetSettings(data.payload || {}));
+        setBrandPayloadPatch({});
         setDesignMd(nextDoc.design_markdown);
         setFrameMd(nextDoc.frame_markdown);
       } else {
@@ -181,6 +202,7 @@ export default function BrandAssetEditor({ open, mode, itemId, onClose, onSaved 
           setItem(null);
           setDoc(nextDoc);
           setLogoSettings(defaultLogoSettings(nextDoc.design.name));
+          setLookPresetSettings(defaultBrandLookPresetSettings());
           setDesignMd(designToMarkdown(nextDoc.design));
           setFrameMd(frameToMarkdown(nextDoc.frames, nextDoc.presets));
         } else {
@@ -188,6 +210,7 @@ export default function BrandAssetEditor({ open, mode, itemId, onClose, onSaved 
           setItem(null);
           setDoc(nextDoc);
           setLogoSettings(defaultLogoSettings(nextDoc.design.name));
+          setLookPresetSettings(defaultBrandLookPresetSettings());
           setDesignMd(designToMarkdown(nextDoc.design));
           setFrameMd(frameToMarkdown(nextDoc.frames, nextDoc.presets));
         }
@@ -263,7 +286,7 @@ export default function BrandAssetEditor({ open, mode, itemId, onClose, onSaved 
         ? resolveLogoSettings(parsedMd.design, item?.payload || {})
         : logoSettings;
       const finalDoc = buildDocMarkdown(parsedMd, logoForSave);
-      const payload = docToPayload(finalDoc, item?.payload || {}, logoForSave);
+      const payload = docToPayload(finalDoc, item?.payload || {}, logoForSave, lookPresetSettings, brandPayloadPatch);
 
       if (mode === 'edit' && itemId) {
         const res = await fetch(`/api/library/${itemId}`, {
@@ -284,6 +307,7 @@ export default function BrandAssetEditor({ open, mode, itemId, onClose, onSaved 
             name: finalDoc.design.name,
             design_md: finalDoc.design_markdown,
             frame_md: finalDoc.frame_markdown,
+            ...lookPresetSettingsToPayload(lookPresetSettings),
           }),
         });
         if (!res.ok) throw new Error((await res.json()).error || '创建失败');
@@ -300,6 +324,20 @@ export default function BrandAssetEditor({ open, mode, itemId, onClose, onSaved 
   const renderSection = () => {
     if (!doc) return null;
     switch (section) {
+      case 'motionPresets':
+        return (
+          <BrandLookPresetEditor
+            settings={lookPresetSettings}
+            onChange={setLookPresetSettings}
+            brandName={doc.design.name}
+            brandPayload={{
+              ...(item?.payload || {}),
+              ...brandPayloadPatch,
+              ...lookPresetSettingsToPayload(lookPresetSettings),
+            }}
+            onBrandPayloadImport={(patch) => setBrandPayloadPatch((prev) => mergeBrandLookBundlePayload(prev, patch))}
+          />
+        );
       case 'basic':
         return (
           <div className="space-y-4">
@@ -525,6 +563,7 @@ export default function BrandAssetEditor({ open, mode, itemId, onClose, onSaved 
                   <div key={s.id}>
                     {showGroup && <div className="px-2 pt-2 pb-1 text-[9px] font-medium text-muted-foreground uppercase tracking-wide">{s.group}</div>}
                     <button type="button" onClick={() => setSection(s.id)}
+                      data-testid={`brand-section-${s.id}`}
                       className={`w-full text-left px-2.5 py-1.5 rounded-md text-xs mb-0.5 ${
                         section === s.id ? 'bg-brand-blue/15 text-brand-blue font-medium' : 'text-muted-foreground hover:bg-accent/60'
                       }`}>

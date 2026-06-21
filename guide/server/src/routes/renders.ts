@@ -403,12 +403,31 @@ function selectRenderJobWithTemplate(whereClause: string) {
     ${whereClause}`;
 }
 
-// GET /api/renders/:id - get job status
+// GET /api/renders/:id - get job status (?summary=1 omits provider_config_snapshot for polling)
 router.get('/:id', (req: Request, res: Response) => {
   const db = getDb();
   const job = db.prepare(`${selectRenderJobWithTemplate('WHERE rj.id = ?')}`).get(req.params.id) as any;
   if (!job) return apiError(res, ErrorCodes.JOB_NOT_FOUND, 'Render job not found', 404);
-  res.json(enrichJob(job, DATA_DIR));
+  const enriched = enrichJob(job, DATA_DIR);
+  if (!enriched) return apiError(res, ErrorCodes.JOB_NOT_FOUND, 'Render job not found', 404);
+  if (req.query.summary === '1' || req.query.fields === 'summary') {
+    return res.json({
+      id: enriched.id,
+      status: enriched.status,
+      stage: enriched.stage,
+      progress: enriched.progress,
+      output_url: enriched.output_url,
+      output_exists: enriched.output_exists,
+      error_message: enriched.error_message,
+      error_code: enriched.error_code,
+      template_id: enriched.template_id,
+      pipeline_key: enriched.pipeline_key,
+      heartbeat_at: enriched.heartbeat_at,
+      updated_at: enriched.updated_at,
+      completed_at: enriched.completed_at,
+    });
+  }
+  res.json(enriched);
 });
 
 // PATCH /api/renders/:id - update job status (for worker)

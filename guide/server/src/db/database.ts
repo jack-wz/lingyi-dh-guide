@@ -3,6 +3,7 @@ import { readFileSync, mkdirSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { seedLibraryItems } from '../library-seed.js';
+import { seedLookPresets } from '../look-preset-seed.js';
 import { importExternalCatalog } from '../import-external-catalog.js';
 import { seedLocalBrandSystem } from '../local-brand-system.js';
 
@@ -45,8 +46,42 @@ function addColumn(db: Database.Database, table: string, column: string, definit
   }
 }
 
+function migrateLibraryItemsCategoryCheck(db: Database.Database): void {
+  const librarySql = tableSql(db, 'library_items');
+  if (!librarySql || librarySql.includes('look_preset')) return;
+
+  db.pragma('foreign_keys = OFF');
+  db.exec(`
+    ALTER TABLE library_items RENAME TO library_items_old;
+    CREATE TABLE library_items (
+      id TEXT PRIMARY KEY,
+      category TEXT NOT NULL CHECK(category IN ('brand','look_preset','voice','script','knowledge','knowledge_doc')),
+      name TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      status TEXT DEFAULT 'active' CHECK(status IN ('active','archived')),
+      tags TEXT DEFAULT '[]',
+      file_url TEXT DEFAULT '',
+      parent_id TEXT DEFAULT '',
+      payload_json TEXT DEFAULT '{}',
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+    INSERT INTO library_items (
+      id, category, name, description, status, tags, file_url, parent_id, payload_json, created_at, updated_at
+    )
+    SELECT
+      id, category, name, description, status, tags, file_url, parent_id, payload_json, created_at, updated_at
+    FROM library_items_old;
+    DROP TABLE library_items_old;
+    CREATE INDEX IF NOT EXISTS idx_library_items_category ON library_items(category);
+    CREATE INDEX IF NOT EXISTS idx_library_items_parent ON library_items(parent_id);
+  `);
+  db.pragma('foreign_keys = ON');
+}
+
 function migrateDb(db: Database.Database): void {
   rebuildTablesForStatusChecks(db);
+  migrateLibraryItemsCategoryCheck(db);
 
   addColumn(db, 'templates', 'published_at', 'TEXT');
 
@@ -75,6 +110,16 @@ function migrateDb(db: Database.Database): void {
   db.exec('CREATE INDEX IF NOT EXISTS idx_library_items_category ON library_items(category)');
   db.exec('CREATE INDEX IF NOT EXISTS idx_library_items_parent ON library_items(parent_id)');
   seedLibraryItems(db);
+  try {
+    const lookSeed = seedLookPresets(db);
+    if (lookSeed.status === 'inserted') {
+      console.info('[look_preset] seeded default appearance presets');
+    } else if (lookSeed.status === 'updated') {
+      console.info('[look_preset] synced built-in appearance presets to latest registry');
+    }
+  } catch (err) {
+    console.warn('[look_preset] seed skipped:', err instanceof Error ? err.message : err);
+  }
   try {
     const brandSeed = seedLocalBrandSystem(db, getDataDir());
     if (brandSeed !== 'skipped') {

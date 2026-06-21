@@ -128,6 +128,20 @@ function ffmpegAvailable(): boolean {
   return result.status === 0;
 }
 
+function npxAvailable(): boolean {
+  const result = spawnSync('npx', ['--version'], { encoding: 'utf-8', timeout: 2000 });
+  return result.status === 0;
+}
+
+function hyperframesCliAvailable(): boolean {
+  const guideRoot = join(getDataDir(), '..');
+  const localBin = join(guideRoot, 'node_modules', '.bin', 'hyperframes');
+  if (existsSync(localBin)) return true;
+  if (!npxAvailable()) return false;
+  const probe = spawnSync('npx', ['hyperframes', '--version'], { encoding: 'utf-8', timeout: 8000 });
+  return probe.status === 0;
+}
+
 function buildDiagnostics(config: Config) {
   const providers = {
     kie: {
@@ -162,8 +176,16 @@ function buildDiagnostics(config: Config) {
       name: 'FFmpeg 合成',
       configured: ffmpegAvailable(),
       base_url: 'local binary',
-      used_for: ['standard', 'digital_human'],
+      used_for: ['standard', 'digital_human', 'hyperframes_template'],
       fallback: '必需依赖，缺失会导致渲染失败。',
+    },
+    hyperframes: {
+      key: 'hyperframes',
+      name: 'HyperFrames 渲染',
+      configured: hyperframesCliAvailable(),
+      base_url: 'guide/node_modules/.bin/hyperframes',
+      used_for: ['hyperframes_template'],
+      fallback: '在 guide 目录执行 npm install 安装 hyperframes CLI。',
     },
     llm: (() => {
       const llm = getLlmDisplayInfo();
@@ -200,11 +222,13 @@ function buildDiagnostics(config: Config) {
       provider_keys: ['yuntts', 'wavespeed', 'ffmpeg'],
     },
     hyperframes_template: {
-      blockers: providers.ffmpeg.configured ? [] : ['FFmpeg 不可用，无法合成最终视频'],
-      warnings: [
-        '需要 Node.js npx 与 hyperframes CLI；未安装时渲染会失败',
-      ],
-      provider_keys: ['ffmpeg'],
+      blockers: [
+        providers.ffmpeg.configured ? '' : 'FFmpeg 不可用，无法合成最终视频',
+        providers.hyperframes.configured ? '' : 'HyperFrames CLI 不可用：请在 guide 目录执行 npm install',
+        npxAvailable() || providers.hyperframes.configured ? '' : 'npx 不可用，无法调用 HyperFrames',
+      ].filter(Boolean),
+      warnings: [],
+      provider_keys: ['ffmpeg', 'hyperframes'],
     },
   };
 

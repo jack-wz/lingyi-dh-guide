@@ -14,9 +14,11 @@ import {
 describe('subtitleStyles hf grouping', () => {
   it('exposes classic and hyperframes style groups', () => {
     assert.ok(CLASSIC_SUBTITLE_STYLES.length >= 8);
-    assert.equal(HF_SUBTITLE_STYLES.length, 5);
+    assert.equal(HF_SUBTITLE_STYLES.length, 7);
     assert.ok(HF_SUBTITLE_STYLES.some((s) => s.id === 'hf-caption-highlight'));
     assert.ok(HF_SUBTITLE_STYLES.some((s) => s.id === 'hf-caption-pill'));
+    assert.ok(HF_SUBTITLE_STYLES.some((s) => s.id === 'hf-caption-pop'));
+    assert.ok(HF_SUBTITLE_STYLES.some((s) => s.id === 'hf-caption-stagger'));
   });
 
   it('detects hyperframes subtitle usage in dsl', () => {
@@ -32,10 +34,9 @@ describe('subtitleStyles hf grouping', () => {
     assert.equal(dslUsesHyperframesSubtitles(dsl), true);
   });
 
-  it('warns when non-hf pipeline uses hyperframes subtitles', () => {
-    const warning = getHyperframesSubtitlePipelineWarning('standard');
-    assert.ok(warning?.includes('HyperFrames'));
-    assert.ok(warning?.includes('ASS'));
+  it('allows hyperframes subtitles on style-layer pipelines', () => {
+    assert.equal(getHyperframesSubtitlePipelineWarning('standard'), null);
+    assert.equal(getHyperframesSubtitlePipelineWarning('template_editor'), null);
     assert.equal(getHyperframesSubtitlePipelineWarning('hyperframes_template'), null);
   });
 

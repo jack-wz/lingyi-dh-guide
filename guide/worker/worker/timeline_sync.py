@@ -8,6 +8,7 @@ import re
 from glob import glob
 from typing import Any
 
+from worker.ffmpeg_effects import expected_output_duration_with_xfade
 from worker.utils import get_duration, has_audio_stream
 
 _DURATION_TOLERANCE_SEC = 0.35
@@ -176,6 +177,7 @@ def write_segments_manifest(
                 "end_time": seg.get("end_time"),
                 "clip_path": seg.get("clip_path"),
                 "tts_audio_path": seg.get("tts_audio_path") or seg.get("tts_path"),
+                "transition": seg.get("transition"),
             }
             for i, seg in enumerate(segments)
         ],
@@ -285,9 +287,34 @@ def audit_render_job(work_dir: str) -> dict[str, Any]:
     )
     final_duration = get_duration(final_path) if final_path else 0.0
     if final_path and final_duration > 0:
-        if abs(final_duration - total_duration) > _DURATION_TOLERANCE_SEC + 0.5:
+        expected_duration = total_duration
+        transition_segments = synced["segments"]
+        dsl_path = os.path.join(work_dir, "dsl.json")
+        if os.path.exists(dsl_path):
+            try:
+                with open(dsl_path, encoding="utf-8") as f:
+                    dsl = json.load(f)
+                transition_segments = dsl.get("segments") or transition_segments
+            except (OSError, json.JSONDecodeError, TypeError, ValueError):
+                pass
+        elif manifest and manifest.get("segments"):
+            transition_segments = manifest["segments"]
+        try:
+            clip_durations = [
+                _segment_media_duration(seg, i, work_dir)
+                for i, seg in enumerate(synced["segments"])
+            ]
+            xfade_duration = expected_output_duration_with_xfade(
+                clip_durations,
+                transition_segments,
+            )
+            if xfade_duration is not None:
+                expected_duration = xfade_duration
+        except (TypeError, ValueError):
+            pass
+        if abs(final_duration - expected_duration) > _DURATION_TOLERANCE_SEC + 0.5:
             warnings.append(
-                f"final video duration={final_duration:.2f}s differs from clips={total_duration:.2f}s"
+                f"final video duration={final_duration:.2f}s differs from expected={expected_duration:.2f}s"
             )
     elif any(os.path.exists(os.path.join(work_dir, n)) for n in final_candidates):
         warnings.append("final video exists but duration unreadable")
@@ -326,6 +353,9 @@ def audit_render_job(work_dir: str) -> dict[str, Any]:
         "work_dir": work_dir,
         "segment_count": len(synced["segments"]),
         "total_duration_sec": total_duration,
+        "expected_final_duration_sec": round(expected_duration, 3)
+        if final_path and final_duration > 0
+        else None,
         "final_duration_sec": round(final_duration, 3) if final_duration else None,
         "subtitle_lines": ass_lines,
         "subtitle_end_sec": round(ass_end, 3) if ass_lines else None,

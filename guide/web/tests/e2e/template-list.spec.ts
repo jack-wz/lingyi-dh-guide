@@ -58,5 +58,12 @@ test('template center shows onboarding wizard for new users', async ({ page }) =
     localStorage.removeItem('guide_onboarding_dismissed');
   });
   await page.goto('/');
-  await expect(page.getByText('三步完成第一条导购视频')).toBeVisible();
+  const wizard = page.getByTestId('onboarding-wizard');
+  await expect(wizard).toBeVisible();
+  await expect(wizard.getByText('四步完成第一条导购视频')).toBeVisible();
+  await expect(wizard.getByText('选运营模板')).toBeVisible();
+  await wizard.getByRole('button', { name: '下一步' }).click();
+  await expect(wizard.getByText('绑定品牌包')).toBeVisible();
+  await wizard.getByRole('button', { name: '下一步' }).click();
+  await expect(wizard.getByText('套用品牌外观')).toBeVisible();
 });

@@ -76,8 +76,8 @@ export function SubtitleStyleHint({ styleId }: { styleId: string }) {
   const fallbackName = getAssSubtitleFallbackName(styleId);
   return (
     <p className="mt-2 text-[11px] text-brand-blue/90 leading-relaxed">
-      动效字幕由 HyperFrames 渲染。编辑器预览可看到逐词高亮；标准 FFmpeg 流水线将降级为
-      {fallbackName ? `「${fallbackName}」` : '近似'} ASS 样式，并在有 TTS 时输出词级卡拉 OK。
+      动效字幕由 HyperFrames 渲染。使用「模板编辑器」流水线时，成片合成后将自动叠加 HF 动效字幕层
+      {fallbackName ? `（无 HF 时降级为「${fallbackName}」）` : ''}。
     </p>
   );
 }
@@ -98,6 +98,7 @@ export function SubtitleStyleCards({
         key={style.id}
         role="button"
         tabIndex={0}
+        data-testid={`subtitle-style-card-${style.id}`}
         onClick={() => onSelect(style.id)}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {

@@ -131,7 +131,12 @@ export default function ToolPopover({
             </div>
           )}
           {textTab === 'subtitle' && (
-            <div className="flex-1 min-h-0 -mx-1 overflow-y-auto">
+            <div className="flex-1 min-h-0 -mx-1 overflow-y-auto space-y-2">
+              <p className="text-[10px] text-muted-foreground px-1">
+                快速选样式；转场与质感请在右侧
+                <span className="text-brand-blue">「动效」</span>
+                面板，或从资产库套用外观预设。
+              </p>
               <AssetLibrary tab="subtitle" editorId={editorId} onEdited={onEdited} showSearch={false} />
             </div>
           )}

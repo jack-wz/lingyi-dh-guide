@@ -126,6 +126,14 @@ describe('render API integration', () => {
     assert.equal((afterClaim.json as { status: string }).status, 'parsing');
     assert.equal((afterClaim.json as { worker_id: string }).worker_id, 'test-worker');
 
+    const summary = await request('GET', `/api/renders/${(created.json as { id: string }).id}?summary=1`);
+    assert.equal(summary.status, 200);
+    const summaryBody = summary.json as Record<string, unknown>;
+    assert.equal(summaryBody.status, 'parsing');
+    assert.equal(summaryBody.stage, 'parsing');
+    assert.equal(summaryBody.provider_config_snapshot, undefined);
+    assert.equal('progress' in summaryBody, true);
+
     const patched = await request('PATCH', `/api/renders/${(created.json as { id: string }).id}`, {
       status: 'video_gen',
       stage: 'video_gen',

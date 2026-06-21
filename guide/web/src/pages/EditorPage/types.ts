@@ -1,5 +1,5 @@
 export type ToolKey = 'avatar' | 'text' | 'media' | 'generate';
-export type InspectorTab = 'design' | 'layers' | 'object';
+export type InspectorTab = 'design' | 'motion' | 'layers' | 'object';
 
 import type { PipelineOption } from '@shared/data/pipelines';
 import type { ConfigDiagnostics, DSL } from '@shared/types/editor';

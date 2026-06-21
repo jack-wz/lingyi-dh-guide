@@ -131,7 +131,7 @@ export interface GlobalConfig {
   asset_map?: Record<string, string>;
   digital_human_catalog?: DigitalHumanCatalog;
   hf_overlays?: Array<{
-    type: 'hf-grain' | 'hf-vignette' | 'hf-light-leak' | 'hf-motion-blur';
+    type: 'hf-grain' | 'hf-vignette' | 'hf-light-leak' | 'hf-motion-blur' | 'hf-color-grade';
     enabled: boolean;
     opacity?: number;
     intensity?: number;
@@ -140,6 +140,9 @@ export interface GlobalConfig {
     leak_color?: string;
     blur_intensity?: number;
     direction?: 'horizontal' | 'vertical';
+    grade_warmth?: number;
+    grade_strength?: number;
+    grade_saturation?: number;
   }>;
 }
 
@@ -152,6 +155,8 @@ export interface DSL {
     created_at: string;
     updated_at: string;
     pipeline_key?: string;
+    look_preset_id?: string;
+    recommended_look_preset_seed_ids?: string[];
     input_mode?: 'template' | 'topic' | 'script';
     topic?: string;
     script_text?: string;

@@ -15,6 +15,7 @@ export const HF_TRANSITIONS = [
   { id: 'hf-push-up', name: '上推过渡（HF）', description: '自下向上推入，适合竖屏节奏切场' },
   { id: 'hf-push-down', name: '下推过渡（HF）', description: '自上向下推入，适合段落收束' },
   { id: 'hf-zoom', name: '缩放过渡（HF）', description: '品牌色径向缩放，强调段落转折' },
+  { id: 'hf-circle-reveal', name: '圆形揭示（HF）', description: '品牌色圆形扩散揭示，适合美妆高端段落' },
   { id: 'hf-wipe-left', name: '左擦除（HF）', description: '品牌色从左向右擦除切场' },
   { id: 'hf-wipe-right', name: '右擦除（HF）', description: '品牌色从右向左擦除切场' },
 ] as const;
@@ -56,7 +57,7 @@ export function TransitionStyleHint({ type }: { type: string }) {
   const item = HF_TRANSITIONS.find((t) => t.id === type);
   return (
     <p className="mt-2 text-[11px] text-brand-blue/90 leading-relaxed">
-      {item?.description || 'HyperFrames 动效转场'}。完整动效需使用「HyperFrames 模板」流水线；标准流水线将忽略 HF 转场。
+      {item?.description || '动效转场'}。使用「模板编辑器」流水线时，成片由 FFmpeg xfade 渲染转场（HF 预览仅供版式核对）。
     </p>
   );
 }

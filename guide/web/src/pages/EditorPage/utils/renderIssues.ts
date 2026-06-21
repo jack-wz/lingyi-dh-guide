@@ -1,4 +1,6 @@
 import type { PipelineOption } from '@shared/data/pipelines';
+import { dslUsesAnyHyperframesFeatures } from '@shared/lookPreset';
+import { pipelineUsesHyperframesStyleLayer } from '@shared/hfStylePass';
 import {
   getSegmentVoiceIdWarnings,
   narrationRequiresDigitalHumanIssue,
@@ -82,16 +84,27 @@ export function estimateRenderCostRisk(
   const providerWarnings = pipelineDiagnostics?.warnings?.length || 0;
   const providerBlockers = pipelineDiagnostics?.blockers?.length || 0;
   const resolutionMultiplier = outputResolution === '4K' ? 2.1 : outputResolution === '720p' ? 0.75 : 1;
-  const pipelineMultiplier = pipeline?.key === 'digital_human' ? 0.85 : 1.25;
+  const pipelineKey = pipeline?.key;
+  const usesHfStyle = dslUsesAnyHyperframesFeatures(dsl);
+  const hfStyleLayer = pipelineUsesHyperframesStyleLayer(pipelineKey) && usesHfStyle;
+  const pipelineMultiplier = pipelineKey === 'digital_human'
+    ? 0.85
+    : pipelineKey === 'hyperframes_template'
+      ? 0.55
+      : 1.25;
+  const sceneSceneCost = pipelineKey === 'hyperframes_template' ? 2 : 6;
   const sceneMultiplier = Math.max(1, sceneCount / 4);
-  const complexityScore =
+  let complexityScore =
     totalDuration * 0.9 * resolutionMultiplier * pipelineMultiplier +
-    sceneCount * 6 * sceneMultiplier +
+    sceneCount * sceneSceneCost * sceneMultiplier +
     providerWarnings * 10 +
     providerBlockers * 25;
+  if (hfStyleLayer) complexityScore += 4;
   const level: 'low' | 'medium' | 'high' =
     providerBlockers > 0 || complexityScore >= 95 ? 'high' : complexityScore >= 45 ? 'medium' : 'low';
-  const minMinutes = Math.max(1, Math.ceil((totalDuration * pipelineMultiplier * resolutionMultiplier + sceneCount * 5) / 45));
+  const perSceneOverhead = pipelineKey === 'hyperframes_template' ? 2 : 5;
+  const hfOverheadMinutes = 0;
+  const minMinutes = Math.max(1, Math.ceil((totalDuration * pipelineMultiplier * resolutionMultiplier + sceneCount * perSceneOverhead) / 45) + hfOverheadMinutes);
   const maxMinutes = Math.max(minMinutes + 1, Math.ceil(minMinutes * (level === 'high' ? 2.4 : level === 'medium' ? 1.8 : 1.4)));
   const costLabel = level === 'high' ? '高成本风险' : level === 'medium' ? '中等成本风险' : '低成本风险';
   const factors = [
@@ -99,7 +112,13 @@ export function estimateRenderCostRisk(
     `${totalDuration}s 视频`,
     outputResolution,
     aspectRatio,
-    pipeline?.key === 'digital_human' ? '数字人口播' : '场景图+视频生成',
+    pipelineKey === 'hyperframes_template'
+      ? 'HyperFrames HTML 出片（跳过场景生成）'
+      : pipelineKey === 'digital_human'
+        ? '数字人口播'
+        : hfStyleLayer
+          ? '场景图+视频+FFmpeg动效'
+          : '场景图+视频生成',
   ];
   if (providerWarnings > 0) factors.push(`${providerWarnings} 项降级风险`);
   if (providerBlockers > 0) factors.push(`${providerBlockers} 项硬阻塞`);

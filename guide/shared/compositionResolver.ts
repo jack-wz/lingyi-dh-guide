@@ -141,6 +141,11 @@ export function resolveCompositionDsl(
       const item = { ...(ov as CompositionOverlay) };
       const url = resolveOverlayAssetUrl(item as Parameters<typeof resolveOverlayAssetUrl>[0], assetMap);
       if (url) item.asset_url = url;
+      const relStart = Math.max(0, Number(item.seg_start_time ?? 0));
+      let itemDur = Number(item.duration ?? duration);
+      if (!Number.isFinite(itemDur) || itemDur <= 0) itemDur = duration;
+      item.duration = Math.min(itemDur, Math.max(0.1, duration - relStart));
+      item.seg_start_time = relStart;
       return item;
     });
 

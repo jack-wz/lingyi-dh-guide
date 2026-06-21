@@ -90,7 +90,7 @@ test('editor HF subtitle, transition and grain preview', async ({ page, request 
   await page.getByRole('button', { name: /高亮强调/ }).click();
   await page.keyboard.press('Escape');
 
-  await page.locator('aside').getByRole('button', { name: '设计', exact: true }).click();
+  await page.getByTestId('inspector-tab-motion').click();
   const transitionSelect = page.getByTestId('segment-transition-type');
   await expect(transitionSelect).toBeVisible();
   await transitionSelect.selectOption('hf-dissolve');
@@ -101,7 +101,7 @@ test('editor HF subtitle, transition and grain preview', async ({ page, request 
 
   await expect(page.getByPlaceholder(/输入该分镜的口播文案/)).toHaveValue(narrationText, { timeout: 10_000 });
 
-  const ttsBtn = page.getByTestId('segment-tts-preview');
+  const ttsBtn = page.locator('aside').getByTestId('segment-tts-preview');
   await expect(ttsBtn).toBeEnabled({ timeout: 10_000 });
 
   const [ttsResponse] = await Promise.all([

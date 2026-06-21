@@ -1,4 +1,5 @@
 import { libraryPayloadToBrandPack } from '@shared/brandPack';
+import { getBrandLookPresetHints } from '@shared/brandLookPreset';
 import type { DSL, EditorObject, Segment } from '../store/editorStore';
 import type { LibraryItem } from '../types/library';
 import { parseDesignMarkdown } from '@shared/brandYaml';
@@ -19,6 +20,7 @@ export function applyBrandLibraryItemToDsl(
   const logoSettings = resolveLogoSettings(design, payload);
   const activeLogo = resolveActiveLogo(logoSettings);
   const focusSegIndex = options?.currentSegIndex ?? 0;
+  const lookHints = getBrandLookPresetHints(payload);
 
   updateDsl((draft) => {
     const brandLogoUrl = draft.globalConfig.brand_logo_url || activeLogo.url || '';
@@ -87,6 +89,11 @@ export function applyBrandLibraryItemToDsl(
 
     return {
       ...draft,
+      meta: {
+        ...draft.meta,
+        look_preset_id: undefined,
+        recommended_look_preset_seed_ids: lookHints.recommendedSeedIds,
+      },
       globalConfig: {
         ...draft.globalConfig,
         brand_pack_id: pack.id,

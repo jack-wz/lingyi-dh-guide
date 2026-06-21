@@ -4,11 +4,7 @@ import type { DSL, Segment } from '@shared/types/editor';
 import type { LibraryItem } from '../../../../types/library';
 import FileUploader from '../../../../components/FileUploader';
 import FontFamilyPicker from '../../../../components/brand-editor/FontFamilyPicker';
-import { IconFilm, IconMusic, IconPalette, IconSettings2, IconSparkles, IconType } from '../../../../components/Icons';
-import { HfGlobalOverlayPanel } from '../../../../components/HfGlobalOverlayPanel';
-import { SubtitleStyleHint, SubtitleStyleSelect } from '../../../../components/SubtitleStylePicker';
-import { TransitionStyleHint, TransitionStyleSelect } from '../../../../components/TransitionStylePicker';
-import { isHyperframesTransitionType } from '@shared/hfTransitionRenderer';
+import { IconFilm, IconMusic, IconPalette, IconType } from '../../../../components/Icons';
 import {
   SUBTITLE_FONT_SIZE_DEFAULT,
   SUBTITLE_FONT_SIZE_MAX,
@@ -63,7 +59,7 @@ export default function DesignPanel({
   return (
     <div className="p-4 space-y-4">
       <p className="text-[11px] text-muted-foreground -mt-1">
-        全局样式与输出规格；当前分镜布局与背景图请在「图层」面板调整。
+        画面、音乐与品牌基础设置；字幕动效与转场请在「动效」面板调整。
       </p>
       <PanelSection title="背景" icon={<IconPalette size={15} />}>
         <label className="block text-xs text-muted-foreground mb-1">背景色</label>
@@ -141,61 +137,7 @@ export default function DesignPanel({
         </label>
       </PanelSection>
 
-      <PanelSection title="场景转场" icon={<IconSettings2 size={15} />}>
-        <label className="flex items-center justify-between text-sm">
-          启用转场
-          <input
-            type="checkbox"
-            checked={(cfg.transition_enabled ?? false) || seg.transition.type !== 'none'}
-            onChange={(e) => {
-              updateGlobal({ transition_enabled: e.target.checked });
-              updateSeg({ transition: { ...seg.transition, type: e.target.checked ? 'fade' : 'none' } });
-            }}
-          />
-        </label>
-        <div className="mt-3">
-          <TransitionStyleSelect
-            data-testid="segment-transition-type"
-            value={seg.transition.type}
-            onChange={(type) => updateSeg({
-              transition: {
-                ...seg.transition,
-                type,
-                duration: isHyperframesTransitionType(type)
-                  ? Math.max(0.4, Number(seg.transition.duration) || 0.6)
-                  : seg.transition.duration,
-              },
-            })}
-          />
-        </div>
-        <TransitionStyleHint type={seg.transition.type} />
-        {seg.transition.type !== 'none' && (
-          <div className="mt-3">
-            <label className="block text-xs text-muted-foreground mb-1">转场时长（秒）</label>
-            <input
-              type="number"
-              min={0.2}
-              max={2}
-              step={0.1}
-              value={seg.transition.duration}
-              onChange={(e) => updateSeg({
-                transition: { ...seg.transition, duration: Math.max(0.2, Number(e.target.value) || 0.5) },
-              })}
-              className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
-            />
-          </div>
-        )}
-      </PanelSection>
-
-      <PanelSection title="画面质感" icon={<IconSparkles size={15} />}>
-        <HfGlobalOverlayPanel
-          overlays={cfg.hf_overlays}
-          brandColor={cfg.brand_color}
-          onChange={(hf_overlays) => updateGlobal({ hf_overlays })}
-        />
-      </PanelSection>
-
-      <PanelSection title="品牌与字幕" icon={<IconType size={15} />}>
+      <PanelSection title="品牌与字幕默认" icon={<IconType size={15} />}>
         <div className="mb-4 space-y-2">
           {activePackView && (
             <p className="text-[10px] text-muted-foreground">
@@ -242,12 +184,6 @@ export default function DesignPanel({
           placeholder="品牌 Logo 素材 URL"
           previewType="image"
         />
-        <label className="mt-3 block text-xs text-muted-foreground mb-1">字幕样式</label>
-        <SubtitleStyleSelect
-          value={seg.subtitle.style_id}
-          onChange={(styleId) => updateSeg({ subtitle: { ...seg.subtitle, style_id: styleId } })}
-        />
-        <SubtitleStyleHint styleId={seg.subtitle.style_id} />
         <FontFamilyPicker
           label="字幕默认字体"
           value={cfg.subtitle_font_family || cfg.default_font_family || ''}
@@ -263,7 +199,7 @@ export default function DesignPanel({
           max={SUBTITLE_FONT_SIZE_MAX}
           onChange={(value) => updateGlobal({ subtitle_font_size: value })}
         />
-        <p className="text-[11px] text-muted-foreground">作用于全模板；单分镜可在右侧「字幕」面板单独覆盖字体与字号。</p>
+        <p className="text-[11px] text-muted-foreground">字幕样式与转场动效请在右侧「动效」面板；单分镜字体可在「对象」面板覆盖。</p>
       </PanelSection>
 
       <PanelSection title="输出规格" icon={<IconFilm size={15} />}>

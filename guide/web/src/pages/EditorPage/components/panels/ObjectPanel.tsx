@@ -3,10 +3,7 @@ import FileUploader from '../../../../components/FileUploader';
 import FontFamilyPicker from '../../../../components/brand-editor/FontFamilyPicker';
 import { IconEye, IconEyeOff, IconImage, IconLayout, IconMic, IconType } from '../../../../components/Icons';
 import { SUBTITLE_STYLES } from '../../../../data/subtitleStyles';
-import { SubtitleStyleHint, SubtitleStyleSelect } from '../../../../components/SubtitleStylePicker';
-import SegmentTtsPreview from '../../../../components/SegmentTtsPreview';
-import { segmentUsesTtsWordTimings } from '@shared/captionWordTimings';
-import { isHyperframesSubtitleStyle } from '@shared/subtitleStyles';
+
 import {
   resolveSubtitleFontSize,
   SUBTITLE_FONT_SIZE_DEFAULT,
@@ -82,50 +79,11 @@ export default function ObjectPanel({
             显示字幕
             <input type="checkbox" checked={seg.subtitle.enabled} onChange={(e) => updateSeg({ subtitle: { ...seg.subtitle, enabled: e.target.checked } })} />
           </label>
-          <div className="mt-3">
-            <SubtitleStyleSelect
-              value={seg.subtitle.style_id}
-              onChange={(styleId) => updateSeg({ subtitle: { ...seg.subtitle, style_id: styleId } })}
-            />
-          </div>
-          <SubtitleStyleHint styleId={seg.subtitle.style_id} />
-          {isHyperframesSubtitleStyle(seg.subtitle.style_id) && (
-            <>
-              <p className="mt-2 text-[10px] text-muted-foreground leading-relaxed">
-                {segmentUsesTtsWordTimings(seg)
-                  ? '已绑定 TTS 词级时间轴，卡拉 OK 将与配音对齐。'
-                  : '预览使用估算词级时间轴；可点击下方试听并对齐，或成片后自动 Whisper 对齐。'}
-              </p>
-              <SegmentTtsPreview
-                text={seg.narration_text || ''}
-                segment={seg}
-                voiceId={seg.voice_id}
-                onApply={(patch) => updateSeg(patch)}
-              />
-            </>
-          )}
-          {isHyperframesSubtitleStyle(seg.subtitle.style_id) && (
-            <div className="mt-3">
-              <label className="block text-xs text-muted-foreground mb-1">强调词（逗号分隔）</label>
-              <input
-                value={(seg.subtitle.hf_params?.emphasis_words || []).join('，')}
-                onChange={(e) => {
-                  const emphasis_words = e.target.value
-                    .split(/[,，]/)
-                    .map((w) => w.trim())
-                    .filter(Boolean);
-                  updateSeg({
-                    subtitle: {
-                      ...seg.subtitle,
-                      hf_params: { ...seg.subtitle.hf_params, emphasis_words },
-                    },
-                  });
-                }}
-                placeholder="例如：限时特惠，新品"
-                className="w-full h-9 rounded-md border border-border bg-background px-3 text-sm"
-              />
-            </div>
-          )}
+          <p className="mt-2 text-[10px] text-muted-foreground">
+            字幕动效样式、词轴与强调词请在右侧
+            <span className="text-brand-blue">「动效」</span>
+            面板调整。
+          </p>
           <div className="mt-3">
             <FontFamilyPicker
               label="字幕字体"

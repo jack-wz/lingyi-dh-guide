@@ -1,7 +1,7 @@
 import type { LibraryItem } from '../types/library';
 import { parseApiErrorResponse, formatApiErrorMessage } from './apiError';
 
-export type LibraryCategory = 'script' | 'media' | 'voice' | 'digital_human' | 'brand';
+export type LibraryCategory = 'script' | 'media' | 'voice' | 'digital_human' | 'brand' | 'look_preset';
 
 export interface FetchLibraryOptions {
   category?: LibraryCategory;

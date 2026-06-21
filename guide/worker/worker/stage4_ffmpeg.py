@@ -1,5 +1,6 @@
 """Stage 4: FFmpeg assembly - concat clips, overlays, subtitles, BGM → final MP4."""
 
+import json
 import os
 import subprocess
 from worker.ass_generator import generate_ass
@@ -10,6 +11,7 @@ from worker.timeline_sync import (
     validate_segments_for_assembly,
     write_segments_manifest,
 )
+from worker.ffmpeg_effects import build_global_overlay_filters, build_video_xfade_filters
 from worker.utils import ensure_dir, get_duration, has_audio_stream, download_file, check_ffmpeg
 
 
@@ -309,6 +311,7 @@ def assemble_final_video(
     on_progress=None,
     *,
     job_logger=None,
+    skip_ass_subtitles: bool = False,  # deprecated: delivery always burns ASS subtitles
 ) -> str:
     """Assemble the final video using FFmpeg filter_complex.
 
@@ -346,6 +349,14 @@ def assemble_final_video(
     for issue in validate_segments_for_assembly(segments, work_dir=work_dir, strict=assembly_strict):
         log.warn(stage, "Validate", issue)
     manifest_path = write_segments_manifest(segments, overlays, work_dir)
+    dsl_audit_path = os.path.join(work_dir, "dsl.json")
+    with open(dsl_audit_path, "w", encoding="utf-8") as dsl_file:
+        json.dump(
+            {"segments": segments, "globalConfig": global_config},
+            dsl_file,
+            ensure_ascii=False,
+            indent=2,
+        )
     log.info(stage, "Timeline", f"manifest={manifest_path} total={synced['total_duration']}s")
 
     canvas_w = global_config.get("canvas_width", 1080)
@@ -387,6 +398,8 @@ def assemble_final_video(
     )
     print(f"[Stage4] Subtitle aligner mode: {aligner_mode}")
     ass_path = os.path.join(work_dir, "subtitles.ass")
+    if skip_ass_subtitles:
+        log.warn(stage, "Subtitles", "skip_ass_subtitles 已弃用，成片统一使用 ASS 单字幕轨")
     ass_result = generate_ass(segments, global_config, ass_path)
 
     # Pre-check which clips have audio
@@ -504,8 +517,22 @@ def assemble_final_video(
                 )
             audio_labels.append(f"[{a_label}]")
 
-    # Concat video streams
-    if base_count > 1:
+    # Video chain: xfade transitions when HF/classic transitions configured, else concat
+    transitions_enabled = global_config.get("transition_enabled", True) is not False
+    seg_list = [clip["seg"] for clip in clips]
+    clip_durations = [float(clip["duration"]) for clip in clips]
+    xfade_result = build_video_xfade_filters(
+        base_count,
+        clip_durations,
+        seg_list,
+        transitions_enabled=transitions_enabled,
+    )
+    if xfade_result:
+        xfade_filters, xfade_label = xfade_result
+        filters.extend(xfade_filters)
+        current_video = xfade_label
+        log.info(stage, "Transitions", f"xfade 转场链 segments={base_count}")
+    elif base_count > 1:
         filters.append("".join(video_labels) + f"concat=n={base_count}:v=1:a=0[basev]")
         current_video = "basev"
     else:
@@ -552,6 +579,13 @@ def assemble_final_video(
         current_video = out_label
     elif ass_input_index is not None:
         print("[Stage4] libass unavailable — skipping burned-in subtitles")
+
+    # HF global overlays (grain / vignette / color grade) via FFmpeg filters
+    overlay_filters, overlay_label = build_global_overlay_filters(current_video, global_config)
+    if overlay_filters:
+        filters.extend(overlay_filters)
+        current_video = overlay_label
+        log.info(stage, "Overlays", f"全局质感滤镜 count={len(overlay_filters)}")
 
     # ---- Map outputs ----
     map_args = ["-map", f"[{current_video}]"]

@@ -8,6 +8,8 @@ import { brandDocToLibraryPayload, parseBrandAssetDocs } from '../../../shared/b
 import { readLocalBrandMarkdown, reloadLocalBrandFromDisk } from '../local-brand-system.js';
 import { enrichBrandPackFontsLocal, scanBrandFontCatalog } from '../brand-fonts.js';
 import { getDataDir } from '../db/database.js';
+import { syncAllLookPresets } from '../look-preset-sync.js';
+import { applyPayloadNullDeletions } from '../../../shared/brandPayloadMerge.js';
 
 const router = Router();
 
@@ -15,6 +17,7 @@ export const LIBRARY_CATEGORIES = [
   'digital_human',
   'template',
   'brand',
+  'look_preset',
   'voice',
   'script',
   'knowledge',
@@ -23,9 +26,9 @@ export const LIBRARY_CATEGORIES = [
 ] as const;
 
 type LibraryCategory = typeof LIBRARY_CATEGORIES[number];
-type StoredCategory = 'brand' | 'voice' | 'script' | 'knowledge' | 'knowledge_doc';
+type StoredCategory = 'brand' | 'look_preset' | 'voice' | 'script' | 'knowledge' | 'knowledge_doc';
 
-const STORED_CATEGORIES = new Set<StoredCategory>(['brand', 'voice', 'script', 'knowledge', 'knowledge_doc']);
+const STORED_CATEGORIES = new Set<StoredCategory>(['brand', 'look_preset', 'voice', 'script', 'knowledge', 'knowledge_doc']);
 
 function parseJson<T>(raw: unknown, fallback: T): T {
   if (raw == null || raw === '') return fallback;
@@ -214,6 +217,7 @@ router.get('/summary', (_req: Request, res: Response) => {
     digital_human: (db.prepare('SELECT COUNT(*) AS c FROM digital_humans').get() as { c: number }).c,
     template: (db.prepare('SELECT COUNT(*) AS c FROM templates').get() as { c: number }).c,
     brand: (db.prepare("SELECT COUNT(*) AS c FROM library_items WHERE category = 'brand'").get() as { c: number }).c,
+    look_preset: (db.prepare("SELECT COUNT(*) AS c FROM library_items WHERE category = 'look_preset'").get() as { c: number }).c,
     voice:
       (db.prepare("SELECT COUNT(*) AS c FROM library_items WHERE category = 'voice'").get() as { c: number }).c
       + (db.prepare("SELECT COUNT(*) AS c FROM assets WHERE type IN ('audio', 'bgm', 'sound', 'music')").get() as { c: number }).c,
@@ -264,6 +268,16 @@ router.get('/brand/local-template', (_req: Request, res: Response) => {
   res.json(files);
 });
 
+router.post('/look-presets/sync', (_req: Request, res: Response) => {
+  const db = getDb();
+  try {
+    const result = syncAllLookPresets(db);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(500).json({ error: err instanceof Error ? err.message : 'Look preset sync failed' });
+  }
+});
+
 router.post('/brand/reload-local', (_req: Request, res: Response) => {
   const db = getDb();
   try {
@@ -302,11 +316,17 @@ router.post('/brand/import-md', (req: Request, res: Response) => {
     ...doc.design.typography,
     fonts: enrichBrandPackFontsLocal(rawFonts, getDataDir()),
   };
+  const recommendedSeeds = Array.isArray(req.body?.recommended_look_preset_seed_ids)
+    ? req.body.recommended_look_preset_seed_ids.map((id: unknown) => String(id).trim()).filter(Boolean)
+    : undefined;
+  const defaultLookSeed = String(req.body?.default_look_preset_seed_id || '').trim();
   const payload = brandDocToLibraryPayload(doc, {
     external_id: `custom:brand:${Date.now()}`,
     source: 'custom',
     category: String(req.body?.category || 'general'),
     logo_label: String(req.body?.logo_label || doc.design.name.slice(0, 4) || '品牌'),
+    ...(defaultLookSeed ? { default_look_preset_seed_id: defaultLookSeed } : {}),
+    ...(recommendedSeeds?.length ? { recommended_look_preset_seed_ids: recommendedSeeds } : {}),
   });
 
   const name = String(req.body?.name || doc.design.name).trim();
@@ -406,7 +426,10 @@ router.put('/:id', (req: Request, res: Response) => {
   if (req.body?.file_url != null) setField('file_url', String(req.body.file_url));
   if (req.body?.parent_id != null) setField('parent_id', String(req.body.parent_id));
   if (req.body?.payload != null) {
-    let payload = req.body.payload && typeof req.body.payload === 'object' ? req.body.payload as Record<string, unknown> : {};
+    const patch = req.body.payload && typeof req.body.payload === 'object'
+      ? req.body.payload as Record<string, unknown>
+      : {};
+    let payload = { ...patch };
     if (existing.category === 'brand') {
       const oldPayload = parseJson<Record<string, unknown>>(existing.payload_json, {});
       const designMd = String(payload.design_markdown || oldPayload.design_markdown || '').trim();
@@ -423,7 +446,10 @@ router.put('/:id', (req: Request, res: Response) => {
         payload = brandDocToLibraryPayload(doc, { ...oldPayload, ...payload });
         if (req.body?.name == null && doc.design.name) setField('name', doc.design.name);
         if (req.body?.description == null) setField('description', doc.design.description);
+      } else {
+        payload = { ...oldPayload, ...payload };
       }
+      payload = applyPayloadNullDeletions(payload, patch);
     }
     setField('payload_json', JSON.stringify(payload));
   }

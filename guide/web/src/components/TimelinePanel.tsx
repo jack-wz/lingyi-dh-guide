@@ -1,11 +1,32 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useEditorStore } from '../store/editorStore';
 import { resolveElementTiming } from '../utils/elementTiming';
+import { dslUsesHyperframesGlobalOverlays } from '@shared/hfGlobalOverlayRenderer';
+import { isHyperframesTransitionType } from '@shared/hfTransitionRenderer';
+import { isHyperframesSubtitleStyle } from '@shared/subtitleStyles';
 import { IconPlay, IconPause } from './Icons';
 
 const TRACK_HEIGHT = 32;
 const SECOND_WIDTH = 40;
 const LABEL_WIDTH = 80;
+
+const HF_SUBTITLE_BADGE: Record<string, string> = {
+  'hf-caption-pill': '胶囊',
+  'hf-caption-karaoke': '卡拉OK',
+  'hf-caption-highlight': '高亮',
+  'hf-caption-neon': '霓虹',
+  'hf-caption-editorial': '杂志',
+  'hf-caption-gradient': '渐变',
+  'hf-caption-pop': '弹跳',
+};
+
+const HF_OVERLAY_BADGE: Record<string, string> = {
+  'hf-grain': '颗粒',
+  'hf-vignette': '暗角',
+  'hf-light-leak': '漏光',
+  'hf-motion-blur': '动感',
+  'hf-color-grade': '调色',
+};
 
 interface TrackClip {
   id: string;
@@ -13,6 +34,7 @@ interface TrackClip {
   startTime: number;
   duration: number;
   text: string;
+  badges?: string[];
 }
 
 interface ElementClip {
@@ -65,11 +87,19 @@ export default function TimelinePanel() {
     segments.forEach((seg, si) => {
       const dur = Number(seg.duration_sec || 5);
       const text = (seg.narration_text || '').slice(0, 20) + ((seg.narration_text?.length || 0) > 20 ? '…' : '');
+      const badges: string[] = [];
+      if (seg.subtitle?.enabled && isHyperframesSubtitleStyle(String(seg.subtitle.style_id || ''))) {
+        badges.push('HF字');
+      }
+      if (si < segments.length - 1 && isHyperframesTransitionType(String(seg.transition?.type || ''))) {
+        badges.push('转场');
+      }
       const base = {
         segIndex: si,
         startTime: cursor,
         duration: dur,
         text: text || `分镜 ${si + 1}`,
+        badges,
       };
       video.push({ id: `clip-${seg.id}`, ...base });
       if (seg.segment_bgm_url || seg.narration_text) {
@@ -81,12 +111,33 @@ export default function TimelinePanel() {
         });
       }
       if (seg.subtitle.enabled && seg.narration_text) {
-        caption.push({ id: `clip-sub-${seg.id}`, ...base });
+        const captionBadges = [...badges];
+        const styleId = String(seg.subtitle.style_id || '');
+        if (isHyperframesSubtitleStyle(styleId)) {
+          const styleBadge = HF_SUBTITLE_BADGE[styleId];
+          if (styleBadge && !captionBadges.includes(styleBadge)) captionBadges.push(styleBadge);
+        }
+        caption.push({ id: `clip-sub-${seg.id}`, ...base, badges: captionBadges });
       }
       cursor += dur;
     });
     return { videoClips: video, audioClips: audio, captionClips: caption };
   }, [segments]);
+
+  const globalOverlayClip = useMemo((): TrackClip | null => {
+    if (!dsl || !dslUsesHyperframesGlobalOverlays(dsl)) return null;
+    const enabled = (dsl.globalConfig?.hf_overlays || []).filter((item) => item.enabled !== false);
+    if (!enabled.length) return null;
+    const badges = enabled.map((item) => HF_OVERLAY_BADGE[item.type] || '质感');
+    return {
+      id: 'clip-global-hf-overlays',
+      segIndex: -1,
+      startTime: 0,
+      duration: totalDuration,
+      text: '全局质感',
+      badges: [...new Set(badges)],
+    };
+  }, [dsl, totalDuration]);
 
   const elementTrack = useMemo(() => {
     if (!selectedSeg) return null;
@@ -196,11 +247,13 @@ export default function TimelinePanel() {
   const renderTrack = (
     name: string,
     clips: TrackClip[],
-    variant: 'video' | 'audio' | 'caption',
+    variant: 'video' | 'audio' | 'caption' | 'overlay',
+    trackTestId?: string,
   ) => (
     <div className="flex items-center border-b border-border/50" style={{ height: TRACK_HEIGHT + 8 }}>
       <div
         className="sticky left-0 z-10 flex shrink-0 items-center border-r border-border bg-card px-2 text-[10px] font-medium text-muted-foreground"
+        data-testid={trackTestId}
         style={{ width: LABEL_WIDTH, height: TRACK_HEIGHT }}
       >
         {name}
@@ -212,12 +265,16 @@ export default function TimelinePanel() {
             ? 'border-brand-blue/40 bg-brand-blue/10 text-brand-blue'
             : variant === 'audio'
               ? 'border-brand-green/40 bg-brand-green/10 text-brand-green'
-              : 'border-brand-amber/40 bg-brand-amber/10 text-brand-amber';
+              : variant === 'overlay'
+                ? 'border-violet-500/40 bg-violet-500/10 text-violet-600'
+                : 'border-brand-amber/40 bg-brand-amber/10 text-brand-amber';
           return (
             <button
               key={clip.id}
               type="button"
-              onClick={() => selectScene(clip.segIndex)}
+              onClick={() => {
+                if (clip.segIndex >= 0) selectScene(clip.segIndex);
+              }}
               className={`absolute top-0 flex items-center overflow-hidden rounded border px-2 text-[10px] transition ${
                 isSelected ? 'border-brand-blue bg-brand-blue/15 text-foreground ring-1 ring-brand-blue' : variantClass
               }`}
@@ -226,9 +283,21 @@ export default function TimelinePanel() {
                 width: Math.max(24, clip.duration * SECOND_WIDTH * zoom),
                 height: TRACK_HEIGHT,
               }}
-              title={clip.text}
+              title={[clip.text, ...(clip.badges || [])].filter(Boolean).join(' · ')}
             >
-              <span className="truncate">{clip.text}</span>
+              <span className="truncate flex-1 text-left">{clip.text}</span>
+              {clip.badges && clip.badges.length > 0 && (
+                <span className="ml-1 flex gap-0.5 shrink-0">
+                  {clip.badges.map((badge) => (
+                    <span
+                      key={badge}
+                      className="rounded px-1 py-0.5 text-[8px] bg-brand-blue/15 text-brand-blue"
+                    >
+                      {badge}
+                    </span>
+                  ))}
+                </span>
+              )}
             </button>
           );
         })}
@@ -296,6 +365,7 @@ export default function TimelinePanel() {
               setScrubbing(true);
             }}
           >
+            {globalOverlayClip && renderTrack('质感', [globalOverlayClip], 'overlay', 'timeline-track-overlay')}
             {renderTrack('视频', videoClips, 'video')}
             {audioClips.length > 0 && renderTrack('音频', audioClips, 'audio')}
             {captionClips.length > 0 && renderTrack('字幕', captionClips, 'caption')}

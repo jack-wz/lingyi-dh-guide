@@ -1,6 +1,23 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { IconMic, IconMusic, IconPlus, IconSearch, IconTrash, IconType, IconFilm, IconImage } from '../components/Icons';
+import { HF_SUBTITLE_STYLES } from '@shared/subtitleStyles';
+import { HF_TRANSITIONS } from '../components/TransitionStylePicker';
+import { LOOK_PRESET_REGISTRY_VERSION, parseLookPresetPayload } from '@shared/lookPreset';
+import { buildLookPresetExportDocument, parseLookPresetImportDocument } from '@shared/lookPresetExport';
+import LookPresetSeedTag from '../components/LookPresetSeedTag';
+import LookPresetStaleBadge from '../components/LookPresetStaleBadge';
+import LookPresetOverlayFields, { normalizeLookPresetOverlays } from '../components/LookPresetOverlayFields';
+import LookPresetThumb from '../components/LookPresetThumb';
+import {
+  isWritableLookPresetBrandHints,
+  mergeBrandLookHintsIntoPayload,
+  resolveLookPresetBrandHints,
+  type LookPresetBrandHints,
+} from '@shared/brandLookPreset';
+import { DEFAULT_HF_GLOBAL_OVERLAYS } from '@shared/hfGlobalOverlayRenderer';
+import { partitionLookPresetsForBrand } from '@shared/brandLookPreset';
+import { mergeSeedTagOverridesFromBrandPayloads } from '@shared/lookPresetSeedTags';
 import AssetPreviewPanel from '../components/AssetPreviewPanel';
 import { libraryPayloadToBrandPack } from '@shared/brandPack';
 import BrandColorSwatches from '../components/BrandColorSwatches';
@@ -12,6 +29,7 @@ import type { AssetHubTab, LibraryItem, LibrarySummary } from '../types/library'
 const TABS: { id: AssetHubTab; label: string; hint: string; primary?: boolean }[] = [
   { id: 'digital_human', label: '数字人', hint: '训练与管理数字人形象', primary: true },
   { id: 'brand', label: '品牌包', hint: '本地 design.md / frame.md，可视化 + Markdown 编辑：颜色、字体、圆角间距、镜头、色板、文本/字幕/动画/版式/形状/元素库', primary: true },
+  { id: 'look_preset', label: '外观预设', hint: 'HyperFrames 动效组合：字幕样式 + 转场 + 全局质感，可一键应用到编辑器项目', primary: true },
   { id: 'script', label: '脚本', hint: '旁白与导购话术', primary: true },
   { id: 'template', label: '模板', hint: '视频模板，编辑时仅选择' },
   { id: 'voice', label: '声音', hint: 'TTS 音色、克隆与 BGM 背景音乐' },
@@ -19,7 +37,7 @@ const TABS: { id: AssetHubTab; label: string; hint: string; primary?: boolean }[
   { id: 'knowledge', label: '知识库', hint: '目录维护；文档上传与检索开发中' },
 ];
 
-const STORED_TABS = new Set<AssetHubTab>(['brand', 'voice', 'script', 'knowledge']);
+const STORED_TABS = new Set<AssetHubTab>(['brand', 'look_preset', 'voice', 'script', 'knowledge']);
 type VoiceSubTab = 'tts' | 'bgm';
 
 function emptyForm(tab: AssetHubTab, voiceKind: VoiceSubTab = 'tts') {
@@ -34,6 +52,20 @@ function emptyForm(tab: AssetHubTab, voiceKind: VoiceSubTab = 'tts') {
         subtitle_style: 'default',
         subtitle_position: 'bottom',
         logo_label: '品牌',
+      },
+    };
+  }
+  if (tab === 'look_preset') {
+    return {
+      name: '',
+      description: '',
+      payload: {
+        subtitle_style_id: 'hf-caption-highlight',
+        transition_type: 'hf-dissolve',
+        transition_duration: 0.6,
+        pipeline_required: 'template_editor',
+        registry_version: LOOK_PRESET_REGISTRY_VERSION,
+        hf_overlays: DEFAULT_HF_GLOBAL_OVERLAYS.map((item) => ({ ...item, enabled: false })),
       },
     };
   }
@@ -52,7 +84,17 @@ function isVideoUrl(url: string) {
   return /\.(mp4|webm|mov|m4v)(\?|$)/i.test(url);
 }
 
-function CardThumb({ tab, item, voiceKind }: { tab: AssetHubTab; item: LibraryItem; voiceKind?: VoiceSubTab }) {
+function CardThumb({
+  tab,
+  item,
+  voiceKind,
+  seedTagOverrides,
+}: {
+  tab: AssetHubTab;
+  item: LibraryItem;
+  voiceKind?: VoiceSubTab;
+  seedTagOverrides?: Record<string, string>;
+}) {
   if (tab === 'digital_human' && item.file_url) {
     return <img src={item.file_url} alt="" className="w-full h-full object-cover" />;
   }
@@ -98,6 +140,25 @@ function CardThumb({ tab, item, voiceKind }: { tab: AssetHubTab; item: LibraryIt
       </div>
     );
   }
+  if (tab === 'look_preset') {
+    const seedId = String(item.payload?.seed_id || '').trim();
+    return (
+      <div className="relative w-full h-full">
+        <LookPresetThumb
+          subtitleStyleId={String(item.payload?.subtitle_style_id || '')}
+          transitionType={String(item.payload?.transition_type || '')}
+          hfOverlays={normalizeLookPresetOverlays(item.payload?.hf_overlays)}
+          testId={`look-preset-thumb-${item.id}`}
+        />
+        <LookPresetSeedTag
+          seedId={seedId}
+          tagOverrides={seedTagOverrides}
+          testId={`look-preset-card-seed-tag-${seedId || item.id}`}
+          className="absolute top-1.5 left-1.5 z-10 shadow-sm"
+        />
+      </div>
+    );
+  }
   if (tab === 'script') {
     return (
       <div className="w-full h-full p-2 text-[8px] leading-tight text-muted-foreground overflow-hidden bg-secondary">
@@ -120,6 +181,7 @@ function CardThumb({ tab, item, voiceKind }: { tab: AssetHubTab; item: LibraryIt
 }
 
 export default function AssetHubPage() {
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const activeTab = (searchParams.get('tab') as AssetHubTab) || 'digital_human';
   const returnTo = searchParams.get('from');
@@ -140,6 +202,38 @@ export default function AssetHubPage() {
   const [brandEditorMode, setBrandEditorMode] = useState<'create' | 'edit'>('edit');
   const [brandEditorId, setBrandEditorId] = useState<string | undefined>(undefined);
   const [deleteTarget, setDeleteTarget] = useState<{ kind: 'library' | 'media'; id: string; name: string } | null>(null);
+  const [lookPresetItems, setLookPresetItems] = useState<LibraryItem[]>([]);
+  const [syncingLookPresets, setSyncingLookPresets] = useState(false);
+  const [lookPresetSyncMsg, setLookPresetSyncMsg] = useState('');
+  const [importedBrandHints, setImportedBrandHints] = useState<LookPresetBrandHints | null>(null);
+  const [savingLookPreset, setSavingLookPreset] = useState(false);
+  const [applyingBrandHints, setApplyingBrandHints] = useState(false);
+  const [seedTagOverrides, setSeedTagOverrides] = useState<Record<string, string>>({});
+
+  const parseEditorIdFromReturnTo = (href: string | null) => {
+    const match = String(href || '').match(/^\/editor\/([^/?]+)/);
+    return match?.[1] || null;
+  };
+
+  const resolveCurrentBrandHints = useCallback((): LookPresetBrandHints | undefined => {
+    const payload = parseLookPresetPayload(form.payload);
+    return resolveLookPresetBrandHints({
+      payload: payload || undefined,
+      explicit: importedBrandHints,
+      libraryId: editing?.id,
+    });
+  }, [form.payload, importedBrandHints, editing?.id]);
+
+  const fetchEditorBrandPackId = async (): Promise<string | undefined> => {
+    const editorId = parseEditorIdFromReturnTo(returnTo);
+    if (!editorId) return undefined;
+    const res = await fetch(`/api/templates/${editorId}`);
+    if (!res.ok) return undefined;
+    const body = await res.json() as {
+      dsl_json?: { globalConfig?: { brand_pack_id?: string } };
+    };
+    return String(body.dsl_json?.globalConfig?.brand_pack_id || '').trim() || undefined;
+  };
 
   const setTab = (tab: AssetHubTab) => {
     const next: Record<string, string> = { tab };
@@ -178,6 +272,29 @@ export default function AssetHubPage() {
   useEffect(() => { loadSummary(); }, [loadSummary]);
   useEffect(() => { loadItems(); }, [loadItems]);
 
+  useEffect(() => {
+    if (activeTab !== 'brand') return;
+    const controller = new AbortController();
+    fetch(`/api/library?category=look_preset&limit=40`, { signal: controller.signal })
+      .then((r) => r.json())
+      .then((data) => setLookPresetItems(data.items || []))
+      .catch(() => setLookPresetItems([]));
+    return () => controller.abort();
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab !== 'look_preset') return;
+    const controller = new AbortController();
+    fetch(`/api/library?category=brand&limit=80`, { signal: controller.signal })
+      .then((r) => r.json())
+      .then((data) => {
+        const brands = (data.items || []) as LibraryItem[];
+        setSeedTagOverrides(mergeSeedTagOverridesFromBrandPayloads(brands.map((brand) => brand.payload)));
+      })
+      .catch(() => setSeedTagOverrides({}));
+    return () => controller.abort();
+  }, [activeTab]);
+
   const tabMeta = useMemo(() => TABS.find(t => t.id === activeTab), [activeTab]);
 
   const reloadLocalBrand = async () => {
@@ -212,11 +329,37 @@ export default function AssetHubPage() {
       body: JSON.stringify({ ...body, category }),
     });
     if (!res.ok) throw new Error((await res.json()).error || '保存失败');
+    const saved = await res.json() as { id?: string };
     loadItems();
     loadSummary();
     setEditing(null);
     setForm(emptyForm(activeTab, voiceSubTab));
     setShowForm(false);
+    setImportedBrandHints(null);
+    return String(saved.id || id || '').trim() || undefined;
+  };
+
+  const buildLookPresetSaveBody = () => ({
+    name: form.name,
+    description: form.description,
+    file_url: form.file_url,
+    payload: form.payload,
+  });
+
+  const saveLookPresetAndApply = async () => {
+    if (!returnTo?.startsWith('/editor/')) return;
+    setSavingLookPreset(true);
+    setLookPresetSyncMsg('');
+    try {
+      const savedId = await saveStoredItem('look_preset', buildLookPresetSaveBody(), editing?.id);
+      if (!savedId) throw new Error('保存失败');
+      const joiner = returnTo.includes('?') ? '&' : '?';
+      navigate(`${returnTo}${joiner}apply_look=${encodeURIComponent(savedId)}`);
+    } catch (err) {
+      setLookPresetSyncMsg(err instanceof Error ? err.message : '保存并应用失败');
+    } finally {
+      setSavingLookPreset(false);
+    }
   };
 
   const confirmDelete = async () => {
@@ -252,6 +395,177 @@ export default function AssetHubPage() {
       loadSummary();
     } finally {
       setUploading(false);
+    }
+  };
+
+  const exportLookPresetJson = (source?: {
+    name?: string;
+    description?: string;
+    tags?: string[];
+    payload?: Record<string, unknown>;
+    brandHints?: LookPresetBrandHints;
+    downloadOnly?: boolean;
+  }) => {
+    const payload = parseLookPresetPayload(source?.payload ?? form.payload);
+    if (!payload) {
+      setLookPresetSyncMsg('无法导出：请先填写有效的字幕/转场/质感组合');
+      return;
+    }
+    try {
+      const doc = buildLookPresetExportDocument({
+        name: String(source?.name ?? form.name ?? editing?.name ?? '外观预设'),
+        description: String(source?.description ?? form.description ?? editing?.description ?? ''),
+        tags: source?.tags ?? (Array.isArray(form.tags) ? form.tags.map(String) : editing?.tags),
+        payload,
+        brand_hints: source?.brandHints ?? resolveLookPresetBrandHints({
+          payload,
+          explicit: importedBrandHints,
+          libraryId: editing?.id,
+        }),
+        libraryId: editing?.id,
+      });
+      const blob = new Blob([JSON.stringify(doc, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = `${doc.name.replace(/\s+/g, '-') || 'look-preset'}.json`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+      if (!source?.downloadOnly) {
+        setLookPresetSyncMsg('已导出 JSON');
+      }
+    } catch (err) {
+      setLookPresetSyncMsg(err instanceof Error ? err.message : '导出失败');
+      throw err;
+    }
+  };
+
+  const applyBrandHintsToPack = async (hints: LookPresetBrandHints, options?: { exportJson?: boolean }) => {
+    const brandId = await fetchEditorBrandPackId();
+    if (!brandId) {
+      throw new Error('请先在编辑器绑定品牌包');
+    }
+    const brandRes = await fetch(`/api/library/${brandId}`);
+    if (!brandRes.ok) throw new Error('读取品牌包失败');
+    const brand = await brandRes.json() as LibraryItem;
+    const mergedPayload = mergeBrandLookHintsIntoPayload(
+      (brand.payload || {}) as Record<string, unknown>,
+      hints,
+    );
+    const updateRes = await fetch(`/api/library/${brandId}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ payload: mergedPayload }),
+    });
+    if (!updateRes.ok) {
+      const body = await updateRes.json().catch(() => ({}));
+      throw new Error((body as { error?: string }).error || '写入品牌推荐失败');
+    }
+    if (options?.exportJson) {
+      exportLookPresetJson({ downloadOnly: true, brandHints: hints });
+    }
+    setLookPresetSyncMsg(
+      options?.exportJson
+        ? `已导出 JSON，并写入品牌包「${brand.name}」的外观推荐`
+        : `已写入品牌包「${brand.name}」的外观推荐`,
+    );
+  };
+
+  const exportLookPresetAndApplyBrand = async () => {
+    const hints = resolveCurrentBrandHints();
+    if (!isWritableLookPresetBrandHints(hints)) {
+      setLookPresetSyncMsg('无法写入：请先保存自定义预设，或设置 seed_id / 导入 brand_hints');
+      return;
+    }
+    setApplyingBrandHints(true);
+    setLookPresetSyncMsg('');
+    try {
+      await applyBrandHintsToPack(hints!, { exportJson: true });
+    } catch (err) {
+      setLookPresetSyncMsg(err instanceof Error ? err.message : '导出并写入失败');
+    } finally {
+      setApplyingBrandHints(false);
+    }
+  };
+
+  const writeBrandHintsOnly = async () => {
+    const hints = resolveCurrentBrandHints();
+    if (!isWritableLookPresetBrandHints(hints)) {
+      setLookPresetSyncMsg('无法写入：请先保存自定义预设，或设置 seed_id / 导入 brand_hints');
+      return;
+    }
+    setApplyingBrandHints(true);
+    setLookPresetSyncMsg('');
+    try {
+      await applyBrandHintsToPack(hints!);
+    } catch (err) {
+      setLookPresetSyncMsg(err instanceof Error ? err.message : '写入品牌推荐失败');
+    } finally {
+      setApplyingBrandHints(false);
+    }
+  };
+
+  const importLookPresetJson = async (file: File) => {
+    try {
+      const text = await file.text();
+      const raw = JSON.parse(text) as unknown;
+      const imported = parseLookPresetImportDocument(raw);
+      setEditing(null);
+      setShowForm(true);
+      setImportedBrandHints(imported.brand_hints ?? null);
+      setForm({
+        name: imported.name,
+        description: imported.description,
+        tags: imported.tags,
+        payload: {
+          ...imported.payload,
+          registry_version: LOOK_PRESET_REGISTRY_VERSION,
+          pipeline_required: imported.payload.pipeline_required === 'hyperframes_template'
+            ? 'template_editor'
+            : (imported.payload.pipeline_required || 'template_editor'),
+        },
+      });
+      setLookPresetSyncMsg(
+        returnTo?.startsWith('/editor/')
+          ? `已导入「${imported.name}」，可保存并应用到项目`
+          : `已导入「${imported.name}」，请确认后保存`,
+      );
+    } catch (err) {
+      setLookPresetSyncMsg(err instanceof Error ? err.message : '导入失败');
+    }
+  };
+
+  const syncLookPresets = async () => {
+    setSyncingLookPresets(true);
+    setLookPresetSyncMsg('');
+    try {
+      const res = await fetch('/api/library/look-presets/sync', { method: 'POST' });
+      const body = await res.json().catch(() => ({})) as {
+        error?: string;
+        migrated?: number;
+        seed?: string;
+        updated_ids?: string[];
+      };
+      if (!res.ok) throw new Error(body.error || '同步失败');
+      const migrated = Number(body.migrated || 0);
+      const seed = String(body.seed || 'skipped');
+      setLookPresetSyncMsg(
+        migrated > 0 || seed !== 'skipped'
+          ? `已同步：内置种子 ${seed}，迁移 ${migrated} 个过期预设`
+          : '所有外观预设已是最新版本',
+      );
+      loadItems();
+      loadSummary();
+      if (activeTab === 'brand' || lookPresetItems.length) {
+        fetch('/api/library?category=look_preset&limit=40')
+          .then((r) => r.json())
+          .then((data) => setLookPresetItems(data.items || []))
+          .catch(() => {});
+      }
+    } catch (err) {
+      setLookPresetSyncMsg(err instanceof Error ? err.message : '同步失败');
+    } finally {
+      setSyncingLookPresets(false);
     }
   };
 
@@ -304,11 +618,15 @@ export default function AssetHubPage() {
   const renderStoredForm = (category: string) => {
     const payload = (form.payload || {}) as Record<string, unknown>;
     return (
-      <div className="border border-border rounded-lg p-4 bg-card space-y-3 mb-4">
+      <div
+        className="border border-border rounded-lg p-4 bg-card space-y-3 mb-4"
+        data-testid={category === 'look_preset' ? 'look-preset-form' : undefined}
+      >
         <div className="text-sm font-medium">{editing ? '编辑' : '新建'}{category === 'voice' ? (voiceSubTab === 'bgm' ? 'BGM' : '音色') : tabMeta?.label}</div>
         <input
           className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
           placeholder="名称"
+          data-testid={category === 'look_preset' ? 'look-preset-name' : undefined}
           value={String(form.name || '')}
           onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
         />
@@ -334,6 +652,91 @@ export default function AssetHubPage() {
                 />
               </label>
             ))}
+          </div>
+        )}
+
+        {category === 'look_preset' && (
+          <div className="space-y-2">
+            <label className="block text-xs text-muted-foreground">
+              字幕样式
+              <select
+                data-testid="look-preset-subtitle"
+                className="mt-1 w-full h-9 rounded-md border border-border bg-background px-2 text-sm"
+                value={String(payload.subtitle_style_id || 'hf-caption-highlight')}
+                onChange={(e) => setForm((f) => ({
+                  ...f,
+                  payload: { ...(f.payload as object), subtitle_style_id: e.target.value },
+                }))}
+              >
+                {HF_SUBTITLE_STYLES.map((style) => (
+                  <option key={style.id} value={style.id}>{style.name}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block text-xs text-muted-foreground">
+              默认转场
+              <select
+                data-testid="look-preset-transition"
+                className="mt-1 w-full h-9 rounded-md border border-border bg-background px-2 text-sm"
+                value={String(payload.transition_type || 'hf-dissolve')}
+                onChange={(e) => setForm((f) => ({
+                  ...f,
+                  payload: { ...(f.payload as object), transition_type: e.target.value },
+                }))}
+              >
+                {HF_TRANSITIONS.map((item) => (
+                  <option key={item.id} value={item.id}>{item.name}</option>
+                ))}
+              </select>
+            </label>
+            <label className="block text-xs text-muted-foreground">
+              转场时长（秒）
+              <input
+                type="number"
+                min={0.3}
+                max={2}
+                step={0.1}
+                className="mt-1 w-full h-9 rounded-md border border-border bg-background px-2 text-sm"
+                value={Number(payload.transition_duration ?? 0.6)}
+                onChange={(e) => setForm((f) => ({
+                  ...f,
+                  payload: { ...(f.payload as object), transition_duration: Number(e.target.value) || 0.6 },
+                }))}
+              />
+            </label>
+            <LookPresetOverlayFields
+              overlays={normalizeLookPresetOverlays(payload.hf_overlays)}
+              onChange={(hf_overlays) => setForm((f) => ({
+                ...f,
+                payload: {
+                  ...(f.payload as object),
+                  hf_overlays,
+                  pipeline_required: 'template_editor',
+                  registry_version: LOOK_PRESET_REGISTRY_VERSION,
+                },
+              }))}
+            />
+            <div
+              className="rounded-md border border-border overflow-hidden aspect-[4/3] max-w-[220px]"
+              data-testid="look-preset-form-thumb"
+            >
+              <LookPresetThumb
+                subtitleStyleId={String(payload.subtitle_style_id || '')}
+                transitionType={String(payload.transition_type || '')}
+                hfOverlays={normalizeLookPresetOverlays(payload.hf_overlays)}
+              />
+            </div>
+            {importedBrandHints && (
+              <p className="text-[10px] text-muted-foreground leading-relaxed" data-testid="look-preset-import-brand-hints">
+                品牌推荐（导出附带）：{importedBrandHints.category}
+                {importedBrandHints.default_look_preset_seed_id
+                  ? ` · 种子 ${importedBrandHints.default_look_preset_seed_id}`
+                  : ''}
+                {importedBrandHints.default_look_preset_library_id
+                  ? ` · 库 ${importedBrandHints.default_look_preset_library_id}`
+                  : ''}
+              </p>
+            )}
           </div>
         )}
 
@@ -396,9 +799,62 @@ export default function AssetHubPage() {
           />
         )}
 
-        <div className="flex gap-2">
-          <button type="button" className="px-3 py-1.5 rounded-md bg-brand-blue text-white text-sm"
-            onClick={() => saveStoredItem(category, {
+        {category === 'look_preset' && (
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <button
+              type="button"
+              data-testid="look-preset-export-json"
+              className="px-3 py-1.5 rounded-md border border-border text-sm hover:bg-accent"
+              onClick={() => exportLookPresetJson()}
+            >
+              导出 JSON
+            </button>
+            {returnTo?.startsWith('/editor/') && isWritableLookPresetBrandHints(resolveCurrentBrandHints()) && (
+              <button
+                type="button"
+                data-testid="look-preset-export-apply-brand"
+                className="px-3 py-1.5 rounded-md border border-brand-blue text-brand-blue text-sm hover:bg-brand-blue/5 disabled:opacity-50"
+                disabled={applyingBrandHints}
+                onClick={() => void exportLookPresetAndApplyBrand()}
+              >
+                {applyingBrandHints ? '处理中…' : '导出并写入品牌推荐'}
+              </button>
+            )}
+            {returnTo?.startsWith('/editor/') && isWritableLookPresetBrandHints(resolveCurrentBrandHints()) && (
+              <button
+                type="button"
+                data-testid="look-preset-apply-brand-hints"
+                className="px-3 py-1.5 rounded-md border border-border text-sm hover:bg-accent disabled:opacity-50"
+                disabled={applyingBrandHints}
+                onClick={() => void writeBrandHintsOnly()}
+              >
+                仅写入品牌推荐
+              </button>
+            )}
+            <label className="px-3 py-1.5 rounded-md border border-border text-sm hover:bg-accent cursor-pointer">
+              导入 JSON
+              <input
+                type="file"
+                accept="application/json,.json"
+                className="hidden"
+                data-testid="look-preset-import-json"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void importLookPresetJson(file);
+                  e.target.value = '';
+                }}
+              />
+            </label>
+          </div>
+        )}
+
+        <div className="flex gap-2 flex-wrap">
+          <button
+            type="button"
+            data-testid={category === 'look_preset' ? 'look-preset-save' : undefined}
+            className="px-3 py-1.5 rounded-md bg-brand-blue text-white text-sm"
+            disabled={category === 'look_preset' && savingLookPreset}
+            onClick={() => void saveStoredItem(category, {
               name: form.name,
               description: form.description,
               file_url: form.file_url,
@@ -408,8 +864,24 @@ export default function AssetHubPage() {
             }, editing?.id)}>
             保存
           </button>
+          {category === 'look_preset' && returnTo?.startsWith('/editor/') && (
+            <button
+              type="button"
+              data-testid="look-preset-save-apply"
+              className="px-3 py-1.5 rounded-md border border-brand-blue text-brand-blue text-sm font-medium hover:bg-brand-blue/5 disabled:opacity-50"
+              disabled={savingLookPreset}
+              onClick={() => void saveLookPresetAndApply()}
+            >
+              {savingLookPreset ? '保存中…' : '保存并应用到项目'}
+            </button>
+          )}
           <button type="button" className="px-3 py-1.5 rounded-md border border-border text-sm"
-            onClick={() => { setEditing(null); setForm(emptyForm(activeTab, voiceSubTab)); setShowForm(false); }}>
+            onClick={() => {
+              setEditing(null);
+              setForm(emptyForm(activeTab, voiceSubTab));
+              setShowForm(false);
+              setImportedBrandHints(null);
+            }}>
             取消
           </button>
         </div>
@@ -433,19 +905,39 @@ export default function AssetHubPage() {
         }`}
       >
         <div className="aspect-[4/3] bg-secondary border-b border-border overflow-hidden">
-          <CardThumb tab={activeTab} item={item} voiceKind={voiceSubTab} />
+          <CardThumb tab={activeTab} item={item} voiceKind={voiceSubTab} seedTagOverrides={seedTagOverrides} />
         </div>
         <div className="p-3">
-          <div className="text-sm font-medium truncate">{item.name}</div>
+          <div className="text-sm font-medium truncate flex items-center gap-1.5">
+            <span className="truncate">{item.name}</span>
+            {activeTab === 'look_preset' && (
+              <>
+                <LookPresetSeedTag
+                  seedId={String(item.payload?.seed_id || '')}
+                  tagOverrides={seedTagOverrides}
+                />
+                <LookPresetStaleBadge
+                  registryVersion={String(item.payload?.registry_version || '')}
+                  testId={`look-preset-stale-${item.id}`}
+                />
+              </>
+            )}
+          </div>
           <div className="text-xs text-muted-foreground line-clamp-2 mt-0.5 min-h-[2rem]">{item.description || '—'}</div>
           {activeTab === 'brand' && (() => {
             const pack = libraryPayloadToBrandPack(item);
+            const { recommended } = partitionLookPresetsForBrand(item.payload, lookPresetItems);
             return (
               <div className="mt-2 space-y-1.5">
                 <BrandColorSwatches item={item} />
                 <p className="text-[10px] text-muted-foreground">
                   {pack.fontCount} 字体 · {pack.frameCount} 镜头 · {pack.presetCount} 预设
                 </p>
+                {recommended.length > 0 && (
+                  <p className="text-[10px] text-brand-blue/90">
+                    推荐外观：{recommended.slice(0, 2).map((p) => p.name).join('、')}
+                  </p>
+                )}
               </div>
             );
           })()}
@@ -458,6 +950,14 @@ export default function AssetHubPage() {
             )}
             {activeTab === 'template' && (
               <Link to={`/editor/${item.id}`} className="text-xs text-brand-blue hover:underline">编辑</Link>
+            )}
+            {activeTab === 'look_preset' && returnTo?.startsWith('/editor/') && (
+              <Link
+                to={`${returnTo}${returnTo.includes('?') ? '&' : '?'}apply_look=${encodeURIComponent(item.id)}`}
+                className="text-xs text-brand-blue hover:underline font-medium"
+              >
+                应用到项目
+              </Link>
             )}
             {STORED_TABS.has(activeTab) && activeTab !== 'knowledge' && (
               <>
@@ -487,6 +987,9 @@ export default function AssetHubPage() {
               品牌包使用项目内 guide/data/brand-system/；脚本/音色/BGM 使用内置本地种子数据，可在各 Tab 新建或编辑
             </p>
             {importMsg && <p className="text-xs text-brand-blue mt-1">{importMsg}</p>}
+            {lookPresetSyncMsg && activeTab === 'look_preset' && (
+              <p className="text-xs text-brand-blue mt-1" data-testid="look-preset-sync-msg">{lookPresetSyncMsg}</p>
+            )}
           </div>
           {activeTab === 'brand' && (
             <button
@@ -606,6 +1109,38 @@ export default function AssetHubPage() {
               onClick={openBrandCreate}>
               <IconPlus size={14} /> 新建品牌包
             </button>
+          )}
+          {activeTab === 'look_preset' && previewItem && (
+            <button
+              type="button"
+              data-testid="look-preset-export-card"
+              className="flex items-center gap-1 px-3 py-2 rounded-md border border-border text-sm hover:bg-accent"
+              onClick={() => exportLookPresetJson({
+                name: previewItem.name,
+                description: previewItem.description,
+                tags: previewItem.tags,
+                payload: previewItem.payload,
+              })}
+            >
+              导出 JSON
+            </button>
+          )}
+          {activeTab === 'look_preset' && (
+            <>
+              <button
+                type="button"
+                data-testid="look-preset-sync-all"
+                disabled={syncingLookPresets}
+                className="flex items-center gap-1 px-3 py-2 rounded-md border border-border text-sm hover:bg-accent disabled:opacity-50"
+                onClick={syncLookPresets}
+              >
+                {syncingLookPresets ? '同步中…' : '同步过期预设'}
+              </button>
+              <button type="button" className="flex items-center gap-1 px-3 py-2 rounded-md border border-border text-sm"
+                onClick={() => { setForm(emptyForm(activeTab)); setEditing(null); setShowForm(true); }}>
+                <IconPlus size={14} /> 新建预设
+              </button>
+            </>
           )}
           {activeTab === 'script' && (
             <button type="button" className="flex items-center gap-1 px-3 py-2 rounded-md border border-border text-sm"

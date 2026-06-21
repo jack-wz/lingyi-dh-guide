@@ -77,6 +77,21 @@ def _lint_blocking_errors(work_dir: str) -> list[str]:
     return []
 
 
+def _link_static_assets(work_dir: str) -> None:
+    """Expose guide/data/uploads under work_dir so HF lint/render resolve /uploads/* src."""
+    from worker.config import DATA_DIR, UPLOADS_DIR
+
+    work = Path(work_dir)
+    uploads_link = work / "uploads"
+    if not uploads_link.exists() and Path(UPLOADS_DIR).is_dir():
+        uploads_link.symlink_to(UPLOADS_DIR, target_is_directory=True)
+
+    brand_fonts_src = Path(DATA_DIR) / "brand-fonts"
+    brand_fonts_link = work / "brand-fonts"
+    if brand_fonts_src.is_dir() and not brand_fonts_link.exists():
+        brand_fonts_link.symlink_to(brand_fonts_src, target_is_directory=True)
+
+
 def _write_composition(ctx: PipelineContext):
     dsl_path = Path(ctx.work_dir) / "dsl.json"
     dsl_path.write_text(json.dumps(ctx.dsl, ensure_ascii=False), encoding="utf-8")
@@ -153,6 +168,7 @@ class HyperFramesTemplatePipeline(BasePipeline):
         ctx.report_progress("video_gen", 40, "正在校验 HyperFrames composition...")
         if not shutil.which("npx"):
             raise RuntimeError("npx is not available. Install Node.js and ensure `npx` is on PATH.")
+        _link_static_assets(ctx.work_dir)
         lint_errors = _lint_blocking_errors(ctx.work_dir)
         if lint_errors:
             raise RuntimeError(f"HyperFrames lint failed: {'; '.join(lint_errors[:3])}")

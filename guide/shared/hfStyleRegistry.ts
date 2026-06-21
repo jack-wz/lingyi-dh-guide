@@ -61,6 +61,24 @@ export const HF_STYLE_BINDINGS: HfStyleBinding[] = [
     brandTokenKeys: ['brand_color', 'accent_color'],
   },
   {
+    styleId: 'hf-caption-pop',
+    hfName: 'caption-pop-bounce',
+    slot: 'subtitle',
+    fallbackStyleId: 'bold-yellow',
+    verticalSafe: true,
+    requiresGsap: true,
+    brandTokenKeys: ['brand_color', 'accent_color'],
+  },
+  {
+    styleId: 'hf-caption-stagger',
+    hfName: 'caption-stagger-slide',
+    slot: 'subtitle',
+    fallbackStyleId: 'bold-yellow',
+    verticalSafe: true,
+    requiresGsap: true,
+    brandTokenKeys: ['brand_color', 'accent_color'],
+  },
+  {
     styleId: 'hf-grain',
     hfName: 'grain-overlay',
     slot: 'overlay',
@@ -92,6 +110,15 @@ export const HF_STYLE_BINDINGS: HfStyleBinding[] = [
     fallbackStyleId: 'default',
     verticalSafe: true,
     requiresGsap: true,
+  },
+  {
+    styleId: 'hf-color-grade',
+    hfName: 'color-grade',
+    slot: 'overlay',
+    fallbackStyleId: 'default',
+    verticalSafe: true,
+    requiresGsap: true,
+    brandTokenKeys: ['brand_color', 'accent_color'],
   },
 ];
 

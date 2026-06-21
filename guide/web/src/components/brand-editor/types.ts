@@ -2,6 +2,7 @@ export type EditorMode = 'visual' | 'markdown';
 
 export type VisualSection =
   | 'basic'
+  | 'motionPresets'
   | 'colors'
   | 'tokens'
   | 'fonts'
@@ -16,6 +17,7 @@ export type VisualSection =
 
 export const SECTIONS: Array<{ id: VisualSection; label: string; group: string }> = [
   { id: 'basic', label: '基本信息', group: '通用' },
+  { id: 'motionPresets', label: '外观动效', group: '通用' },
   { id: 'colors', label: '颜色', group: '设计系统' },
   { id: 'tokens', label: '圆角与间距', group: '设计系统' },
   { id: 'fonts', label: '字体', group: '设计系统' },

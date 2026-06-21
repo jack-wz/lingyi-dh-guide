@@ -6,6 +6,7 @@ const OVERLAY_META: Record<HfGlobalOverlayType, { label: string; hint: string }>
   'hf-vignette': { label: '暗角', hint: '边缘压暗，突出画面中心' },
   'hf-light-leak': { label: '漏光', hint: '暖色光斑扫过画面，电影感氛围' },
   'hf-motion-blur': { label: '动态模糊', hint: '周期性方向模糊脉冲，适合快节奏片段' },
+  'hf-color-grade': { label: '调色', hint: '全片色温与饱和度微调，营造影院质感' },
 };
 
 export function HfGlobalOverlayPanel({
@@ -150,11 +151,60 @@ export function HfGlobalOverlayPanel({
                 </div>
               </div>
             )}
+            {item.enabled && item.type === 'hf-color-grade' && (
+              <div className="mt-2 space-y-2">
+                <div>
+                  <label className="block text-[10px] text-muted-foreground mb-1">
+                    色温 {Math.round((item.grade_warmth ?? 0.58) * 100)}%
+                  </label>
+                  <input
+                    type="range"
+                    min={0}
+                    max={1}
+                    step={0.01}
+                    value={item.grade_warmth ?? 0.58}
+                    onChange={(e) => updateItem(item.type, { grade_warmth: Number(e.target.value) })}
+                    className="w-full"
+                    data-testid="hf-color-grade-warmth"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-muted-foreground mb-1">
+                    调色强度 {Math.round((item.grade_strength ?? 0.28) * 100)}%
+                  </label>
+                  <input
+                    type="range"
+                    min={0.1}
+                    max={0.5}
+                    step={0.01}
+                    value={item.grade_strength ?? 0.28}
+                    onChange={(e) => updateItem(item.type, { grade_strength: Number(e.target.value) })}
+                    className="w-full"
+                    data-testid="hf-color-grade-strength"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] text-muted-foreground mb-1">
+                    饱和度 {Math.round((item.grade_saturation ?? 1.08) * 100)}%
+                  </label>
+                  <input
+                    type="range"
+                    min={0.85}
+                    max={1.35}
+                    step={0.01}
+                    value={item.grade_saturation ?? 1.08}
+                    onChange={(e) => updateItem(item.type, { grade_saturation: Number(e.target.value) })}
+                    className="w-full"
+                    data-testid="hf-color-grade-saturation"
+                  />
+                </div>
+              </div>
+            )}
           </div>
         );
       })}
       <p className="text-[10px] text-brand-blue/90 leading-relaxed">
-        全局质感/VFX 叠加作用于整段视频；漏光与动态模糊需 GSAP，完整效果请用「HyperFrames 模板」流水线。
+        全局质感/VFX 叠加作用于整段视频；使用「模板编辑器」流水线时，成片合成后将自动叠加 HF 质感层。
       </p>
     </div>
   );

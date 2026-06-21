@@ -106,4 +106,51 @@ describe('hyperframes composer', () => {
     assert.match(html, /vignette/);
     assert.match(html, /gsap@3\.14\.2/);
   });
+
+  it('assigns unique overlay tracks and ids for audio/bgm lint', () => {
+    const dsl = makeDsl();
+    dsl.globalConfig.bgm_url = '/uploads/test-bgm.mp3';
+    dsl.segments[0].overlays = [
+      {
+        id: 'logo_s1',
+        asset_url: '/uploads/logo.png',
+        position: { x: 6, y: 4 },
+        scale: 100,
+        seg_start_time: 0,
+        duration: 5,
+        animation: 'none',
+      },
+      {
+        id: 'gif_s1',
+        asset_url: '/uploads/sticker.gif',
+        position: { x: 82, y: 12 },
+        scale: 100,
+        seg_start_time: 0,
+        duration: 5,
+        animation: 'none',
+      },
+    ];
+    dsl.segments.push({
+      ...dsl.segments[0],
+      id: 'seg-2',
+      overlays: [
+        {
+          id: 'logo_s2',
+          asset_url: '/uploads/logo.png',
+          position: { x: 8, y: 5 },
+          scale: 100,
+          seg_start_time: 0,
+          duration: 5,
+          animation: 'none',
+        },
+      ],
+    });
+
+    const html = generateHyperframesHTML(dsl);
+    assert.match(html, /id="hf-bgm"/);
+    const trackMatches = [...html.matchAll(/class="clip hf-overlay"[^>]*data-track-index="(\d+)"/g)];
+    const tracks = trackMatches.map((match) => Number(match[1]));
+    assert.equal(new Set(tracks).size, tracks.length, 'overlapping overlays must not share a track');
+    assert.ok(tracks.every((track) => track >= 40));
+  });
 });

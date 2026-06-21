@@ -2,7 +2,7 @@
 
 import { hfOverlayMetrics } from './hfVerticalScale.js';
 
-export type HfGlobalOverlayType = 'hf-grain' | 'hf-vignette' | 'hf-light-leak' | 'hf-motion-blur';
+export type HfGlobalOverlayType = 'hf-grain' | 'hf-vignette' | 'hf-light-leak' | 'hf-motion-blur' | 'hf-color-grade';
 export type HfMotionBlurDirection = 'horizontal' | 'vertical';
 
 export interface HfGlobalOverlayItem {
@@ -21,6 +21,12 @@ export interface HfGlobalOverlayItem {
   /** Motion blur pulse strength (0.15–0.65). */
   blur_intensity?: number;
   direction?: HfMotionBlurDirection;
+  /** Color grade warmth 0=cool, 1=warm. */
+  grade_warmth?: number;
+  /** Color grade blend strength (0.1–0.5). */
+  grade_strength?: number;
+  /** Saturation multiplier (0.85–1.35). */
+  grade_saturation?: number;
 }
 
 export interface HfGlobalOverlayRenderContext {
@@ -28,6 +34,9 @@ export interface HfGlobalOverlayRenderContext {
   canvasWidth: number;
   canvasHeight: number;
   accentColor?: string;
+  /** First track index for enabled global overlays (each overlay gets its own track). */
+  trackStart?: number;
+  trackIndex?: number;
 }
 
 export interface HfGlobalOverlayClipOutput {
@@ -50,6 +59,7 @@ export const HF_GLOBAL_OVERLAY_TYPES = new Set<HfGlobalOverlayType>([
   'hf-vignette',
   'hf-light-leak',
   'hf-motion-blur',
+  'hf-color-grade',
 ]);
 
 export const DEFAULT_HF_GLOBAL_OVERLAYS: HfGlobalOverlayItem[] = [
@@ -57,6 +67,7 @@ export const DEFAULT_HF_GLOBAL_OVERLAYS: HfGlobalOverlayItem[] = [
   { type: 'hf-vignette', enabled: false, intensity: 0.7, vignette_size: 45 },
   { type: 'hf-light-leak', enabled: false, leak_intensity: 0.45 },
   { type: 'hf-motion-blur', enabled: false, blur_intensity: 0.35, direction: 'horizontal' },
+  { type: 'hf-color-grade', enabled: false, grade_warmth: 0.58, grade_strength: 0.28, grade_saturation: 1.08 },
 ];
 
 function clamp(value: number, min: number, max: number): number {
@@ -117,7 +128,7 @@ export function renderGrainOverlay(
   const opacity = clamp(Number(item.opacity ?? 0.15), 0.05, 0.35);
   const html = `
     <div class="clip hf-global-overlay hf-global-grain" data-hf-component="grain-overlay"
-         id="hf-global-grain" data-start="0" data-duration="${ctx.totalDuration}" data-track-index="9"
+         id="hf-global-grain" data-start="0" data-duration="${ctx.totalDuration}" data-track-index="${ctx.trackIndex ?? 9}"
          style="position:absolute;inset:0;pointer-events:none;z-index:100;overflow:hidden;">
       <div class="grain-texture"></div>
     </div>`;
@@ -160,7 +171,7 @@ export function renderVignetteOverlay(
 
   const html = `
     <div class="clip hf-global-overlay hf-global-vignette" data-hf-component="vignette"
-         id="hf-global-vignette" data-start="0" data-duration="${ctx.totalDuration}" data-track-index="8"
+         id="hf-global-vignette" data-start="0" data-duration="${ctx.totalDuration}" data-track-index="${ctx.trackIndex ?? 8}"
          style="position:absolute;inset:0;pointer-events:none;z-index:90;
                 --vignette-size:${size}%;--vignette-color:rgba(0,0,0,${edgeAlpha});"></div>`;
 
@@ -191,7 +202,7 @@ export function renderLightLeakOverlay(
   const html = `
     <div class="clip hf-global-overlay hf-global-light-leak" data-hf-component="light-leak"
          id="hf-global-${timelineId}" data-timeline-id="${timelineId}"
-         data-start="0" data-duration="${ctx.totalDuration}" data-track-index="7"
+         data-start="0" data-duration="${ctx.totalDuration}" data-track-index="${ctx.trackIndex ?? 7}"
          style="position:absolute;inset:0;pointer-events:none;z-index:85;overflow:hidden;mix-blend-mode:screen;">
       <div class="leak-band leak-a" id="hf-light-leak-a"></div>
       <div class="leak-band leak-b" id="hf-light-leak-b"></div>
@@ -228,6 +239,58 @@ export function renderLightLeakOverlay(
   return { html, css, script, timelineId, requiresGsap: true };
 }
 
+export function renderColorGradeOverlay(
+  item: HfGlobalOverlayItem,
+  ctx: HfGlobalOverlayRenderContext,
+): HfGlobalOverlayClipOutput {
+  const warmth = clamp(Number(item.grade_warmth ?? 0.58), 0, 1);
+  const strength = clamp(Number(item.grade_strength ?? 0.28), 0.1, 0.5);
+  const saturation = clamp(Number(item.grade_saturation ?? 1.08), 0.85, 1.35);
+  const timelineId = 'color-grade';
+  const warmTint = warmth >= 0.5
+    ? `rgba(251, 146, 60, ${0.12 + strength * 0.35})`
+    : `rgba(96, 165, 250, ${0.1 + strength * 0.32})`;
+  const coolTint = warmth >= 0.5
+    ? `rgba(59, 130, 246, ${0.06 + strength * 0.18})`
+    : `rgba(30, 64, 175, ${0.08 + strength * 0.22})`;
+  const baseOpacity = (0.55 + strength * 0.35).toFixed(2);
+
+  const html = `
+    <div class="clip hf-global-overlay hf-global-color-grade" data-hf-component="color-grade"
+         id="hf-global-${timelineId}" data-timeline-id="${timelineId}"
+         data-start="0" data-duration="${ctx.totalDuration}" data-track-index="${ctx.trackIndex ?? 7}"
+         style="position:absolute;inset:0;pointer-events:none;z-index:85;overflow:hidden;">
+      <div class="hf-color-grade-filter"></div>
+    </div>`;
+
+  const css = `
+    .hf-global-color-grade .hf-color-grade-filter {
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(155deg, ${warmTint} 0%, transparent 48%, ${coolTint} 100%);
+      mix-blend-mode: soft-light;
+      opacity: ${baseOpacity};
+      filter: saturate(${saturation});
+      will-change: opacity, filter;
+    }
+  `;
+
+  const cycle = Math.max(2.4, Math.min(ctx.totalDuration * 0.4, 5));
+  const script = gsapTimelineScript(timelineId, `
+      var filterEl = root.querySelector('.hf-color-grade-filter');
+      if (!filterEl) return;
+      var baseSat = ${saturation};
+      var peak = ${(0.5 + strength * 0.4).toFixed(2)};
+      var low = ${(0.35 + strength * 0.25).toFixed(2)};
+      tl.fromTo(filterEl, { opacity: low }, { opacity: peak, duration: ${cycle * 0.45}, ease: 'sine.inOut' }, 0);
+      tl.to(filterEl, { opacity: low, duration: ${cycle * 0.55}, ease: 'sine.inOut' }, ${cycle * 0.45});
+      tl.fromTo(filterEl, { filter: 'saturate(' + (baseSat - 0.04) + ')' },
+        { filter: 'saturate(' + (baseSat + 0.06) + ')', duration: ${cycle}, ease: 'sine.inOut' }, 0);
+  `);
+
+  return { html, css, script, timelineId, requiresGsap: true };
+}
+
 export function renderMotionBlurOverlay(
   item: HfGlobalOverlayItem,
   ctx: HfGlobalOverlayRenderContext,
@@ -245,7 +308,7 @@ export function renderMotionBlurOverlay(
   const html = `
     <div class="clip hf-global-overlay hf-global-motion-blur" data-hf-component="motion-blur"
          id="hf-global-${timelineId}" data-timeline-id="${timelineId}"
-         data-start="0" data-duration="${ctx.totalDuration}" data-track-index="6"
+         data-start="0" data-duration="${ctx.totalDuration}" data-track-index="${ctx.trackIndex ?? 6}"
          style="position:absolute;inset:0;pointer-events:none;z-index:80;overflow:hidden;">
       <div class="blur-streak" id="hf-motion-blur-streak"></div>
       <div class="blur-veil" id="hf-motion-blur-veil"></div>
@@ -324,11 +387,14 @@ export function renderHfGlobalOverlayClips(
 ): HfGlobalOverlayClipsResult {
   const enabled = getEnabledHfGlobalOverlays(items);
   const clips: HfGlobalOverlayClipOutput[] = [];
+  let track = ctx.trackStart ?? 30;
   for (const item of enabled) {
-    if (item.type === 'hf-grain') clips.push(renderGrainOverlay(item, ctx));
-    if (item.type === 'hf-vignette') clips.push(renderVignetteOverlay(item, ctx));
-    if (item.type === 'hf-light-leak') clips.push(renderLightLeakOverlay(item, ctx));
-    if (item.type === 'hf-motion-blur') clips.push(renderMotionBlurOverlay(item, ctx));
+    const itemCtx = { ...ctx, trackIndex: track++ };
+    if (item.type === 'hf-grain') clips.push(renderGrainOverlay(item, itemCtx));
+    if (item.type === 'hf-vignette') clips.push(renderVignetteOverlay(item, itemCtx));
+    if (item.type === 'hf-light-leak') clips.push(renderLightLeakOverlay(item, itemCtx));
+    if (item.type === 'hf-motion-blur') clips.push(renderMotionBlurOverlay(item, itemCtx));
+    if (item.type === 'hf-color-grade') clips.push(renderColorGradeOverlay(item, itemCtx));
   }
   const scripts = clips.map((clip) => clip.script).filter((script): script is string => Boolean(script));
   return {

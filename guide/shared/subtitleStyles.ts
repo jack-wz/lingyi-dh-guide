@@ -345,6 +345,54 @@ export const SUBTITLE_STYLE_DEFINITIONS: SubtitleStyleDefinition[] = [
     hf_component: 'caption-gradient-fill',
     hf_fallback_id: 'gradient-glow',
   },
+  {
+    id: 'hf-caption-pop',
+    name: '弹跳逐字（HF）',
+    description: 'HyperFrames 逐字弹入字幕，适合快节奏卖点与活动口播',
+    preview: {
+      text: '爆款来袭 马上入手',
+      color: '#ffffff',
+      bg: '#ff1745',
+      fontSize: 14,
+      fontWeight: 800,
+      borderRadius: 8,
+    },
+    render: {
+      color: '#ffffff',
+      bg: '#ff1745',
+      size: '32px',
+      weight: 800,
+      borderRadius: 8,
+      padding: '6px 10px',
+    },
+    engine: 'hyperframes',
+    hf_component: 'caption-pop-bounce',
+    hf_fallback_id: 'bold-yellow',
+  },
+  {
+    id: 'hf-caption-stagger',
+    name: '错落滑入（HF）',
+    description: 'HyperFrames 逐词错落滑入字幕，适合信任感导购与讲解',
+    preview: {
+      text: '品质好物 放心选购',
+      color: '#ffffff',
+      bg: 'rgba(15,23,42,0.72)',
+      fontSize: 13,
+      fontWeight: 700,
+      borderRadius: 6,
+    },
+    render: {
+      color: '#ffffff',
+      bg: 'rgba(15,23,42,0.72)',
+      size: '30px',
+      weight: 700,
+      borderRadius: 6,
+      padding: '8px 14px',
+    },
+    engine: 'hyperframes',
+    hf_component: 'caption-stagger-slide',
+    hf_fallback_id: 'bold-yellow',
+  },
 ];
 
 const aliasToCanonical = new Map<string, string>();
@@ -531,5 +579,8 @@ export function dslUsesHyperframesSubtitles(dsl: {
 
 export function getHyperframesSubtitlePipelineWarning(pipelineKey?: string): string | null {
   if (!pipelineKey || pipelineKey === 'hyperframes_template') return null;
-  return '模板含 HyperFrames 动效字幕；标准流水线将降级为近似 ASS 样式（含词级卡拉 OK），完整动效请选「HyperFrames 模板」流水线';
+  if (pipelineKey === 'standard' || pipelineKey === 'template_editor' || pipelineKey === 'digital_human' || pipelineKey === 'avatar_talk') {
+    return null;
+  }
+  return '模板含动效字幕样式；请使用「模板编辑器」或「标准」流水线，成片将烧录为 ASS 单字幕轨';
 }

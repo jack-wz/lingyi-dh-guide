@@ -13,7 +13,7 @@ RUN_PYTEST := "$(SCRIPTS)/run_pytest.sh"
 TEMPLATE_ID ?= 517a1920-6376-47ef-871b-9badbaa16b53
 MIN_SEGMENTS ?= 4
 
-.PHONY: help setup-worker-venv test-guide test-guide-server test-guide-shared test-guide-e2e test-guide-fast test-guide-timeline smoke-brand-render smoke-hf-render smoke-integrator smoke-integrator-hf smoke-integrator-ci verify-playground start-guide-internal restart-worker lint-guide \
+.PHONY: help setup-worker-venv test-guide test-guide-server test-guide-shared test-guide-e2e test-guide-fast test-guide-timeline smoke-brand-render smoke-hf-render smoke-integrator smoke-integrator-hf smoke-integrator-hf-ci smoke-integrator-ci verify-playground verify-final-delivery poll-render-job start-guide-internal restart-worker lint-guide \
 	validate-renders validate-renders-strict validate-renders-ci validate-render-job \
 	batch-reassemble batch-reassemble-dry preflight
 
@@ -23,11 +23,14 @@ help:
 	@echo "  test-guide-server       Run guide Express API unit tests"
 	@echo "  test-guide-shared       Run shared TS unit tests (HF adapters, composer)"
 	@echo "  test-guide-e2e          Playwright E2E (isolated :3100/:5180, incl. HF smoke)"
+	@echo "  verify-final-delivery   FFmpeg single-path acceptance (JOB=<id>)"
+	@echo "  poll-render-job         Poll render until done (JOB=<id>, lightweight API)"
 	@echo "  test-guide-fast         Timeline / ASS / audit unit tests only"
 	@echo "  smoke-brand-render      E2E: brand TTF → ASS → FFmpeg MP4 (needs ffmpeg-full)"
 	@echo "  smoke-hf-render         E2E: DSL → HyperFrames compose → render MP4 (slow; SKIP_HF_RENDER_SMOKE=1 to skip)"
 	@echo "  smoke-integrator        Integrator smoke: health → POST render → poll (SUBMIT_ONLY=1 to skip poll)"
 	@echo "  smoke-integrator-hf     Live API smoke with hyperframes_template pipeline"
+	@echo "  smoke-integrator-hf-ci  CI gate: HF pipeline diagnostics + render enqueue (no live API)"
 	@echo "  preflight               Check node/uv/ffmpeg and guide/.env"
 	@echo "  smoke-integrator-ci     CI gate: preflight + compile smoke script (no live API)"
 	@echo "  verify-playground       Preflight + /debug reachable + smoke submit-only"
@@ -64,6 +67,9 @@ test-guide-timeline:
 		guide/worker/tests/test_timeline_validate_pipeline.py \
 		guide/worker/tests/test_whisper_aligner.py \
 		guide/worker/tests/test_preview_tts_align.py \
+		guide/worker/tests/test_ffmpeg_effects.py \
+		guide/worker/tests/test_hf_style_pass.py \
+		guide/worker/tests/test_stage4_xfade_smoke.py \
 		-q
 
 test-guide-fast: test-guide-timeline
@@ -77,6 +83,9 @@ smoke-hf-render: setup-worker-venv
 smoke-integrator-hf:
 	SMOKE_PIPELINE_KEY=hyperframes_template "$(SCRIPTS)/smoke_integrator.sh"
 
+smoke-integrator-hf-ci:
+	cd "$(ROOT)/server" && ENABLE_HF_TEMPLATE_PIPELINE=1 node --import tsx --test src/hf-integrator-smoke.integration.test.ts
+
 preflight:
 	@"$(SCRIPTS)/preflight.sh"
 
@@ -84,12 +93,20 @@ smoke-integrator:
 	@"$(SCRIPTS)/smoke_integrator.sh"
 
 smoke-integrator-ci: preflight
-	@$(RUN_PY) -m py_compile "$(SCRIPTS)/smoke_integrator.py"
+	@$(RUN_PY) -m py_compile "$(SCRIPTS)/smoke_integrator.py" "$(SCRIPTS)/poll_render_job.py" "$(SCRIPTS)/verify_final_delivery.py"
 	@echo "smoke-integrator-ci: preflight + py_compile passed"
 
 verify-playground:
 	@chmod +x "$(SCRIPTS)/verify_playground.sh" 2>/dev/null || true
 	@"$(SCRIPTS)/verify_playground.sh"
+
+verify-final-delivery:
+	@test -n "$(JOB)" || { echo "Usage: make verify-final-delivery JOB=<render-job-id>"; exit 2; }
+	$(RUN_PY) "$(SCRIPTS)/verify_final_delivery.py" "$(JOB)"
+
+poll-render-job:
+	@test -n "$(JOB)" || { echo "Usage: make poll-render-job JOB=<render-job-id>"; exit 2; }
+	$(RUN_PY) "$(SCRIPTS)/poll_render_job.py" "$(JOB)"
 
 start-guide-internal:
 	@chmod +x "$(SCRIPTS)/start_internal.sh" 2>/dev/null || true

@@ -131,7 +131,7 @@ export default function BrandPreviewPanel({ doc, section, selectedIds, logoSetti
 
 function sectionLabel(section: VisualSection): string {
   const map: Record<VisualSection, string> = {
-    basic: '基本信息', colors: '颜色', tokens: '圆角间距', fonts: '字体',
+    basic: '基本信息', motionPresets: '外观动效', colors: '颜色', tokens: '圆角间距', fonts: '字体',
     frames: '镜头模板', palette: '色板', textStyles: '文本样式',
     subtitleStyles: '字幕样式', animations: '动画', layouts: '版式',
     shapes: '形状', elements: '元素库',

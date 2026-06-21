@@ -9,6 +9,8 @@ export interface HfTransitionRenderContext {
   canvasHeight: number;
   accentColor: string;
   direction?: 'left' | 'right' | 'up' | 'down';
+  /** Unique HF timeline track — one transition clip per track to avoid lint overlap. */
+  trackIndex: number;
 }
 
 export interface HfTransitionClipOutput {
@@ -30,6 +32,7 @@ export const HF_TRANSITION_TYPES = new Set([
   'hf-wipe-left',
   'hf-wipe-right',
   'hf-zoom',
+  'hf-circle-reveal',
 ]);
 
 export function isHyperframesTransitionType(type: string): boolean {
@@ -68,7 +71,7 @@ export function renderDissolveTransition(ctx: HfTransitionRenderContext): HfTran
   const html = `
     <div class="clip hf-transition hf-trans-dissolve" data-hf-component="transitions-dissolve"
          id="hf-trans-${timelineId}" data-timeline-id="${timelineId}"
-         data-start="${ctx.clipStart}" data-duration="${ctx.clipDuration}" data-track-index="5"
+         data-start="${ctx.clipStart}" data-duration="${ctx.clipDuration}" data-track-index="${ctx.trackIndex}"
          style="position:absolute;inset:0;pointer-events:none;z-index:5;overflow:hidden;">
       <div class="dissolve-veil" id="dissolve-veil-${timelineId}" style="position:absolute;inset:0;background:${ctx.accentColor};opacity:0;"></div>
     </div>`;
@@ -103,7 +106,7 @@ export function renderPushTransition(ctx: HfTransitionRenderContext): HfTransiti
   const html = `
     <div class="clip hf-transition hf-trans-push" data-hf-component="transitions-push"
          id="hf-trans-${timelineId}" data-timeline-id="${timelineId}"
-         data-start="${ctx.clipStart}" data-duration="${ctx.clipDuration}" data-track-index="5"
+         data-start="${ctx.clipStart}" data-duration="${ctx.clipDuration}" data-track-index="${ctx.trackIndex}"
          style="position:absolute;inset:0;pointer-events:none;z-index:5;overflow:hidden;">
       <div class="push-panel" id="push-panel-${timelineId}"
            style="position:absolute;inset:0;background:${ctx.accentColor};"></div>
@@ -140,7 +143,7 @@ export function renderWipeTransition(ctx: HfTransitionRenderContext): HfTransiti
   const html = `
     <div class="clip hf-transition hf-trans-wipe" data-hf-component="transitions-wipe"
          id="hf-trans-${timelineId}" data-timeline-id="${timelineId}"
-         data-start="${ctx.clipStart}" data-duration="${ctx.clipDuration}" data-track-index="5"
+         data-start="${ctx.clipStart}" data-duration="${ctx.clipDuration}" data-track-index="${ctx.trackIndex}"
          style="position:absolute;inset:0;pointer-events:none;z-index:5;overflow:hidden;">
       <div class="wipe-veil" id="wipe-veil-${timelineId}"
            style="position:absolute;inset:0;background:${ctx.accentColor};clip-path:${fromClip};"></div>
@@ -161,12 +164,38 @@ export function renderWipeTransition(ctx: HfTransitionRenderContext): HfTransiti
   return { html, css, script, timelineId, requiresGsap: true };
 }
 
+export function renderCircleRevealTransition(ctx: HfTransitionRenderContext): HfTransitionClipOutput {
+  const timelineId = `trans-circle-${ctx.segmentId}`;
+  const html = `
+    <div class="clip hf-transition hf-trans-circle" data-hf-component="transitions-circle-reveal"
+         id="hf-trans-${timelineId}" data-timeline-id="${timelineId}"
+         data-start="${ctx.clipStart}" data-duration="${ctx.clipDuration}" data-track-index="${ctx.trackIndex}"
+         style="position:absolute;inset:0;pointer-events:none;z-index:5;overflow:hidden;">
+      <div class="circle-veil" id="circle-veil-${timelineId}"
+           style="position:absolute;inset:0;background:${ctx.accentColor};clip-path:circle(0% at 50% 50%);"></div>
+    </div>`;
+
+  const css = `
+    .hf-trans-circle .circle-veil { will-change: clip-path; }
+  `;
+
+  const script = gsapTimelineScript(timelineId, `
+      var veil = document.getElementById('circle-veil-' + timelineId);
+      if (!veil) return;
+      var half = ${ctx.clipDuration} / 2;
+      tl.fromTo(veil, { clipPath: 'circle(0% at 50% 50%)' }, { clipPath: 'circle(75% at 50% 50%)', duration: half, ease: 'power2.inOut' }, 0);
+      tl.to(veil, { clipPath: 'circle(140% at 50% 50%)', duration: half, ease: 'power2.inOut' }, half);
+  `);
+
+  return { html, css, script, timelineId, requiresGsap: true };
+}
+
 export function renderZoomTransition(ctx: HfTransitionRenderContext): HfTransitionClipOutput {
   const timelineId = `trans-zoom-${ctx.segmentId}`;
   const html = `
     <div class="clip hf-transition hf-trans-zoom" data-hf-component="transitions-zoom"
          id="hf-trans-${timelineId}" data-timeline-id="${timelineId}"
-         data-start="${ctx.clipStart}" data-duration="${ctx.clipDuration}" data-track-index="5"
+         data-start="${ctx.clipStart}" data-duration="${ctx.clipDuration}" data-track-index="${ctx.trackIndex}"
          style="position:absolute;inset:0;pointer-events:none;z-index:5;overflow:hidden;">
       <div class="zoom-veil" id="zoom-veil-${timelineId}"
            style="position:absolute;inset:0;background:radial-gradient(circle at 50% 50%, ${ctx.accentColor} 0%, rgba(0,0,0,0.55) 100%);opacity:0;transform:scale(0.75);"></div>
@@ -206,6 +235,7 @@ function resolveWipeDirection(transitionType: string): HfTransitionRenderContext
 export function renderHfTransitionClip(ctx: HfTransitionRenderContext): HfTransitionClipOutput | null {
   const type = String(ctx.transitionType || '').trim();
   if (type === 'hf-dissolve') return renderDissolveTransition(ctx);
+  if (type === 'hf-circle-reveal') return renderCircleRevealTransition(ctx);
   if (type === 'hf-zoom') return renderZoomTransition(ctx);
   if (type === 'hf-wipe' || type === 'hf-wipe-left' || type === 'hf-wipe-right') {
     return renderWipeTransition({

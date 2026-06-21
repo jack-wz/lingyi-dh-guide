@@ -66,6 +66,7 @@ export default function EditorBottomPanel({
             <button
               key={btn.id}
               type="button"
+              data-testid={`editor-bottom-tab-${btn.id}`}
               onClick={() => setMode(btn.id)}
               className={`rounded-md px-3 py-1 text-xs font-medium transition ${
                 mode === btn.id

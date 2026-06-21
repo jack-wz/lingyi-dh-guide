@@ -50,6 +50,13 @@ export interface BrandPackPayload {
   };
   frames?: ParsedFrameMd['frames'];
   brand_pack_id?: string;
+  /** Preferred look_preset seed_id when applying this brand pack. */
+  default_look_preset_seed_id?: string;
+  /** Ordered look_preset seed_ids recommended for this brand. */
+  recommended_look_preset_seed_ids?: string[];
+  /** Custom look_preset library item id (no seed_id). */
+  default_look_preset_library_id?: string;
+  recommended_look_preset_library_ids?: string[];
 }
 
 export interface BrandPackView {

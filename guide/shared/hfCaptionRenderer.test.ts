@@ -6,6 +6,8 @@ import {
   buildCaptionWordTimings,
   renderCaptionHighlightClip,
   renderCaptionPillClip,
+  renderCaptionPopClip,
+  renderCaptionStaggerClip,
   renderHfCaptionClip,
   splitCaptionWords,
 } from './hfCaptionRenderer.js';
@@ -48,6 +50,20 @@ describe('hfCaptionRenderer', () => {
     assert.ok(clip);
     assert.match(clip!.html, /data-hf-component="caption-highlight"/);
     assert.match(clip!.script, /caption-highlight-s1/);
+  });
+
+  it('renders caption-pop with bounce timeline', () => {
+    const clip = renderCaptionPopClip({ ...BASE_CTX, styleId: 'hf-caption-pop' });
+    assert.ok(clip);
+    assert.match(clip!.html, /data-hf-component="caption-pop-bounce"/);
+    assert.match(clip!.script, /back\.out\(2\.4\)/);
+  });
+
+  it('renders caption-stagger with slide timeline', () => {
+    const clip = renderCaptionStaggerClip({ ...BASE_CTX, styleId: 'hf-caption-stagger' });
+    assert.ok(clip);
+    assert.match(clip!.html, /data-hf-component="caption-stagger-slide"/);
+    assert.match(clip!.script, /power3\.out/);
   });
 
   it('marks pill karaoke layering for HF layout inspect', () => {

@@ -384,12 +384,103 @@ export function renderCaptionGradientClip(ctx: HfCaptionRenderContext): HfCaptio
   return { html, css, script, timelineId: timing.timelineId, requiresGsap: binding?.requiresGsap ?? true };
 }
 
+export function renderCaptionPopClip(ctx: HfCaptionRenderContext): HfCaptionClipOutput {
+  const binding = getHfStyleBinding(ctx.styleId);
+  const timing = buildCaptionTiming(ctx, 'caption-pop');
+  const wordHtml = timing.words.map((w, wi) => (
+    `<span class="pop-word" id="pop-w-${timing.timelineId}-${wi}" style="font-size:${timing.fontSize}px;color:${ctx.textColor};background:${ctx.accentColor};">${escapeHtml(w.text)}</span>`
+  )).join('');
+
+  const { layout } = timing;
+  const html = wrapCaptionClip('caption-pop-bounce', 'hf-caption-pop', ctx, timing, `
+      <div class="pop-row" id="pop-row-${timing.timelineId}" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:${layout.gap}px;padding:0 ${layout.sideInsetPct}%;max-width:${layout.maxWidthPct}%;opacity:0;visibility:hidden;">
+        ${wordHtml}
+      </div>`);
+
+  const css = `
+    .hf-caption-pop .pop-word {
+      font-family: ${ctx.fontFamily};
+      font-weight: 800;
+      display: inline-block;
+      line-height: 1.1;
+      padding: ${layout.padY}px ${layout.padX}px;
+      border-radius: ${layout.borderRadius}px;
+      box-shadow: 0 10px 24px rgba(0,0,0,0.28);
+      transform: scale(0);
+      opacity: 0;
+      transform-origin: 50% 80%;
+    }
+  `;
+
+  const wordsJson = JSON.stringify(timing.words);
+  const script = gsapTimelineScript(timing.timelineId, `
+      var WORDS = ${wordsJson};
+      var row = document.getElementById('pop-row-' + timelineId);
+      if (!row) return;
+      tl.set(row, { visibility: 'visible' }, 0);
+      tl.fromTo(row, { opacity: 0 }, { opacity: 1, duration: 0.12, ease: 'power2.out' }, 0);
+      WORDS.forEach(function(w, wi) {
+        var el = document.getElementById('pop-w-' + timelineId + '-' + wi);
+        if (!el) return;
+        tl.fromTo(el, { scale: 0, opacity: 0, y: 16 }, { scale: 1, opacity: 1, y: 0, duration: 0.22, ease: 'back.out(2.4)' }, w.start);
+        tl.to(el, { scale: 0.94, duration: 0.08, ease: 'power2.inOut' }, w.end - 0.06);
+        tl.to(el, { scale: 1, duration: 0.1, ease: 'power2.out' }, w.end);
+      });
+  `);
+
+  return { html, css, script, timelineId: timing.timelineId, requiresGsap: binding?.requiresGsap ?? true };
+}
+
+export function renderCaptionStaggerClip(ctx: HfCaptionRenderContext): HfCaptionClipOutput {
+  const binding = getHfStyleBinding(ctx.styleId);
+  const timing = buildCaptionTiming(ctx, 'caption-stagger');
+  const wordHtml = timing.words.map((w, wi) => (
+    `<span class="stagger-word" id="stagger-w-${timing.timelineId}-${wi}" style="font-size:${timing.fontSize}px;color:${ctx.textColor};">${escapeHtml(w.text)}</span>`
+  )).join('<span class="stagger-gap" aria-hidden="true">&nbsp;</span>');
+
+  const { layout } = timing;
+  const html = wrapCaptionClip('caption-stagger-slide', 'hf-caption-stagger', ctx, timing, `
+      <div class="stagger-shell" id="stagger-shell-${timing.timelineId}" style="display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:${layout.gap}px;padding:${layout.padY}px ${layout.padX}px;max-width:${layout.maxWidthPct}%;background:${ctx.accentColor};border-radius:${layout.borderRadius}px;box-shadow:0 10px 24px rgba(0,0,0,0.28);opacity:0;visibility:hidden;">
+        ${wordHtml}
+      </div>`);
+
+  const css = `
+    .hf-caption-stagger .stagger-word {
+      font-family: ${ctx.fontFamily};
+      font-weight: 700;
+      display: inline-block;
+      line-height: 1.15;
+      transform: translateY(18px);
+      opacity: 0;
+    }
+    .hf-caption-stagger .stagger-gap { display: inline-block; width: 4px; }
+  `;
+
+  const wordsJson = JSON.stringify(timing.words);
+  const script = gsapTimelineScript(timing.timelineId, `
+      var WORDS = ${wordsJson};
+      var shell = document.getElementById('stagger-shell-' + timelineId);
+      if (!shell) return;
+      tl.set(shell, { visibility: 'visible' }, 0);
+      tl.fromTo(shell, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.18, ease: 'power2.out' }, 0);
+      WORDS.forEach(function(w, wi) {
+        var el = document.getElementById('stagger-w-' + timelineId + '-' + wi);
+        if (!el) return;
+        tl.fromTo(el, { y: 18, opacity: 0 }, { y: 0, opacity: 1, duration: 0.24, ease: 'power3.out' }, w.start);
+      });
+  `);
+
+  return { html, css, script, timelineId: timing.timelineId, requiresGsap: binding?.requiresGsap ?? true };
+}
+
 const RENDERERS: Record<string, (ctx: HfCaptionRenderContext) => HfCaptionClipOutput> = {
   'caption-highlight': renderCaptionHighlightClip,
   'caption-pill-karaoke': renderCaptionPillClip,
   'caption-neon-glow': renderCaptionNeonClip,
   'caption-editorial-emphasis': renderCaptionEditorialClip,
   'caption-gradient-fill': renderCaptionGradientClip,
+  'caption-pop-bounce': renderCaptionPopClip,
+  'caption-stagger-slide': renderCaptionStaggerClip,
 };
 
 export function renderHfCaptionClip(ctx: HfCaptionRenderContext): HfCaptionClipOutput | null {

@@ -181,9 +181,21 @@ function resolveAccentColor(dsl: DSL, brandInjection: ReturnType<typeof buildBra
   return cssMatch?.[1]?.trim() || '#ff1745';
 }
 
-export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]): string {
+export interface HyperframesComposeOptions {
+  /** full = editor preview / legacy HF pipeline; style_layer = FFmpeg base + HF effects only */
+  mode?: 'full' | 'style_layer';
+  /** Relative or absolute URL to pre-assembled base video (required for style_layer). */
+  baseVideoUrl?: string;
+}
+
+export function generateHyperframesHTML(
+  dsl: DSL,
+  resolvedSegments?: Segment[],
+  options?: HyperframesComposeOptions,
+): string {
   const assetMap = getAssetMapFromDsl(dsl);
   const skipObjects = Boolean(resolvedSegments);
+  const styleLayer = options?.mode === 'style_layer' && Boolean(options.baseVideoUrl);
   const baseSegs = resolvedSegments || dsl.segments;
   const segs = baseSegs.map((seg) => ({
     ...seg,
@@ -207,6 +219,9 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
   const stageBg = background_color || brandInjection.cssVariables.match(/--brand-bg:([^;]+)/)?.[1] || '#000';
 
   let totalDuration = 0;
+  /** Reserved: 0 scene, 1 DH, 2 caption, 4 BGM, 20+ transitions, 30+ global VFX, 40+ segment overlays. */
+  let overlayTrackCursor = 40;
+  let transitionTrackCursor = 20;
   const segmentEntries: string[] = [];
   const hfCaptionCss: string[] = [];
   const hfCaptionScripts: string[] = [];
@@ -221,10 +236,12 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
     const dur = Math.max(0.1, Number(seg.duration_sec || 5));
     totalDuration += dur;
 
-    const sceneHtml = seg.scene_image_url
-      ? `<img class="clip" id="scene-bg-${escapeHtml(seg.id)}" data-start="${start}" data-duration="${dur}" data-track-index="0"
+    const sceneHtml = styleLayer
+      ? ''
+      : seg.scene_image_url
+        ? `<img class="clip" id="scene-bg-${escapeHtml(seg.id)}" data-start="${start}" data-duration="${dur}" data-track-index="0"
            src="${escapeHtml(seg.scene_image_url)}" style="${clipStyle('inset:0;width:100%;height:100%;object-fit:cover;')}" />`
-      : `<div class="clip" id="scene-bg-${escapeHtml(seg.id)}" data-start="${start}" data-duration="${dur}" data-track-index="0"
+        : `<div class="clip" id="scene-bg-${escapeHtml(seg.id)}" data-start="${start}" data-duration="${dur}" data-track-index="0"
            style="${clipStyle(`inset:0;background:${escapeHtml(background_color || '#1a1a2e')};`)}"></div>`;
 
     let subtitleHtml = '';
@@ -290,7 +307,7 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
         const padding = style.padding || (bg === 'transparent' ? '4px 8px' : '8px 16px');
         const borderRadius = style.borderRadius ?? 8;
         subtitleHtml = `
-      <div class="clip subtitle ${animClass}" data-start="${start + 0.3}" data-duration="${Math.max(0.1, dur - 0.3)}" data-track-index="2"
+      <div id="subtitle-${escapeHtml(seg.id)}" class="clip subtitle ${animClass}" data-start="${start + 0.3}" data-duration="${Math.max(0.1, dur - 0.3)}" data-track-index="2"
            style="${clipStyle(`left:5%;right:5%;bottom:${100 - parseInt(posY, 10)}%;text-align:center;
                   color:${style.color};font-size:${fontSizePx}px;font-weight:${style.weight};
                   text-shadow:${textShadow};background:${bg};
@@ -301,7 +318,7 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
     }
 
     let dhHtml = '';
-    if (seg.digital_human.enabled) {
+    if (!styleLayer && seg.digital_human.enabled) {
       const catalog = getDigitalHumanCatalog(dsl);
       const avatarId = String(seg.avatar_id || (dsl.meta.digital_human_id as string | undefined) || '').trim();
       const imageUrl = resolveDigitalHumanImageUrl(avatarId, catalog);
@@ -313,7 +330,7 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
       );
       if (imageUrl) {
         dhHtml = `
-      <div id="hf-digital-human" class="clip hf-digital-human" data-start="${start}" data-duration="${dur}" data-track-index="1"
+      <div id="hf-digital-human-${escapeHtml(seg.id)}" class="clip hf-digital-human" data-start="${start}" data-duration="${dur}" data-track-index="1"
            style="${clipStyle(`left:${layout.x}%;top:${layout.y}%;
                   transform:translate(-50%,-50%);
                   width:${layout.width}px;height:${layout.height}px;
@@ -324,7 +341,7 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
       </div>`;
       } else {
         dhHtml = `
-      <div id="hf-digital-human" class="clip hf-digital-human" data-start="${start}" data-duration="${dur}" data-track-index="1"
+      <div id="hf-digital-human-${escapeHtml(seg.id)}" class="clip hf-digital-human" data-start="${start}" data-duration="${dur}" data-track-index="1"
            style="${clipStyle(`left:${layout.x}%;top:${layout.y}%;
                   transform:translate(-50%,-50%) scale(${seg.digital_human.scale / 100});
                   width:120px;height:120px;border-radius:50%;
@@ -336,9 +353,12 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
     }
 
     let overlaysHtml = '';
-    seg.overlays.forEach((ov) => {
-      const ovStart = start + Number(ov.seg_start_time || 0);
-      const ovDur = Math.max(0.1, Number(ov.duration || dur));
+    if (!styleLayer) seg.overlays.forEach((ov) => {
+      const relStart = Math.max(0, Number(ov.seg_start_time || 0));
+      const ovStart = start + relStart;
+      const maxDur = Math.max(0.1, start + dur - ovStart);
+      const ovDur = Math.min(Math.max(0.1, Number(ov.duration || dur)), maxDur);
+      const overlayTrack = overlayTrackCursor++;
       const assetUrl = resolveOverlayAssetUrl(ov, assetMap);
       const widthPct = ov.render_width_pct ?? 20;
       const heightPct = ov.render_height_pct ?? 12;
@@ -357,7 +377,7 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
         const borderRadius = ov.style?.borderRadius ?? 8;
         const outline = ov.style?.outline ? `text-shadow:0 0 2px ${escapeHtml(ov.style.outline)};` : '';
         overlaysHtml += `
-        <div id="overlay-${escapeHtml(ov.id)}" class="clip hf-overlay ${animClass}" data-start="${ovStart}" data-duration="${ovDur}" data-track-index="3"
+        <div id="overlay-${escapeHtml(ov.id)}" class="clip hf-overlay ${animClass}" data-start="${ovStart}" data-duration="${ovDur}" data-track-index="${overlayTrack}"
              style="${clipStyle(`left:${ov.position.x}%;top:${ov.position.y}%;
                     transform:translate(-50%,-50%) scale(${ov.scale / 100})${rot};
                     max-width:${maxW}px;padding:8px 14px;border-radius:${borderRadius}px;
@@ -373,7 +393,7 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
         const isVideo = assetUrl.match(/\.(mp4|mov|webm)$/i);
         const isGif = assetUrl.match(/\.gif$/i);
         overlaysHtml += `
-        <div id="overlay-${escapeHtml(ov.id)}" class="clip hf-overlay ${animClass}" data-start="${ovStart}" data-duration="${ovDur}" data-track-index="3"
+        <div id="overlay-${escapeHtml(ov.id)}" class="clip hf-overlay ${animClass}" data-start="${ovStart}" data-duration="${ovDur}" data-track-index="${overlayTrack}"
              style="${clipStyle(`left:${ov.position.x}%;top:${ov.position.y}%;
                     transform:translate(-50%,-50%) scale(${ov.scale / 100})${rot};`)}">
           ${isVideo && !isGif
@@ -385,7 +405,7 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
     });
 
     let objectsHtml = '';
-    if (!skipObjects) {
+    if (!styleLayer && !skipObjects) {
       (seg.objects || []).forEach((obj, objectIndex) => {
         objectsHtml += renderEditorObjectHtml(obj, start, dur, objectIndex);
       });
@@ -407,6 +427,7 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
           canvasHeight: h,
           accentColor,
           direction: (seg.transition as { direction?: 'left' | 'right' | 'up' | 'down' }).direction,
+          trackIndex: transitionTrackCursor++,
         });
         if (transClip) {
           transitionEntries.push(transClip.html);
@@ -422,10 +443,17 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
     canvasWidth: w,
     canvasHeight: h,
     accentColor,
+    trackStart: 30,
   });
 
-  const bgmHtml = bgm_url ? `
-    <audio class="clip" data-start="0" data-duration="${totalDuration}" data-track-index="4"
+  const styleLayerBaseHtml = styleLayer && options?.baseVideoUrl
+    ? `<video id="hf-base-video" class="clip" data-start="0" data-duration="${totalDuration}" data-track-index="0"
+           data-has-audio="true" src="${escapeHtml(options.baseVideoUrl)}" playsinline
+           style="${clipStyle('inset:0;width:100%;height:100%;object-fit:cover;')}"></video>`
+    : '';
+
+  const bgmHtml = !styleLayer && bgm_url ? `
+    <audio id="hf-bgm" class="clip" data-start="0" data-duration="${totalDuration}" data-track-index="4"
            data-volume="${bgm_volume}" src="${escapeHtml(bgm_url)}"></audio>
   ` : '';
 
@@ -486,6 +514,7 @@ export function generateHyperframesHTML(dsl: DSL, resolvedSegments?: Segment[]):
        data-width="${w}"
        data-height="${h}"
        data-fps="${fps}">
+    ${styleLayerBaseHtml}
     ${segmentEntries.join('\n')}
     ${transitionEntries.join('\n')}
     ${globalOverlayClips.html}

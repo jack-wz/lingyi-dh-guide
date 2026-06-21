@@ -18,15 +18,13 @@ const hfDsl = {
 };
 
 describe('hfPipelineWarnings', () => {
-  it('warns for HF transitions and overlays on standard pipeline', () => {
-    const warnings = getHyperframesPipelineWarnings(hfDsl, 'standard');
-    assert.ok(warnings.some((w) => w.includes('动效转场')));
-    assert.ok(warnings.some((w) => w.includes('全局质感')));
+  it('does not warn for HF features on standard/template_editor pipelines', () => {
+    assert.deepEqual(getHyperframesPipelineWarnings(hfDsl, 'standard'), []);
+    assert.deepEqual(getHyperframesPipelineWarnings(hfDsl, 'template_editor'), []);
   });
 
-  it('suppresses transition and overlay warnings on hyperframes_template', () => {
+  it('warns when hyperframes_template pipeline skips scene generation', () => {
     const warnings = getHyperframesPipelineWarnings(hfDsl, 'hyperframes_template');
-    assert.equal(warnings.some((w) => w.includes('动效转场')), false);
-    assert.equal(warnings.some((w) => w.includes('全局质感')), false);
+    assert.ok(warnings.some((w) => w.includes('跳过场景图')));
   });
 });

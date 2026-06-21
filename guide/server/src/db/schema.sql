@@ -85,7 +85,7 @@ CREATE INDEX IF NOT EXISTS idx_render_logs_job ON render_logs(render_job_id);
 
 CREATE TABLE IF NOT EXISTS library_items (
   id TEXT PRIMARY KEY,
-  category TEXT NOT NULL CHECK(category IN ('brand','voice','script','knowledge','knowledge_doc')),
+  category TEXT NOT NULL CHECK(category IN ('brand','look_preset','voice','script','knowledge','knowledge_doc')),
   name TEXT NOT NULL,
   description TEXT DEFAULT '',
   status TEXT DEFAULT 'active' CHECK(status IN ('active','archived')),

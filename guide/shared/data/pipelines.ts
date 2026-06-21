@@ -28,7 +28,7 @@ export const PIPELINES: PipelineOption[] = [
   {
     key: 'template_editor',
     name: '模板编辑器',
-    description: '精确渲染当前编辑器中编排的模板内容',
+    description: '四阶段生成 + FFmpeg 单路径成片（字幕/转场/质感）',
     requires_digital_human: false,
   },
   {
@@ -78,4 +78,12 @@ export function getPipeline(pipelineKey: string): PipelineOption | undefined {
 
 export function validatePipelineKey(pipelineKey: string): boolean {
   return getExposedPipelines().some((pipeline) => pipeline.key === pipelineKey);
+}
+
+/** Editor default: standard 4-stage pipeline; HF is a style layer, not a separate render path. */
+export const DEFAULT_EDITOR_PIPELINE_KEY = 'template_editor';
+
+export function resolveEditorPipelineKey(saved?: string): string {
+  if (!saved || saved === 'hyperframes_template') return DEFAULT_EDITOR_PIPELINE_KEY;
+  return saved;
 }

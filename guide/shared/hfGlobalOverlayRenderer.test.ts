@@ -4,6 +4,8 @@ import { generateHyperframesHTML } from './hyperframesComposer.js';
 import {
   dslUsesHyperframesGlobalOverlays,
   getEnabledHfGlobalOverlays,
+  normalizeHfGlobalOverlays,
+  renderColorGradeOverlay,
   renderGrainOverlay,
   renderLightLeakOverlay,
   renderMotionBlurOverlay,
@@ -152,5 +154,27 @@ describe('hfGlobalOverlayRenderer', () => {
     assert.match(html, /hf-global-light-leak/);
     assert.match(html, /hf-global-motion-blur/);
     assert.match(html, /gsap@3\.14\.2/);
+  });
+
+  it('includes color grade in default overlay list', () => {
+    const normalized = normalizeHfGlobalOverlays([]);
+    assert.ok(normalized.some((item) => item.type === 'hf-color-grade'));
+  });
+
+  it('renders color grade overlay with GSAP', () => {
+    const grade = renderColorGradeOverlay(
+      { type: 'hf-color-grade', enabled: true, grade_warmth: 0.7, grade_strength: 0.32, grade_saturation: 1.12 },
+      { totalDuration: 9, canvasWidth: 1080, canvasHeight: 1920 },
+    );
+    assert.match(grade.html, /color-grade/);
+    assert.match(grade.css, /saturate\(1\.12\)/);
+    assert.match(grade.script || '', /hf-color-grade-filter/);
+
+    const clips = renderHfGlobalOverlayClips(
+      [{ type: 'hf-color-grade', enabled: true, grade_warmth: 0.55, grade_strength: 0.25 }],
+      { totalDuration: 8, canvasWidth: 1080, canvasHeight: 1920 },
+    );
+    assert.match(clips.html, /hf-global-color-grade/);
+    assert.equal(clips.requiresGsap, true);
   });
 });

@@ -217,11 +217,12 @@ export default function TemplateListPage() {
       )}
 
       <section className="mb-6 rounded-xl border border-border bg-card p-4">
-        <h2 className="text-base font-semibold mb-2">导购视频生产流程</h2>
+        <h2 className="text-base font-semibold mb-2">导购视频主路径</h2>
         <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
-          <li><strong className="text-foreground">数字人管理</strong>：上传半身 / 全身 / 大头三图 + 录制 5–30 秒声音 → KIE 多角度形象 + MOSI 音色克隆</li>
-          <li><strong className="text-foreground">模板中心</strong>：选择或创建视频模板，自定义分镜或 AI 生成脚本</li>
-          <li><strong className="text-foreground">自动渲染</strong>：KIE 场景分镜 → MOSI 分镜配音 → WaveSpeed InfiniteTalk 口型 → FFmpeg 模板组装</li>
+          <li><strong className="text-foreground">选模板</strong>：在模板中心挑选或新建运营模板</li>
+          <li><strong className="text-foreground">绑品牌包</strong>：编辑器选用资产库品牌包，统一字幕与镜头</li>
+          <li><strong className="text-foreground">套外观</strong>：顶部 Banner 一键套用品牌推荐 HyperFrames 动效</li>
+          <li><strong className="text-foreground">提交生成</strong>：使用「模板编辑器」流水线提交，HF 动效自动叠加</li>
         </ol>
         <div className="mt-3 flex flex-wrap items-center gap-3">
           <button

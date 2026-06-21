@@ -70,11 +70,27 @@ def main() -> int:
     except Exception as exc:
         return fail("Failed to load /api/config/diagnostics", detail=str(exc))
 
+    digital_human_id = os.getenv("SMOKE_DIGITAL_HUMAN_ID", "").strip()
+    if not digital_human_id:
+        try:
+            tpl = session.get(f"{api}/api/templates/{args.template_id}", timeout=30)
+            if tpl.ok:
+                body = tpl.json()
+                dsl = body.get("dsl_json") or body.get("dsl") or {}
+                digital_human_id = str(
+                    (dsl.get("meta") or {}).get("digital_human_id")
+                    or os.getenv("SMOKE_DIGITAL_HUMAN_ID", "")
+                ).strip()
+        except Exception:
+            pass
+
     payload = {
         "template_id": args.template_id,
         "pipeline_key": args.pipeline_key,
         "input_mode": "template",
     }
+    if digital_human_id:
+        payload["digital_human_id"] = digital_human_id
     try:
         created = session.post(f"{api}/api/renders", json=payload, timeout=30)
         if created.status_code != 201:
@@ -110,7 +126,7 @@ def main() -> int:
     last_status = None
     while time.monotonic() < deadline:
         try:
-            res = session.get(f"{api}/api/renders/{job_id}", timeout=30)
+            res = session.get(f"{api}/api/renders/{job_id}", params={"summary": "1"}, timeout=30)
             res.raise_for_status()
             job = res.json()
         except Exception as exc:

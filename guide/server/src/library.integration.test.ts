@@ -65,6 +65,41 @@ describe('library API', () => {
     assert.ok(items.length >= 1);
   });
 
+  it('lists seeded look_preset items', async () => {
+    const res = await request('GET', '/api/library?category=look_preset');
+    assert.equal(res.status, 200);
+    const items = (res.json as { items: Array<{ payload: Record<string, unknown> }> }).items;
+    assert.ok(items.length >= 3);
+    assert.ok(items.some((item) => item.payload?.subtitle_style_id === 'hf-caption-pill'));
+    assert.ok(items.some((item) => item.payload?.seed_id === 'look-pop-energetic'));
+  });
+
+  it('syncs stale look presets via POST /look-presets/sync', async () => {
+    const list = await request('GET', '/api/library?category=look_preset&limit=40');
+    const items = (list.json as { items: Array<{ id: string; payload: Record<string, unknown> }> }).items;
+    const target = items.find((item) => item.payload?.seed_id === 'look-steady-voice');
+    assert.ok(target);
+
+    const stalePut = await request('PUT', `/api/library/${target!.id}`, {
+      payload: {
+        ...target!.payload,
+        registry_version: '2025.01',
+      },
+    });
+    assert.equal(stalePut.status, 200);
+
+    const sync = await request('POST', '/api/library/look-presets/sync');
+    assert.equal(sync.status, 200);
+    const body = sync.json as { success: boolean; migrated: number; updated_ids: string[] };
+    assert.equal(body.success, true);
+    assert.ok(body.migrated >= 1);
+    assert.ok(body.updated_ids.includes(target!.id));
+
+    const refreshed = await request('GET', `/api/library/${target!.id}`);
+    const payload = (refreshed.json as { payload: Record<string, unknown> }).payload;
+    assert.equal(payload.registry_version, '2026.06.3');
+  });
+
   it('imports external catalog from OpenStoryline and opentalking', async () => {
     const res = await request('POST', '/api/library/import-catalog', {});
     assert.equal(res.status, 200);
@@ -82,6 +117,58 @@ describe('library API', () => {
       const fontsWithUrl = (fonts || []).filter((f: { url?: string }) => Boolean(f.url));
       assert.ok(fontsWithUrl.length >= 5, 'brand pack fonts should copy OpenStoryline TTF urls');
     }
+  });
+
+  it('brand PUT deletes payload keys when patch value is null', async () => {
+    const list = await request('GET', '/api/library?category=brand&limit=1');
+    const items = (list.json as { items: Array<{ id: string; payload: Record<string, unknown> }> }).items;
+    assert.ok(items.length >= 1);
+    const brand = items[0];
+
+    const tagged = await request('PUT', `/api/library/${brand.id}`, {
+      payload: {
+        ...brand.payload,
+        look_preset_seed_preview_tags: { 'look-grade-cinema': '集成方影院' },
+      },
+    });
+    assert.equal(tagged.status, 200);
+    assert.deepEqual(
+      (tagged.json as { payload: Record<string, unknown> }).payload.look_preset_seed_preview_tags,
+      { 'look-grade-cinema': '集成方影院' },
+    );
+
+    const cleared = await request('PUT', `/api/library/${brand.id}`, {
+      payload: {
+        ...brand.payload,
+        look_preset_seed_preview_tags: null,
+      },
+    });
+    assert.equal(cleared.status, 200);
+    assert.equal(
+      (cleared.json as { payload: Record<string, unknown> }).payload.look_preset_seed_preview_tags,
+      undefined,
+    );
+
+    const nestedTagged = await request('PUT', `/api/library/${brand.id}`, {
+      payload: {
+        ...brand.payload,
+        tokens: {
+          ...((brand.payload.tokens as Record<string, unknown>) || {}),
+          typography: { fonts: [{ name: 'TempFont' }] },
+        },
+      },
+    });
+    assert.equal(nestedTagged.status, 200);
+
+    const nestedCleared = await request('PUT', `/api/library/${brand.id}`, {
+      payload: {
+        ...brand.payload,
+        tokens: { typography: null },
+      },
+    });
+    assert.equal(nestedCleared.status, 200);
+    const tokens = (nestedCleared.json as { payload: { tokens?: Record<string, unknown> } }).payload.tokens;
+    assert.equal(tokens?.typography, undefined);
   });
 
   it('creates updates and deletes a script item', async () => {

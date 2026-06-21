@@ -92,6 +92,7 @@ def reassemble_job(
             "duration_sec": seg.get("duration_sec", 10),
             "narration_text": seg.get("narration_text", ""),
             "subtitle": seg.get("subtitle", {}),
+            "transition": seg.get("transition", {"type": "none", "duration": 0.5}),
         })
 
     synced = reconcile_timeline(

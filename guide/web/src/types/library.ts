@@ -2,6 +2,7 @@ export type AssetHubTab =
   | 'digital_human'
   | 'template'
   | 'brand'
+  | 'look_preset'
   | 'voice'
   | 'script'
   | 'knowledge'
