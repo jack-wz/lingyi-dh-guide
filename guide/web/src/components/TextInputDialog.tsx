@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { IconX } from './Icons';
 
 interface Props {
@@ -25,6 +25,9 @@ export default function TextInputDialog({
   onCancel,
 }: Props) {
   const [value, setValue] = useState(initialValue);
+  const titleId = useId();
+  const messageId = useId();
+  const inputId = useId();
 
   useEffect(() => {
     if (open) setValue(initialValue);
@@ -40,16 +43,31 @@ export default function TextInputDialog({
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4" onClick={onCancel}>
-      <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-sm p-6" onClick={e => e.stopPropagation()}>
+      <div
+        className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-sm p-6"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        aria-describedby={message ? messageId : undefined}
+        onClick={e => e.stopPropagation()}
+      >
         <div className="flex items-start gap-3 mb-4">
           <div className="flex-1">
-            <h3 className="text-[16px] font-medium">{title}</h3>
-            {message && <p className="text-[14px] text-muted-foreground mt-1">{message}</p>}
+            <h3 id={titleId} className="text-[16px] font-medium">{title}</h3>
+            {message && <p id={messageId} className="text-[14px] text-muted-foreground mt-1">{message}</p>}
           </div>
-          <button onClick={onCancel} className="text-muted-foreground hover:text-foreground"><IconX size={18} /></button>
+          <button
+            type="button"
+            onClick={onCancel}
+            aria-label="关闭"
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <IconX size={18} />
+          </button>
         </div>
-        <label className="block text-xs text-muted-foreground mb-1">{label}</label>
+        <label htmlFor={inputId} className="block text-xs text-muted-foreground mb-1">{label}</label>
         <input
+          id={inputId}
           autoFocus
           value={value}
           onChange={(e) => setValue(e.target.value)}

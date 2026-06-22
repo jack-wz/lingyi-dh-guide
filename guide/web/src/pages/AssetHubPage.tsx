@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { IconMic, IconMusic, IconPlus, IconSearch, IconTrash, IconType, IconFilm, IconImage } from '../components/Icons';
+import { IconMic, IconMusic, IconPlus, IconSearch, IconFilm, IconImage, IconType } from '../components/Icons';
 import { HF_SUBTITLE_STYLES } from '@shared/subtitleStyles';
 import { HF_TRANSITIONS } from '../components/TransitionStylePicker';
 import { LOOK_PRESET_REGISTRY_VERSION, parseLookPresetPayload } from '@shared/lookPreset';
@@ -29,8 +29,8 @@ import type { AssetHubTab, LibraryItem, LibrarySummary } from '../types/library'
 const TABS: { id: AssetHubTab; label: string; hint: string; primary?: boolean }[] = [
   { id: 'digital_human', label: '数字人', hint: '训练与管理数字人形象', primary: true },
   { id: 'brand', label: '品牌包', hint: '本地 design.md / frame.md，可视化 + Markdown 编辑：颜色、字体、圆角间距、镜头、色板、文本/字幕/动画/版式/形状/元素库', primary: true },
-  { id: 'look_preset', label: '外观预设', hint: 'HyperFrames 动效组合：字幕样式 + 转场 + 全局质感，可一键应用到编辑器项目', primary: true },
   { id: 'script', label: '脚本', hint: '旁白与导购话术', primary: true },
+  { id: 'look_preset', label: '外观预设', hint: 'HyperFrames 动效组合：字幕样式 + 转场 + 全局质感，可一键应用到编辑器项目' },
   { id: 'template', label: '模板', hint: '视频模板，编辑时仅选择' },
   { id: 'voice', label: '声音', hint: 'TTS 音色、克隆与 BGM 背景音乐' },
   { id: 'media', label: '媒体素材', hint: '图片、视频、贴纸等' },
@@ -105,7 +105,7 @@ function CardThumb({
     if (isVideoUrl(item.file_url)) {
       return (
         <div className="w-full h-full flex items-center justify-center bg-black/80 text-white text-[10px]">
-          <IconFilm size={20} />
+          <IconFilm size={20} aria-hidden />
         </div>
       );
     }
@@ -135,7 +135,7 @@ function CardThumb({
     const kind = String(item.payload?.kind || voiceKind || 'tts');
     return (
       <div className="w-full h-full flex flex-col items-center justify-center gap-1 bg-secondary text-muted-foreground">
-        {kind === 'bgm' ? <IconMusic size={22} /> : <IconMic size={22} />}
+        {kind === 'bgm' ? <IconMusic size={22} aria-hidden /> : <IconMic size={22} aria-hidden />}
         <span className="text-[9px]">{kind === 'bgm' ? 'BGM' : 'TTS'}</span>
       </div>
     );
@@ -169,13 +169,13 @@ function CardThumb({
   if (tab === 'knowledge') {
     return (
       <div className="w-full h-full flex items-center justify-center bg-secondary text-muted-foreground">
-        <IconType size={22} />
+        <IconType size={22} aria-hidden />
       </div>
     );
   }
   return (
     <div className="w-full h-full flex items-center justify-center bg-secondary text-muted-foreground">
-      <IconImage size={22} />
+      <IconImage size={22} aria-hidden />
     </div>
   );
 }
@@ -898,7 +898,7 @@ export default function AssetHubPage() {
         tabIndex={0}
         onClick={() => setPreviewItem(item)}
         onKeyDown={(e) => { if (e.key === 'Enter') setPreviewItem(item); }}
-        className={`border rounded-xl overflow-hidden bg-card transition-all duration-150 cursor-pointer ${
+        className={`border rounded-xl overflow-hidden bg-card transition-colors duration-150 cursor-pointer ${
           selected
             ? 'border-brand-blue border-l-[3px] border-l-brand-blue ring-1 ring-brand-blue/20 scale-[1.01]'
             : 'border-border hover:border-brand-blue/40'
@@ -1081,7 +1081,7 @@ export default function AssetHubPage() {
 
         <div className="flex items-center gap-2 mb-4">
           <div className="flex-1 flex items-center gap-2 bg-secondary rounded-md px-3 py-2">
-            <IconSearch size={14} className="text-muted-foreground" />
+            <IconSearch size={14} className="text-muted-foreground" aria-hidden />
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder={`搜索${tabMeta?.label}...`}
               className="flex-1 bg-transparent text-sm outline-none" />
           </div>
@@ -1221,19 +1221,14 @@ export default function AssetHubPage() {
         onCancel={() => setDeleteTarget(null)}
       />
 
-      {devNotice && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setDevNotice(false)}>
-          <div className="bg-card border border-border rounded-xl p-6 max-w-sm w-full shadow-xl" onClick={e => e.stopPropagation()}>
-            <h3 className="text-base font-semibold mb-2">功能开发中</h3>
-            <p className="text-sm text-muted-foreground leading-relaxed">
-              知识库文档管理（上传、编辑、检索）正在开发中，当前仅支持维护知识库目录信息。
-            </p>
-            <button type="button" className="mt-4 w-full py-2 rounded-md bg-brand-blue text-white text-sm" onClick={() => setDevNotice(false)}>
-              知道了
-            </button>
-          </div>
-        </div>
-      )}
+      <ConfirmDialog
+        open={devNotice}
+        title="功能开发中"
+        message="知识库文档管理（上传、编辑、检索）正在开发中，当前仅支持维护知识库目录信息。"
+        confirmLabel="知道了"
+        onConfirm={() => setDevNotice(false)}
+        onCancel={() => setDevNotice(false)}
+      />
     </div>
   );
 }
