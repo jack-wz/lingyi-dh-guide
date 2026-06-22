@@ -266,7 +266,7 @@ export default function TemplateListPage() {
 
       <div className="flex flex-wrap items-center gap-2 mb-4">
         <div className="relative flex-1 min-w-[200px] max-w-sm">
-          <IconSearch size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+          <IconSearch size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden />
           <input
             type="search"
             value={search}
@@ -312,7 +312,7 @@ export default function TemplateListPage() {
         <div className="text-center py-20 text-muted-foreground">加载中...</div>
       ) : templates.length === 0 ? (
         <div className="text-center py-20">
-          <div className="text-muted-foreground mb-4"><IconFilm size={48} /></div>
+          <div className="text-muted-foreground mb-4" aria-hidden><IconFilm size={48} /></div>
           <p className="text-muted-foreground mb-4">
             {brandFilter === 'unbound'
               ? '没有未绑定品牌包的模板'
@@ -334,7 +334,7 @@ export default function TemplateListPage() {
                 {t.cover_url ? (
                   <img src={t.cover_url} alt="" className="w-full h-full object-cover" />
                 ) : (
-                  <span className="text-muted-foreground"><IconFilm size={48} /></span>
+                  <span className="text-muted-foreground" aria-hidden><IconFilm size={48} /></span>
                 )}
               </div>
               <div className="p-4">
@@ -381,27 +381,29 @@ export default function TemplateListPage() {
                 <div className="flex gap-2">
                   <button
                     onClick={() => navigate(`/editor/${t.id}`)}
-                    className="flex-1 px-3 py-1.5 text-sm bg-blue-50 text-brand-blue rounded-lg hover:bg-blue-100 transition"
+                    className="flex-1 px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded-lg hover:opacity-90 transition-opacity"
                   >
                     编辑
                   </button>
                   <button
-                    onClick={() => setDeleteTarget(t)}
-                    className="px-3 py-1.5 text-sm bg-destructive/10 text-destructive rounded-lg hover:bg-destructive/20 transition"
+                    onClick={() => {
+                      const action = nextLifecycleAction(t);
+                      setStatusTarget({ template: t, status: action.status, label: action.label });
+                    }}
+                    className="px-3 py-1.5 text-sm bg-secondary text-secondary-foreground rounded-lg hover:bg-accent transition-colors inline-flex items-center gap-1"
                   >
-                    删除
+                    <IconCheck size={14} />
+                    {nextLifecycleAction(t).label}
+                  </button>
+                  <button
+                    onClick={() => setDeleteTarget(t)}
+                    aria-label={`删除模板「${t.name}」`}
+                    title={`删除模板「${t.name}」`}
+                    className="px-3 py-1.5 text-sm bg-destructive/10 text-destructive rounded-lg hover:bg-destructive/20 transition-colors inline-flex items-center justify-center"
+                  >
+                    <IconTrash size={16} />
                   </button>
                 </div>
-                <button
-                  onClick={() => {
-                    const action = nextLifecycleAction(t);
-                    setStatusTarget({ template: t, status: action.status, label: action.label });
-                  }}
-                  className="mt-2 w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-sm bg-secondary text-secondary-foreground rounded-lg hover:bg-accent transition"
-                >
-                  <IconCheck size={14} />
-                  {nextLifecycleAction(t).label}
-                </button>
               </div>
             </div>
           ))}
