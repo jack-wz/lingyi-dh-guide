@@ -227,6 +227,40 @@ def _compute_overlay_box(ov: dict, canvas_w: int, canvas_h: int) -> tuple[int, i
     return ov_w, ov_h, pos_x, pos_y
 
 
+def _render_lottie_to_video(lottie_path: str, work_dir: str, ov: dict) -> str:
+    """Pre-render a Lottie JSON to WebM with alpha channel using puppeteer-lottie if available.
+
+    Falls back to returning empty string if rendering tools are not installed.
+    The caller should skip the overlay if rendering fails.
+    """
+    import subprocess
+    import shutil
+
+    output_path = lottie_path.rsplit(".", 1)[0] + ".webm"
+    duration = float(ov.get("duration", 3.0))
+
+    # Try lottie-to-video CLI tools
+    for tool in ["puppeteer-lottie", "lottie-to-video"]:
+        if shutil.which(tool):
+            try:
+                result = subprocess.run(
+                    [tool, lottie_path, "--output", output_path, "--format", "webm"],
+                    capture_output=True, text=True, timeout=30,
+                )
+                if result.returncode == 0 and os.path.exists(output_path):
+                    return output_path
+            except Exception:
+                pass
+
+    # If no Lottie renderer available, skip
+    return ""
+
+
+def _is_webm_overlay(asset_path: str) -> bool:
+    """Check if overlay asset is a WebM video (with alpha support)."""
+    return asset_path.lower().endswith(".webm")
+
+
 def _resolve_overlay_asset(ov: dict, work_dir: str, default_font_family: str = "") -> str:
     """Resolve overlay asset: download if URL, return local path."""
     url = ov.get("asset_url", "")
@@ -249,13 +283,19 @@ def _resolve_overlay_asset(ov: dict, work_dir: str, default_font_family: str = "
             return local
     if url.startswith(("http://", "https://")):
         ext = ".png"
-        for e in [".mp4", ".mov", ".avi", ".jpg", ".jpeg", ".png", ".webp", ".gif"]:
+        for e in [".mp4", ".mov", ".avi", ".webm", ".jpg", ".jpeg", ".png", ".webp", ".gif", ".json", ".lottie"]:
             if e in url.lower():
                 ext = e
                 break
         local = os.path.join(work_dir, f"overlay_{ov.get('id', 'asset')}{ext}")
         try:
             download_file(url, local)
+            # Lottie files need pre-rendering to video (WebM with alpha)
+            if ext in (".json", ".lottie"):
+                rendered = _render_lottie_to_video(local, work_dir, ov)
+                if rendered:
+                    return rendered
+                return ""
             return local
         except Exception:
             return ""

@@ -5,7 +5,7 @@ export type AspectRatio = '9:16' | '16:9' | '1:1';
 export type SubtitlePosition = 'top' | 'center' | 'bottom';
 export type SubtitleAnimation = 'none' | 'fadeIn' | 'typewriter';
 export type OverlayAnimation = 'none' | 'fadeIn' | 'scaleIn';
-export type EditorObjectType = 'text' | 'image' | 'logo' | 'sticker' | 'avatar' | 'subtitle';
+export type EditorObjectType = 'text' | 'image' | 'logo' | 'sticker' | 'lottie' | 'avatar' | 'subtitle';
 
 export interface Segment {
   id: string;
