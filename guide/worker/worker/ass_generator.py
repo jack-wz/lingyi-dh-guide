@@ -249,15 +249,25 @@ def _format_phrase_text(text: str, animation: str, phrase_dur_sec: float) -> str
 
 
 def _segment_timeline(segments: list[dict]) -> list[tuple[dict, float, float]]:
-    """Build a cumulative timeline from actual per-segment durations (post-TTS)."""
+    """Build a cumulative timeline from actual per-segment durations (post-TTS).
+
+    Prefers reconciled start_time/end_time from reconcile_timeline (which uses
+    actual DH clip/TTS media durations) over raw duration_sec from the DSL.
+    """
     cursor = 0.0
     timeline: list[tuple[dict, float, float]] = []
     for seg in segments:
-        duration = float(seg.get("duration_sec") or 5.0)
-        if duration <= 0:
-            duration = 5.0
-        timeline.append((seg, cursor, cursor + duration))
-        cursor += duration
+        start_time = seg.get("start_time")
+        end_time = seg.get("end_time")
+        if start_time is not None and end_time is not None:
+            timeline.append((seg, float(start_time), float(end_time)))
+            cursor = float(end_time)
+        else:
+            duration = float(seg.get("duration_sec") or 5.0)
+            if duration <= 0:
+                duration = 5.0
+            timeline.append((seg, cursor, cursor + duration))
+            cursor += duration
     return timeline
 
 
