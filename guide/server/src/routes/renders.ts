@@ -26,6 +26,7 @@ import {
 } from '../render-utils.js';
 import { ErrorCodes, apiError } from '../apiErrors.js';
 import { hydrateDslBrandPack } from '../brandHydration.js';
+import { validateDslFrames } from '@shared/frameWhitelist';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -181,6 +182,11 @@ router.post('/', (req: Request, res: Response) => {
     templateDsl = JSON.parse(template.dsl_json || '{}');
   } catch {
     templateDsl = {};
+  }
+  const frameValidation = validateDslFrames(templateDsl as any);
+  if (!frameValidation.valid) {
+    const violations = frameValidation.violations.map((v) => `分镜 ${v.index + 1}: ${v.reason}`).join('; ');
+    return apiError(res, ErrorCodes.VALIDATION, `Brand frame whitelist violation: ${violations}`);
   }
   const narrationDhIssue = narrationRequiresDigitalHumanIssue(
     pipeline_key,
