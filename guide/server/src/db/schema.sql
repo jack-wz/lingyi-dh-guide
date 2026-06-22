@@ -147,3 +147,18 @@ CREATE TABLE IF NOT EXISTS library_item_versions (
 );
 
 CREATE INDEX IF NOT EXISTS idx_library_item_versions_item ON library_item_versions(library_item_id);
+
+CREATE TABLE IF NOT EXISTS generation_proposals (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  status TEXT DEFAULT 'pending' CHECK(status IN ('pending','adopted','expired','rejected')),
+  proposal_json TEXT NOT NULL DEFAULT '{}',
+  brief_json TEXT DEFAULT '{}',
+  actor_id TEXT DEFAULT 'local-user',
+  adopted_version_id TEXT DEFAULT '',
+  created_at TEXT DEFAULT (datetime('now')),
+  adopted_at TEXT,
+  FOREIGN KEY (project_id) REFERENCES projects(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_generation_proposals_project ON generation_proposals(project_id);
