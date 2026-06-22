@@ -146,6 +146,7 @@ def run_pipeline(
             work_dir,
             output_path,
             on_progress,
+            resolved_variables=resolved.get("resolved_variables"),
         )
 
         if on_progress:

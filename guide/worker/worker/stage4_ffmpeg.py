@@ -312,6 +312,7 @@ def assemble_final_video(
     *,
     job_logger=None,
     skip_ass_subtitles: bool = False,  # deprecated: delivery always burns ASS subtitles
+    resolved_variables: dict | None = None,
 ) -> str:
     """Assemble the final video using FFmpeg filter_complex.
 
@@ -350,9 +351,12 @@ def assemble_final_video(
         log.warn(stage, "Validate", issue)
     manifest_path = write_segments_manifest(segments, overlays, work_dir)
     dsl_audit_path = os.path.join(work_dir, "dsl.json")
+    dsl_audit_payload: dict = {"segments": segments, "globalConfig": global_config}
+    if resolved_variables:
+        dsl_audit_payload["variables"] = resolved_variables
     with open(dsl_audit_path, "w", encoding="utf-8") as dsl_file:
         json.dump(
-            {"segments": segments, "globalConfig": global_config},
+            dsl_audit_payload,
             dsl_file,
             ensure_ascii=False,
             indent=2,

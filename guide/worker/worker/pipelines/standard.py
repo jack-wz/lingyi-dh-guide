@@ -80,6 +80,7 @@ class StandardPipeline(BasePipeline):
             ctx.dsl.get("globalConfig", {}),
             ctx.work_dir, output_path, ctx.on_progress,
             job_logger=ctx.job_logger,
+            resolved_variables=ctx.resolved_variables,
         )
         return output_path
 
