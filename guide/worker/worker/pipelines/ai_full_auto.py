@@ -173,6 +173,7 @@ class AIFullAutoPipeline(BasePipeline):
             output_path,
             lambda stage, progress, msg="": ctx.on_progress(stage, progress, msg),
             job_logger=ctx.job_logger,
+            resolved_variables=ctx.resolved_variables,
         )
         return output_path
 

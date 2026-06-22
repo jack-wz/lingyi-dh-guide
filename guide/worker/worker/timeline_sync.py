@@ -238,131 +238,14 @@ def _ass_coverage_sec(ass_path: str) -> tuple[float, int]:
 
 
 def audit_render_job(work_dir: str) -> dict[str, Any]:
-    """Audit one render job directory for timeline alignment issues."""
-    job_id = os.path.basename(work_dir).removeprefix("job_")
-    issues: list[str] = []
-    warnings: list[str] = []
+    """Audit one render job directory for timeline alignment issues.
 
-    manifest_path = os.path.join(work_dir, "segments_manifest.json")
-    manifest: dict[str, Any] | None = None
-    if os.path.exists(manifest_path):
-        with open(manifest_path, encoding="utf-8") as f:
-            manifest = json.load(f)
-        segments = manifest.get("segments", [])
-        for seg in segments:
-            if seg.get("clip_path") and not os.path.isabs(seg["clip_path"]):
-                seg["clip_path"] = os.path.join(work_dir, os.path.basename(seg["clip_path"]))
-            if seg.get("tts_audio_path") and not os.path.isabs(seg["tts_audio_path"]):
-                seg["tts_audio_path"] = os.path.join(
-                    work_dir, os.path.basename(seg["tts_audio_path"])
-                )
-    else:
-        warnings.append("segments_manifest.json missing — auditing from clip/tts files")
-        segments = _discover_job_segments(work_dir)
+    Delegates to the Stage4 self-audit skill runner and preserves the legacy
+    return shape for callers.
+    """
+    from worker.stage4_audit import run_stage4_audit
 
-    if not segments:
-        issues.append("no segments found (missing clip_*.mp4)")
-        return {
-            "job_id": job_id,
-            "status": "fail",
-            "issues": issues,
-            "warnings": warnings,
-        }
-
-    synced = reconcile_timeline(segments, manifest.get("overlays", []) if manifest else [], work_dir=work_dir)
-    total_duration = synced["total_duration"]
-    segment_issues = validate_segments_for_assembly(
-        synced["segments"], work_dir=work_dir, strict=False
-    )
-    for msg in segment_issues:
-        if "missing" in msg or "unreadable" in msg:
-            issues.append(msg)
-        else:
-            warnings.append(msg)
-
-    final_candidates = ["final.mp4", "final_ass_jianying.mp4", "final_jianying.mp4"]
-    final_path = next(
-        (os.path.join(work_dir, name) for name in final_candidates if os.path.exists(os.path.join(work_dir, name))),
-        "",
-    )
-    final_duration = get_duration(final_path) if final_path else 0.0
-    if final_path and final_duration > 0:
-        expected_duration = total_duration
-        transition_segments = synced["segments"]
-        dsl_path = os.path.join(work_dir, "dsl.json")
-        if os.path.exists(dsl_path):
-            try:
-                with open(dsl_path, encoding="utf-8") as f:
-                    dsl = json.load(f)
-                transition_segments = dsl.get("segments") or transition_segments
-            except (OSError, json.JSONDecodeError, TypeError, ValueError):
-                pass
-        elif manifest and manifest.get("segments"):
-            transition_segments = manifest["segments"]
-        try:
-            clip_durations = [
-                _segment_media_duration(seg, i, work_dir)
-                for i, seg in enumerate(synced["segments"])
-            ]
-            xfade_duration = expected_output_duration_with_xfade(
-                clip_durations,
-                transition_segments,
-            )
-            if xfade_duration is not None:
-                expected_duration = xfade_duration
-        except (TypeError, ValueError):
-            pass
-        if abs(final_duration - expected_duration) > _DURATION_TOLERANCE_SEC + 0.5:
-            warnings.append(
-                f"final video duration={final_duration:.2f}s differs from expected={expected_duration:.2f}s"
-            )
-    elif any(os.path.exists(os.path.join(work_dir, n)) for n in final_candidates):
-        warnings.append("final video exists but duration unreadable")
-    else:
-        warnings.append("no final.mp4 — clips/tts only")
-
-    ass_path = os.path.join(work_dir, "subtitles.ass")
-    ass_end, ass_lines = _ass_coverage_sec(ass_path)
-    if ass_lines == 0:
-        warnings.append("subtitles.ass missing or empty")
-    elif abs(ass_end - total_duration) > _DURATION_TOLERANCE_SEC + 0.5:
-        warnings.append(
-            f"subtitle coverage ends at {ass_end:.2f}s but timeline is {total_duration:.2f}s"
-        )
-
-    if manifest:
-        for ov in manifest.get("overlays", []):
-            seg_idx = int(ov.get("segment_index", -1))
-            if seg_idx < 0 or seg_idx >= len(synced["segments"]):
-                issues.append(f"overlay {ov.get('id')}: invalid segment_index={seg_idx}")
-                continue
-            seg_start = synced["segments"][seg_idx]["start_time"]
-            seg_end = synced["segments"][seg_idx]["end_time"]
-            g_start = float(ov.get("global_start_s", 0))
-            g_end = float(ov.get("global_end_s", 0))
-            if g_start < seg_start - _DURATION_TOLERANCE_SEC or g_end > seg_end + _DURATION_TOLERANCE_SEC:
-                warnings.append(
-                    f"overlay {ov.get('id')}: global [{g_start:.2f},{g_end:.2f}] "
-                    f"outside segment [{seg_start:.2f},{seg_end:.2f}]"
-                )
-
-    status = "fail" if issues else ("warn" if warnings else "ok")
-    return {
-        "job_id": job_id,
-        "status": status,
-        "work_dir": work_dir,
-        "segment_count": len(synced["segments"]),
-        "total_duration_sec": total_duration,
-        "expected_final_duration_sec": round(expected_duration, 3)
-        if final_path and final_duration > 0
-        else None,
-        "final_duration_sec": round(final_duration, 3) if final_duration else None,
-        "subtitle_lines": ass_lines,
-        "subtitle_end_sec": round(ass_end, 3) if ass_lines else None,
-        "has_manifest": manifest is not None,
-        "issues": issues,
-        "warnings": warnings,
-    }
+    return run_stage4_audit(work_dir)
 
 
 def validate_job_after_assembly(
