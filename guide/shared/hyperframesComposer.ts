@@ -65,6 +65,8 @@ interface Segment {
   avatar_id?: string;
   layout?: string;
   objects?: EditorObject[];
+  frame_template_id?: string;
+  hyperframes_template?: string;
   overlays: Array<{
     id: string;
     asset_url: string;
@@ -242,6 +244,7 @@ export function generateHyperframesHTML(
         ? `<img class="clip" id="scene-bg-${escapeHtml(seg.id)}" data-start="${start}" data-duration="${dur}" data-track-index="0"
            src="${escapeHtml(seg.scene_image_url)}" style="${clipStyle('inset:0;width:100%;height:100%;object-fit:cover;')}" />`
         : `<div class="clip" id="scene-bg-${escapeHtml(seg.id)}" data-start="${start}" data-duration="${dur}" data-track-index="0"
+           data-frame-template="${escapeHtml(String(seg.frame_template_id || seg.hyperframes_template || ''))}"
            style="${clipStyle(`inset:0;background:${escapeHtml(background_color || '#1a1a2e')};`)}"></div>`;
 
     let subtitleHtml = '';

@@ -53,6 +53,7 @@ export interface Segment {
   layout?: 'avatar-left' | 'avatar-center' | 'avatar-right' | 'media-grid' | 'full-media';
   avatar_id?: string;
   voice_id?: string;
+  frame_template_id?: string;
   objects?: EditorObject[];
 }
 

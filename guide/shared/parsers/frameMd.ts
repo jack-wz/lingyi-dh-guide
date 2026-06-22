@@ -36,13 +36,62 @@ export interface TextStylePreset {
   textAlign?: string;
 }
 
+export interface LayoutElement {
+  type: 'image' | 'text' | 'avatar' | 'logo' | 'shape';
+  anchor?: string;
+  x: number;
+  y: number;
+  width?: number;
+  height?: number;
+  styleId?: string;
+}
+
+export interface LayoutPreset {
+  id: string;
+  name: string;
+  type: string;
+  elements: LayoutElement[];
+}
+
+export interface AnimationPreset {
+  id: string;
+  name: string;
+  type: string;
+  animation: string;
+  duration: number;
+  easing: string;
+}
+
+export interface ShapePreset {
+  id: string;
+  name: string;
+  shape: string;
+  fill?: string;
+  stroke?: string;
+  strokeWidth?: number;
+  borderRadius?: number;
+}
+
+export interface ElementLibraryItem {
+  id: string;
+  name: string;
+  type: string;
+  category?: string;
+  previewUrl?: string;
+  defaultContent?: string;
+  defaultStyle?: Record<string, unknown>;
+}
+
 export interface ParsedFrameMd {
   frames: FrameShot[];
   presets: {
     colorPalette: Array<{ id: string; name: string; value: string }>;
     textStyles: TextStylePreset[];
     subtitleStyles: SubtitlePreset[];
-    layoutPresets: Array<{ id: string; name: string; type: string }>;
+    layoutPresets: LayoutPreset[];
+    animationPresets: AnimationPreset[];
+    shapePresets: ShapePreset[];
+    elementLibrary: ElementLibraryItem[];
   };
   raw: string;
 }
@@ -119,6 +168,98 @@ function parseTextStyles(block: string): TextStylePreset[] {
   return styles;
 }
 
+function parseLayoutElements(chunk: string): LayoutElement[] {
+  const elements: LayoutElement[] = [];
+  const elemBlock = chunk.match(/elements:\s*\n([\s\S]*?)(?=\n\s{4}\w|$)/)?.[1] || '';
+  const elemChunks = elemBlock.split(/\n\s{6}-\s+type:/).slice(1);
+  for (const ec of elemChunks) {
+    const type = ec.split('\n')[0].trim() as LayoutElement['type'];
+    elements.push({
+      type,
+      anchor: ec.match(/anchor:\s*(\S+)/)?.[1]?.trim(),
+      x: Number(ec.match(/x:\s*([\d.]+)/)?.[1] ?? 50),
+      y: Number(ec.match(/y:\s*([\d.]+)/)?.[1] ?? 50),
+      width: ec.match(/width:\s*([\d.]+)/) ? Number(ec.match(/width:\s*([\d.]+)/)?.[1]) : undefined,
+      height: ec.match(/height:\s*([\d.]+)/) ? Number(ec.match(/height:\s*([\d.]+)/)?.[1]) : undefined,
+      styleId: ec.match(/styleId:\s*(\S+)/)?.[1]?.trim(),
+    });
+  }
+  return elements;
+}
+
+function parseLayoutPresets(block: string): LayoutPreset[] {
+  const presets: LayoutPreset[] = [];
+  const chunks = block.split(/\n\s{4}-\s+id:/).slice(1);
+  for (const chunk of chunks) {
+    const id = chunk.split('\n')[0].trim();
+    presets.push({
+      id,
+      name: chunk.match(/name:\s*(.+)/)?.[1]?.trim() || id,
+      type: chunk.match(/type:\s*(\S+)/)?.[1]?.trim() || 'custom',
+      elements: parseLayoutElements(chunk),
+    });
+  }
+  return presets;
+}
+
+function parseAnimationPresets(block: string): AnimationPreset[] {
+  const presets: AnimationPreset[] = [];
+  const chunks = block.split(/\n\s{4}-\s+id:/).slice(1);
+  for (const chunk of chunks) {
+    const id = chunk.split('\n')[0].trim();
+    presets.push({
+      id,
+      name: chunk.match(/name:\s*(.+)/)?.[1]?.trim() || id,
+      type: chunk.match(/type:\s*(\S+)/)?.[1]?.trim() || 'enter',
+      animation: chunk.match(/animation:\s*(\S+)/)?.[1]?.trim() || 'fadeIn',
+      duration: Number(chunk.match(/duration:\s*([\d.]+)/)?.[1] || 0.5),
+      easing: chunk.match(/easing:\s*(.+)/)?.[1]?.trim() || 'ease-out',
+    });
+  }
+  return presets;
+}
+
+function parseShapePresets(block: string): ShapePreset[] {
+  const presets: ShapePreset[] = [];
+  const chunks = block.split(/\n\s{4}-\s+id:/).slice(1);
+  for (const chunk of chunks) {
+    const id = chunk.split('\n')[0].trim();
+    presets.push({
+      id,
+      name: chunk.match(/name:\s*(.+)/)?.[1]?.trim() || id,
+      shape: chunk.match(/shape:\s*(\S+)/)?.[1]?.trim() || 'rect',
+      fill: chunk.match(/fill:\s*"?(#[^"\n]+)"?/)?.[1],
+      stroke: chunk.match(/stroke:\s*"?(#[^"\n]+)"?/)?.[1],
+      strokeWidth: chunk.match(/strokeWidth:\s*(\d+)/) ? Number(chunk.match(/strokeWidth:\s*(\d+)/)?.[1]) : undefined,
+      borderRadius: chunk.match(/borderRadius:\s*(\d+)/) ? Number(chunk.match(/borderRadius:\s*(\d+)/)?.[1]) : undefined,
+    });
+  }
+  return presets;
+}
+
+function parseElementLibrary(block: string): ElementLibraryItem[] {
+  const items: ElementLibraryItem[] = [];
+  const chunks = block.split(/\n\s{4}-\s+id:/).slice(1);
+  for (const chunk of chunks) {
+    const id = chunk.split('\n')[0].trim();
+    const defaultStyleBlock = chunk.match(/defaultStyle:\s*\n([\s\S]*?)(?=\n\s{4}\w|$)/)?.[1] || '';
+    const defaultStyle: Record<string, unknown> = {};
+    for (const m of defaultStyleBlock.matchAll(/^\s{6}(\w[\w.]*):\s*(.+)$/gm)) {
+      const v = m[2].trim();
+      defaultStyle[m[1]] = /^"/.test(v) ? v.replace(/^"|"$/g, '') : (!Number.isNaN(Number(v)) ? Number(v) : v);
+    }
+    items.push({
+      id,
+      name: chunk.match(/name:\s*(.+)/)?.[1]?.trim() || id,
+      type: chunk.match(/type:\s*(\S+)/)?.[1]?.trim() || 'sticker',
+      category: chunk.match(/category:\s*(\S+)/)?.[1]?.trim(),
+      previewUrl: chunk.match(/previewUrl:\s*(\S+)/)?.[1]?.trim(),
+      defaultContent: chunk.match(/defaultContent:\s*"(.+?)"/)?.[1],
+      defaultStyle,
+    });
+  }
+  return items;
+}
 function parseColorPalette(block: string) {
   const palette: Array<{ id: string; name: string; value: string }> = [];
   const chunks = block.split(/\n\s{4}-\s+id:/).slice(1);
@@ -144,17 +285,9 @@ export function parseFrameMd(raw: string): ParsedFrameMd | null {
   const textBlock = presetsBlock.match(/textStyles:\s*\n([\s\S]*?)(?=\n\s{2}\w|$)/)?.[1] || '';
   const subBlock = presetsBlock.match(/subtitleStyles:\s*\n([\s\S]*?)(?=\n\s{2}\w|$)/)?.[1] || '';
   const layoutBlock = presetsBlock.match(/layoutPresets:\s*\n([\s\S]*?)(?=\n\s{2}\w|$)/)?.[1] || '';
-
-  const layoutPresets: Array<{ id: string; name: string; type: string }> = [];
-  const layoutChunks = layoutBlock.split(/\n\s{4}-\s+id:/).slice(1);
-  for (const chunk of layoutChunks) {
-    const id = chunk.split('\n')[0].trim();
-    layoutPresets.push({
-      id,
-      name: chunk.match(/name:\s*(.+)/)?.[1]?.trim() || id,
-      type: chunk.match(/type:\s*(\S+)/)?.[1]?.trim() || 'custom',
-    });
-  }
+  const animBlock = presetsBlock.match(/animationPresets:\s*\n([\s\S]*?)(?=\n\s{2}\w|$)/)?.[1] || '';
+  const shapeBlock = presetsBlock.match(/shapePresets:\s*\n([\s\S]*?)(?=\n\s{2}\w|$)/)?.[1] || '';
+  const elementBlock = presetsBlock.match(/elementLibrary:\s*\n([\s\S]*?)(?=\n\s{2}\w|$)/)?.[1] || '';
 
   return {
     frames: parseFrameEntries(framesBlock),
@@ -162,7 +295,10 @@ export function parseFrameMd(raw: string): ParsedFrameMd | null {
       colorPalette: parseColorPalette(colorBlock),
       textStyles: parseTextStyles(textBlock),
       subtitleStyles: parseSubtitleStyles(subBlock),
-      layoutPresets,
+      layoutPresets: parseLayoutPresets(layoutBlock),
+      animationPresets: parseAnimationPresets(animBlock),
+      shapePresets: parseShapePresets(shapeBlock),
+      elementLibrary: parseElementLibrary(elementBlock),
     },
     raw,
   };

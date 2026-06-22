@@ -94,6 +94,16 @@ export function buildBrandPackPayload(
   const firstSub = frame?.presets.subtitleStyles[0];
   const subtitleStyle = firstSub ? subtitlePresetToStyleId(firstSub.id) : flat.subtitle_style;
 
+  const emptyPresets: NonNullable<BrandPackPayload['presets']> = {
+    colorPalette: [],
+    textStyles: [],
+    subtitleStyles: [],
+    layoutPresets: [],
+    animationPresets: [],
+    shapePresets: [],
+    elementLibrary: [],
+  };
+
   return {
     ...flat,
     ...extras,
@@ -110,7 +120,7 @@ export function buildBrandPackPayload(
       rounded: design.rounded,
       spacing: design.spacing,
     },
-    presets: frame?.presets || { colorPalette: [], textStyles: [], subtitleStyles: [], layoutPresets: [] },
+    presets: frame?.presets || emptyPresets,
     frames: frame?.frames || [],
   };
 }
@@ -125,7 +135,10 @@ export function libraryPayloadToBrandPack(item: {
   const tokens = p.tokens;
   const fonts = tokens?.typography?.fonts || [];
   const frames = p.frames || [];
-  const presets = p.presets || { colorPalette: [], textStyles: [], subtitleStyles: [], layoutPresets: [] };
+  const presets = p.presets || {
+    colorPalette: [], textStyles: [], subtitleStyles: [], layoutPresets: [],
+    animationPresets: [], shapePresets: [], elementLibrary: [],
+  };
   const defaultFont = fonts[0]?.family
     || tokens?.typography?.body?.fontFamily
     || tokens?.typography?.heading?.fontFamily
