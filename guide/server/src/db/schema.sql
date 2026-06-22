@@ -162,3 +162,67 @@ CREATE TABLE IF NOT EXISTS generation_proposals (
 );
 
 CREATE INDEX IF NOT EXISTS idx_generation_proposals_project ON generation_proposals(project_id);
+
+CREATE TABLE IF NOT EXISTS reference_sets (
+  id TEXT PRIMARY KEY,
+  project_id TEXT DEFAULT '',
+  category TEXT NOT NULL CHECK(category IN ('product','person','store','visual_style')),
+  name TEXT NOT NULL,
+  asset_ids TEXT DEFAULT '[]',
+  metadata TEXT DEFAULT '{}',
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_reference_sets_project ON reference_sets(project_id);
+CREATE INDEX IF NOT EXISTS idx_reference_sets_category ON reference_sets(category);
+
+CREATE TABLE IF NOT EXISTS asset_relations (
+  id TEXT PRIMARY KEY,
+  source_asset_id TEXT NOT NULL,
+  generated_asset_id TEXT NOT NULL,
+  relation_type TEXT NOT NULL CHECK(relation_type IN ('generated_from','derived_from','variant_of','composed_with')),
+  recipe_id TEXT DEFAULT '',
+  metadata TEXT DEFAULT '{}',
+  created_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (source_asset_id) REFERENCES assets(id),
+  FOREIGN KEY (generated_asset_id) REFERENCES assets(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_asset_relations_source ON asset_relations(source_asset_id);
+CREATE INDEX IF NOT EXISTS idx_asset_relations_generated ON asset_relations(generated_asset_id);
+
+CREATE TABLE IF NOT EXISTS generation_artifacts (
+  id TEXT PRIMARY KEY,
+  segment_id TEXT DEFAULT '',
+  render_job_id TEXT,
+  recipe_id TEXT DEFAULT '',
+  recipe_version TEXT DEFAULT '1',
+  provider TEXT DEFAULT '',
+  input_fingerprint TEXT DEFAULT '',
+  source_asset_ids TEXT DEFAULT '[]',
+  generated_asset_ids TEXT DEFAULT '[]',
+  status TEXT DEFAULT 'pending' CHECK(status IN ('pending','completed','failed')),
+  metadata TEXT DEFAULT '{}',
+  created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_generation_artifacts_segment ON generation_artifacts(segment_id);
+CREATE INDEX IF NOT EXISTS idx_generation_artifacts_job ON generation_artifacts(render_job_id);
+
+CREATE TABLE IF NOT EXISTS recipes (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  shot_type TEXT DEFAULT '',
+  brand_id TEXT DEFAULT '',
+  platform TEXT DEFAULT '',
+  mood TEXT DEFAULT '',
+  reference_set_id TEXT DEFAULT '',
+  prompt_template TEXT NOT NULL DEFAULT '',
+  version TEXT DEFAULT '1',
+  enabled INTEGER DEFAULT 1,
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_recipes_shot_type ON recipes(shot_type);

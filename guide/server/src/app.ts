@@ -16,6 +16,7 @@ import aiRouter from './routes/ai.js';
 import ttsRouter from './routes/tts.js';
 import projectsRouter from './routes/projects.js';
 import proposalsRouter from './routes/proposals.js';
+import recipesRouter from './routes/recipes.js';
 
 import { getBrandFontsStaticDir } from './brand-fonts.js';
 import { ErrorCodes, apiError, listErrorCatalog } from './apiErrors.js';
@@ -56,6 +57,7 @@ export function createApp() {
   app.use('/api/tts', ttsRouter);
   app.use('/api/projects', projectsRouter);
   app.use('/api/projects', proposalsRouter);
+  app.use('/api/recipes', recipesRouter);
 
   app.get('/api/error-catalog', (_req, res) => {
     res.json({ errors: listErrorCatalog() });
