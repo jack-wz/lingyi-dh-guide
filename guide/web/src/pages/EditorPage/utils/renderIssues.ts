@@ -65,6 +65,22 @@ export function getRenderIssues(
   if (dsl.globalConfig.brand_logo_url && !dsl.globalConfig.brand_color) {
     issues.push('已配置 Logo 时建议同时配置品牌色');
   }
+
+  // Detect segment-level lens variable gaps when frame_template_id is bound
+  const brandPack = dsl.globalConfig.brand_pack as { frames?: Array<{ id: string; variables?: string[]; name: string }> } | undefined;
+  if (brandPack?.frames?.length) {
+    const frameMap = new Map(brandPack.frames.map((f) => [f.id, f]));
+    for (const seg of dsl.segments) {
+      if (!seg.frame_template_id) continue;
+      const frame = frameMap.get(seg.frame_template_id);
+      if (!frame?.variables?.length) continue;
+      const missing = frame.variables.filter((v) => !String(variableValues[v] ?? '').trim());
+      if (missing.length) {
+        issues.push(`分镜「${frame.name}」缺少变量：${missing.join('、')}`);
+      }
+    }
+  }
+
   if (pipeline?.key) {
     issues.push(...(diagnostics?.pipelines?.[pipeline.key]?.blockers || []));
   }

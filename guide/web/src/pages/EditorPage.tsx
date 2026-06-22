@@ -528,6 +528,7 @@ export default function EditorPage() {
           : opentalkingDigitalHumanDefaults(false),
         overlays: [],
         layout: frame.shotType === 'product_showcase' ? 'media-grid' : 'avatar-center',
+        frame_template_id: frame.id,
         objects: [],
       };
       const segments = [...draft.segments];
