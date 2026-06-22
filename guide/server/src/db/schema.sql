@@ -99,3 +99,51 @@ CREATE TABLE IF NOT EXISTS library_items (
 
 CREATE INDEX IF NOT EXISTS idx_library_items_category ON library_items(category);
 CREATE INDEX IF NOT EXISTS idx_library_items_parent ON library_items(parent_id);
+
+CREATE TABLE IF NOT EXISTS projects (
+  id TEXT PRIMARY KEY,
+  template_id TEXT NOT NULL,
+  name TEXT NOT NULL,
+  status TEXT DEFAULT 'draft' CHECK(status IN ('draft','editing','proposing','generating','reviewing','completed','archived')),
+  template_snapshot_json TEXT DEFAULT '{}',
+  brand_pack_id TEXT DEFAULT '',
+  brand_pack_version INTEGER DEFAULT 0,
+  brief_json TEXT DEFAULT '{}',
+  current_dsl_json TEXT DEFAULT '{}',
+  current_version_id TEXT DEFAULT '',
+  actor_id TEXT DEFAULT 'local-user',
+  created_at TEXT DEFAULT (datetime('now')),
+  updated_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (template_id) REFERENCES templates(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_projects_template ON projects(template_id);
+CREATE INDEX IF NOT EXISTS idx_projects_status ON projects(status);
+
+CREATE TABLE IF NOT EXISTS project_versions (
+  id TEXT PRIMARY KEY,
+  project_id TEXT NOT NULL,
+  version_number INTEGER NOT NULL,
+  dsl_json TEXT NOT NULL DEFAULT '{}',
+  change_summary TEXT DEFAULT '',
+  actor_id TEXT DEFAULT 'local-user',
+  parent_version_id TEXT DEFAULT '',
+  created_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (project_id) REFERENCES projects(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_project_versions_project ON project_versions(project_id);
+CREATE INDEX IF NOT EXISTS idx_project_versions_number ON project_versions(project_id, version_number);
+
+CREATE TABLE IF NOT EXISTS library_item_versions (
+  id TEXT PRIMARY KEY,
+  library_item_id TEXT NOT NULL,
+  version_number INTEGER NOT NULL,
+  payload_json TEXT NOT NULL DEFAULT '{}',
+  change_summary TEXT DEFAULT '',
+  actor_id TEXT DEFAULT 'local-user',
+  created_at TEXT DEFAULT (datetime('now')),
+  FOREIGN KEY (library_item_id) REFERENCES library_items(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_library_item_versions_item ON library_item_versions(library_item_id);

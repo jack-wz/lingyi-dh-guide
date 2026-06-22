@@ -14,6 +14,7 @@ import opsRouter from './routes/ops.js';
 import libraryRouter from './routes/library.js';
 import aiRouter from './routes/ai.js';
 import ttsRouter from './routes/tts.js';
+import projectsRouter from './routes/projects.js';
 
 import { getBrandFontsStaticDir } from './brand-fonts.js';
 import { ErrorCodes, apiError, listErrorCatalog } from './apiErrors.js';
@@ -52,6 +53,7 @@ export function createApp() {
   app.use('/api/library', libraryRouter);
   app.use('/api/ai', aiRouter);
   app.use('/api/tts', ttsRouter);
+  app.use('/api/projects', projectsRouter);
 
   app.get('/api/error-catalog', (_req, res) => {
     res.json({ errors: listErrorCatalog() });
