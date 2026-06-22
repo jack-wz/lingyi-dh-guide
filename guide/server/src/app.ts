@@ -17,6 +17,7 @@ import ttsRouter from './routes/tts.js';
 import projectsRouter from './routes/projects.js';
 import proposalsRouter from './routes/proposals.js';
 import recipesRouter from './routes/recipes.js';
+import segmentRegenRouter from './routes/segment_regen.js';
 
 import { getBrandFontsStaticDir } from './brand-fonts.js';
 import { ErrorCodes, apiError, listErrorCatalog } from './apiErrors.js';
@@ -58,6 +59,7 @@ export function createApp() {
   app.use('/api/projects', projectsRouter);
   app.use('/api/projects', proposalsRouter);
   app.use('/api/recipes', recipesRouter);
+  app.use('/api/segment-regen', segmentRegenRouter);
 
   app.get('/api/error-catalog', (_req, res) => {
     res.json({ errors: listErrorCatalog() });
