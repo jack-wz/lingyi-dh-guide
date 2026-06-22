@@ -21,6 +21,7 @@ import segmentRegenRouter from './routes/segment_regen.js';
 import assetWorkbenchRouter from './routes/asset_workbench.js';
 import editorPreviewRouter from './routes/editor_preview.js';
 import reviewRouter from './routes/review.js';
+import metricsRouter from './routes/metrics.js';
 
 import { getBrandFontsStaticDir } from './brand-fonts.js';
 import { ErrorCodes, apiError, listErrorCatalog } from './apiErrors.js';
@@ -66,6 +67,7 @@ export function createApp() {
   app.use('/api/assets', assetWorkbenchRouter);
   app.use('/api/editor-preview', editorPreviewRouter);
   app.use('/api/review', reviewRouter);
+  app.use('/api/metrics', metricsRouter);
 
   app.get('/api/error-catalog', (_req, res) => {
     res.json({ errors: listErrorCatalog() });
