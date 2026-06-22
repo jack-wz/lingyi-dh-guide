@@ -226,10 +226,12 @@ export default function RenderResultPage() {
         </div>
 
         <div className="mt-5 grid grid-cols-2 md:grid-cols-4 gap-3 text-xs text-muted-foreground">
-          <div className="bg-secondary rounded-lg p-2">
-            <div className="text-[10px] mb-1">流水线</div>
-            <div className="text-foreground font-medium">{job.pipeline_key || '-'}</div>
-          </div>
+          {new URLSearchParams(window.location.search).has('debug') && (
+            <div className="bg-secondary rounded-lg p-2">
+              <div className="text-[10px] mb-1">流水线</div>
+              <div className="text-foreground font-medium">{job.pipeline_key || '-'}</div>
+            </div>
+          )}
           <div className="bg-secondary rounded-lg p-2">
             <div className="text-[10px] mb-1">输入模式</div>
             <div className="text-foreground font-medium">{job.input_mode || '-'}</div>

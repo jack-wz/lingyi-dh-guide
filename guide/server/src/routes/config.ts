@@ -4,6 +4,7 @@ import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { spawnSync } from 'child_process';
 import { getDataDir } from '../db/database.js';
 import { getLlmDisplayInfo } from '../llmClient.js';
+import { getFeatureFlags } from '../featureFlags.js';
 
 const router = Router();
 function getConfigPath() {
@@ -294,6 +295,11 @@ router.get('/', (_req, res) => {
     ...masked,
     llm_runtime: llmRuntime,
   });
+});
+
+// GET /api/config/feature-flags — V4 feature flags (all default off)
+router.get('/feature-flags', (_req, res) => {
+  res.json(getFeatureFlags());
 });
 
 // GET /api/config/diagnostics — provider readiness without exposing secrets
