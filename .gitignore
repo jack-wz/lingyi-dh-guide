@@ -100,3 +100,8 @@ repositories/
 
 # Git worktrees
 .worktrees/
+.gstack/
+
+# Agent output artifacts
+output/
+

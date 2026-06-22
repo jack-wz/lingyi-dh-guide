@@ -1,0 +1,262 @@
+{
+  "version": "1.0.0",
+  "project": {
+    "name": "Pixelle-Video",
+    "description": "零一数字人导购平台 - AI-powered video creation platform",
+    "repo": "lingyi-dh-guide",
+    "root": "/Users/wuzhu/Documents/AI 产品/数字人/零一数字人导购平台/项目demo/Pixelle-Video"
+  },
+  "features": {
+    "agent_atlas": true,
+    "workspace": true,
+    "rest": true,
+    "sql": true,
+    "nosql": true,
+    "ssh": true,
+    "explorer": true,
+    "history": true
+  },
+  "agent_atlas": {
+    "enabled": true,
+    "knowledge_graph": {
+      "repo": "lingyi-dh-guide",
+      "symbols": 6089,
+      "relationships": 13418,
+      "execution_flows": 300
+    },
+    "navigation": {
+      "clusters": "gitnexus://repo/lingyi-dh-guide/clusters",
+      "processes": "gitnexus://repo/lingyi-dh-guide/processes",
+      "context": "gitnexus://repo/lingyi-dh-guide/context"
+    },
+    "rules": {
+      "impact_before_edit": true,
+      "detect_changes_before_commit": true,
+      "warn_high_risk": true
+    }
+  },
+  "workspace": {
+    "enabled": true,
+    "panels": [
+      { "id": "file_explorer", "type": "explorer", "side": "left" },
+      { "id": "api_client", "type": "rest", "side": "right" },
+      { "id": "database", "type": "sql", "side": "bottom" },
+      { "id": "terminal", "type": "terminal", "side": "bottom" },
+      { "id": "git_panel", "type": "git", "side": "left" },
+      { "id": "history_panel", "type": "history", "side": "right" }
+    ],
+    "shortcuts": {
+      "open_api_docs": "http://127.0.0.1:8000/docs",
+      "start_api": "./start_api.sh",
+      "start_platform": "./start_platform.sh",
+      "start_web": "./start_guide_web.sh",
+      "test": "make -C guide test-guide",
+      "lint": "ruff check .",
+      "format": "ruff format .",
+      "index_gitnexus": "node .gitnexus/run.cjs analyze"
+    }
+  },
+  "rest": {
+    "enabled": true,
+    "base_url": "http://127.0.0.1:8000",
+    "collections": [
+      {
+        "name": "Health & System",
+        "requests": [
+          { "name": "Health Check", "method": "GET", "path": "/health" },
+          { "name": "API Version", "method": "GET", "path": "/version" },
+          { "name": "Root Info", "method": "GET", "path": "/" },
+          { "name": "Guide Health", "method": "GET", "path": "/api/guide/health" }
+        ]
+      },
+      {
+        "name": "Templates",
+        "requests": [
+          { "name": "List Templates", "method": "GET", "path": "/api/templates" },
+          { "name": "Create Template", "method": "POST", "path": "/api/templates", "body": {"name": "new template", "dsl_json": "{}"} },
+          { "name": "Get Template", "method": "GET", "path": "/api/templates/{id}" },
+          { "name": "Update Template", "method": "PUT", "path": "/api/templates/{id}", "body": {"name": "updated"} },
+          { "name": "Delete Template", "method": "DELETE", "path": "/api/templates/{id}" }
+        ]
+      },
+      {
+        "name": "Digital Humans",
+        "requests": [
+          { "name": "List Digital Humans", "method": "GET", "path": "/api/digital-humans" },
+          { "name": "Create Digital Human", "method": "POST", "path": "/api/digital-humans", "body": {"name": "DH-001", "face_photo_url": ""} },
+          { "name": "Get Digital Human", "method": "GET", "path": "/api/digital-humans/{id}" },
+          { "name": "Update Digital Human", "method": "PUT", "path": "/api/digital-humans/{id}" },
+          { "name": "Delete Digital Human", "method": "DELETE", "path": "/api/digital-humans/{id}" }
+        ]
+      },
+      {
+        "name": "Render Jobs",
+        "requests": [
+          { "name": "List Render Jobs", "method": "GET", "path": "/api/renders" },
+          { "name": "Create Render Job", "method": "POST", "path": "/api/renders", "body": {"template_id": "", "digital_human_id": "", "variables_json": "{}"} },
+          { "name": "Get Render Job", "method": "GET", "path": "/api/renders/{id}" },
+          { "name": "Poll Render Job", "method": "GET", "path": "/api/renders/{id}/progress" },
+          { "name": "Cancel Render Job", "method": "POST", "path": "/api/renders/{id}/cancel" }
+        ]
+      },
+      {
+        "name": "Library",
+        "requests": [
+          { "name": "List Library Items", "method": "GET", "path": "/api/library" },
+          { "name": "Create Library Item", "method": "POST", "path": "/api/library", "body": {"category": "brand", "name": "item"} },
+          { "name": "Get Library Item", "method": "GET", "path": "/api/library/{id}" }
+        ]
+      },
+      {
+        "name": "Legacy Media APIs",
+        "requests": [
+          { "name": "LLM Generate", "method": "POST", "path": "/api/llm/generate", "body": {"prompt": "", "model": "qwen-plus"} },
+          { "name": "TTS Generate", "method": "POST", "path": "/api/tts/generate", "body": {"text": "", "voice": "zh-CN-XiaoxiaoNeural"} },
+          { "name": "Image Generate", "method": "POST", "path": "/api/image/generate", "body": {"prompt": "", "workflow": "api/dashscope/wan2.6-t2i"} },
+          { "name": "Video Generate Sync", "method": "POST", "path": "/api/video/generate/sync", "body": {"prompt": "", "workflow": "api/dashscope/wan2.7-t2v"} },
+          { "name": "Video Generate Async", "method": "POST", "path": "/api/video/generate/async", "body": {"prompt": "", "workflow": "api/dashscope/wan2.7-t2v"} },
+          { "name": "Get Task Status", "method": "GET", "path": "/api/tasks/{task_id}" },
+          { "name": "Content Narration", "method": "POST", "path": "/api/content/narration", "body": {"product": "", "features": []} }
+        ]
+      }
+    ]
+  },
+  "sql": {
+    "enabled": true,
+    "driver": "sqlite",
+    "database": {
+      "path": "guide/data/templates.db",
+      "type": "better-sqlite3",
+      "wal_mode": true
+    },
+    "queries": [
+      {
+        "name": "All Templates",
+        "sql": "SELECT id, name, status, type, created_at, updated_at FROM templates ORDER BY updated_at DESC"
+      },
+      {
+        "name": "Published Templates",
+        "sql": "SELECT id, name, type, published_at FROM templates WHERE status = 'published' ORDER BY published_at DESC"
+      },
+      {
+        "name": "All Digital Humans",
+        "sql": "SELECT id, name, status, voice_clone_id, created_at FROM digital_humans ORDER BY created_at DESC"
+      },
+      {
+        "name": "Ready Digital Humans",
+        "sql": "SELECT id, name, voice_clone_id, last_trained_at FROM digital_humans WHERE status = 'ready'"
+      },
+      {
+        "name": "Recent Render Jobs",
+        "sql": "SELECT id, template_id, status, progress, pipeline_key, created_at FROM render_jobs ORDER BY created_at DESC LIMIT 50"
+      },
+      {
+        "name": "Render Jobs by Status",
+        "sql": "SELECT status, COUNT(*) as count FROM render_jobs GROUP BY status ORDER BY count DESC"
+      },
+      {
+        "name": "Failed Render Jobs",
+        "sql": "SELECT id, template_id, error_message, created_at FROM render_jobs WHERE status = 'failed' ORDER BY created_at DESC"
+      },
+      {
+        "name": "Render Job Logs",
+        "sql": "SELECT r.id, r.level, r.message, r.created_at FROM render_logs r JOIN render_jobs j ON r.render_job_id = j.id WHERE j.id = ? ORDER BY r.created_at"
+      },
+      {
+        "name": "Library Items by Category",
+        "sql": "SELECT category, COUNT(*) as count FROM library_items GROUP BY category"
+      },
+      {
+        "name": "Active Assets",
+        "sql": "SELECT id, name, type, created_at FROM assets ORDER BY created_at DESC LIMIT 30"
+      }
+    ]
+  },
+  "nosql": {
+    "enabled": true,
+    "databases": [
+      {
+        "name": "local-cache",
+        "type": "redis",
+        "host": "localhost",
+        "port": 6379,
+        "db": 0,
+        "description": "本地 Redis 缓存（可选）"
+      }
+    ],
+    "note": "项目主要使用 SQLite 存储关系数据，Redis 可用于缓存渲染任务状态或会话数据。如需启用，安装 Redis 并取消注释相关配置。"
+  },
+  "ssh": {
+    "enabled": true,
+    "connections": [
+      {
+        "name": "production-deploy",
+        "host": "${PIXELLE_SSH_HOST}",
+        "port": 22,
+        "user": "${PIXELLE_SSH_USER}",
+        "key_path": "~/.ssh/pixelle_deploy",
+        "description": "生产环境部署服务器"
+      }
+    ],
+    "commands": {
+      "deploy": "ssh production-deploy 'cd /opt/pixelle && git pull && docker-compose up -d'",
+      "logs": "ssh production-deploy 'tail -f /opt/pixelle/logs/api.log'",
+      "restart": "ssh production-deploy 'cd /opt/pixelle && docker-compose restart'"
+    },
+    "note": "本地开发为主，SSH 用于远程部署。配置环境变量 PIXELLE_SSH_HOST 和 PIXELLE_SSH_USER 后可用。"
+  },
+  "explorer": {
+    "enabled": true,
+    "bookmarks": [
+      { "path": "api/routers", "label": "API Routes" },
+      { "path": "guide/server/src/routes", "label": "Guide Server Routes" },
+      { "path": "guide/web/src", "label": "Web Frontend" },
+      { "path": "pixelle_video/services", "label": "Pixelle Services" },
+      { "path": "guide/server/src/db", "label": "Database" },
+      { "path": "guide/data", "label": "Data Directory" },
+      { "path": "guide/worker", "label": "Worker" }
+    ],
+    "watched_patterns": [
+      "*.py",
+      "*.ts",
+      "*.tsx",
+      "*.json",
+      "*.yaml",
+      "*.yml",
+      "*.sql",
+      "*.sh"
+    ]
+  },
+  "history": {
+    "enabled": true,
+    "tracked": {
+      "git_commits": true,
+      "api_requests": true,
+      "sql_queries": true,
+      "file_edits": true,
+      "terminal_commands": true
+    },
+    "retention": "30_days"
+  },
+  "mcp_servers": [
+    {
+      "name": "gitnexus",
+      "description": "Code knowledge graph for impact analysis and code exploration"
+    },
+    {
+      "name": "chrome-devtools",
+      "description": "Browser debugging for web frontend testing"
+    }
+  ],
+  "commands": {
+    "start_all": "./start_platform.sh",
+    "start_api_only": "./start_api.sh",
+    "start_web": "./start_guide_web.sh",
+    "test_worker": "make -C guide test-guide",
+    "test_e2e": "cd guide/web && npm run test:e2e",
+    "validate_renders": "make -C guide validate-renders",
+    "lint": "ruff check .",
+    "format": "ruff format .",
+    "index_gitnexus": "node .gitnexus/run.cjs analyze"
+  }
+}

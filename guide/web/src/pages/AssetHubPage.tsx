@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { IconMic, IconMusic, IconPlus, IconSearch, IconFilm, IconImage, IconType } from '../components/Icons';
+import { IconArrowRight, IconMic, IconMusic, IconPlus, IconSearch, IconFilm, IconImage, IconType } from '../components/Icons';
 import { HF_SUBTITLE_STYLES } from '@shared/subtitleStyles';
 import { HF_TRANSITIONS } from '../components/TransitionStylePicker';
 import { LOOK_PRESET_REGISTRY_VERSION, parseLookPresetPayload } from '@shared/lookPreset';
@@ -978,13 +978,14 @@ export default function AssetHubPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-7xl mx-auto px-6 py-6">
-        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+    <div className="min-h-screen bg-secondary/30">
+      <div className="mx-auto max-w-[1600px] px-4 py-5 sm:px-6">
+        <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-lg font-semibold">资产库</h1>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              品牌包使用项目内 guide/data/brand-system/；脚本/音色/BGM 使用内置本地种子数据，可在各 Tab 新建或编辑
+            <p className="mb-1 text-[11px] font-medium uppercase tracking-[0.16em] text-brand-blue">制作素材中心</p>
+            <h1 className="text-xl font-semibold tracking-tight">资产库</h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              先选类型，再看预览；确认效果后再应用到项目。
             </p>
             {importMsg && <p className="text-xs text-brand-blue mt-1">{importMsg}</p>}
             {lookPresetSyncMsg && activeTab === 'look_preset' && (
@@ -1004,57 +1005,67 @@ export default function AssetHubPage() {
         </div>
 
         {returnTo && (
-          <div className="mb-4 rounded-lg border border-brand-blue/25 bg-brand-blue/5 px-4 py-2.5 flex items-center justify-between gap-3 text-sm">
-            <span className="text-muted-foreground">从编辑器跳转而来，在此管理素材后可返回继续编辑。</span>
-            <Link to={returnTo} className="text-brand-blue hover:underline shrink-0 font-medium">
-              返回编辑器
+          <div className="mb-4 flex items-center gap-3 rounded-xl border border-brand-blue/25 bg-card px-4 py-3 text-sm shadow-sm">
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-brand-blue text-xs font-semibold text-white">1</span>
+            <span className="font-medium">挑选资产</span>
+            <IconArrowRight size={14} className="text-muted-foreground" />
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-secondary text-xs font-semibold">2</span>
+            <span className="text-muted-foreground">预览效果</span>
+            <IconArrowRight size={14} className="text-muted-foreground" />
+            <span className="flex h-7 w-7 items-center justify-center rounded-full bg-secondary text-xs font-semibold">3</span>
+            <span className="text-muted-foreground">返回编辑</span>
+            <Link to={returnTo} className="ml-auto shrink-0 rounded-lg bg-foreground px-3 py-2 text-xs font-medium text-background hover:opacity-90">
+              完成挑选，返回编辑器
             </Link>
           </div>
         )}
 
-        <ImportCatalogBanner
-          summary={summary}
-          className="mb-4"
-          onImported={() => { loadSummary(); loadItems(); }}
-        />
+        <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
+          <aside className="h-fit rounded-xl border border-border bg-card p-3 shadow-sm lg:sticky lg:top-4">
+            <p className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">核心资产</p>
+            <div className="space-y-1">
+              {TABS.filter((tab) => tab.primary).map((tab) => (
+                <button key={tab.id} type="button" data-testid={`asset-tab-${tab.id}`} onClick={() => setTab(tab.id)}
+                  className={`w-full rounded-lg px-3 py-2.5 text-left transition-colors ${activeTab === tab.id ? 'bg-foreground text-background' : 'hover:bg-accent'}`}>
+                  <span className="flex items-center justify-between gap-2 text-sm font-medium">
+                    {tab.label}
+                    <span className={`text-[10px] ${activeTab === tab.id ? 'text-background/60' : 'text-muted-foreground'}`}>{summary?.counts?.[tab.id] ?? '—'}</span>
+                  </span>
+                  <span className={`mt-0.5 block truncate text-[10px] ${activeTab === tab.id ? 'text-background/60' : 'text-muted-foreground'}`}>{tab.hint}</span>
+                </button>
+              ))}
+            </div>
+            <div className="my-3 h-px bg-border" />
+            <p className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">视觉与内容</p>
+            <div className="space-y-1">
+              {TABS.filter((tab) => !tab.primary).map((tab) => (
+                <button key={tab.id} type="button" data-testid={`asset-tab-${tab.id}`} onClick={() => setTab(tab.id)}
+                  className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors ${activeTab === tab.id ? 'bg-accent font-medium text-foreground' : 'text-muted-foreground hover:bg-accent hover:text-foreground'}`}>
+                  <span>{tab.label}</span><span className="text-[10px] opacity-70">{summary?.counts?.[tab.id] ?? '—'}</span>
+                </button>
+              ))}
+            </div>
+          </aside>
 
-        <div className="flex flex-wrap items-center gap-2 mb-4">
-          <div className="flex flex-wrap gap-2">
-            {TABS.filter((t) => t.primary).map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setTab(tab.id)}
-                className={`px-3 py-1.5 rounded-full text-sm border font-medium transition-colors duration-150 ${
-                  activeTab === tab.id
-                    ? 'bg-brand-blue text-white border-brand-blue'
-                    : 'border-brand-blue/50 text-foreground hover:bg-brand-blue/8'
-                }`}
-              >
-                {tab.label}
-                {summary?.counts?.[tab.id] != null && <span className="ml-1 opacity-80">({summary.counts[tab.id]})</span>}
-              </button>
-            ))}
-          </div>
-          <div className="hidden sm:block w-px h-6 bg-border mx-0.5" aria-hidden />
-          <div className="flex flex-wrap gap-1.5">
-            {TABS.filter((t) => !t.primary).map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setTab(tab.id)}
-                className={`px-2.5 py-1 rounded-full text-xs border transition-colors duration-150 ${
-                  activeTab === tab.id
-                    ? 'bg-accent text-accent-foreground border-border'
-                    : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-accent/60'
-                }`}
-              >
-                {tab.label}
-                {summary?.counts?.[tab.id] != null && <span className="ml-1 opacity-60">({summary.counts[tab.id]})</span>}
-              </button>
-            ))}
-          </div>
-        </div>
+          <main className="min-w-0 rounded-xl border border-border bg-card shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-4 py-4 sm:px-5">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base font-semibold">{tabMeta?.label}</h2>
+                  <span className="rounded-full bg-secondary px-2 py-0.5 text-[10px] text-muted-foreground">{items.length} 项</span>
+                </div>
+                <p className="mt-1 text-xs text-muted-foreground">{tabMeta?.hint}</p>
+              </div>
+              {activeTab === 'brand' && (
+                <button type="button" disabled={importing} onClick={reloadLocalBrand}
+                  className="rounded-md border border-border px-3 py-2 text-xs hover:bg-accent disabled:opacity-50">
+                  {importing ? '重置中...' : '从本地模板重置'}
+                </button>
+              )}
+            </div>
+
+            <div className="p-4 sm:p-5">
+              <ImportCatalogBanner summary={summary} className="mb-4" onImported={() => { loadSummary(); loadItems(); }} />
 
         {activeTab === 'brand' && items.length === 0 && !loading && (
           <div className="mb-4 rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground space-y-2">
@@ -1062,8 +1073,6 @@ export default function AssetHubPage() {
             <p className="text-xs">源模板目录：<code className="text-foreground/80">guide/data/brand-system/default/</code></p>
           </div>
         )}
-
-        <p className="text-xs text-muted-foreground mb-4">{tabMeta?.hint}</p>
 
         {activeTab === 'voice' && (
           <div className="flex gap-2 mb-4">
@@ -1171,13 +1180,13 @@ export default function AssetHubPage() {
         {showForm && STORED_TABS.has(activeTab) && activeTab !== 'brand' && renderStoredForm(activeTab)}
 
         {activeTab === 'knowledge' ? (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               {loading ? <p className="col-span-full text-center text-muted-foreground py-12">加载中...</p>
                 : items.length === 0 ? <p className="col-span-full text-center text-muted-foreground py-12">暂无知识库</p>
                 : items.map(renderItemCard)}
             </div>
-            <div className="lg:col-span-1 space-y-4 sticky top-4 self-start">
+            <div className="space-y-4 self-start xl:sticky xl:top-4">
               <AssetPreviewPanel tab="knowledge" item={previewItem} />
               <div className="rounded-xl border border-dashed border-border bg-card p-4 text-center">
                 <p className="text-xs font-medium">知识库文档</p>
@@ -1190,17 +1199,20 @@ export default function AssetHubPage() {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="lg:col-span-2 grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
               {loading ? <p className="col-span-full text-center text-muted-foreground py-12">加载中...</p>
                 : items.length === 0 ? <p className="col-span-full text-center text-muted-foreground py-12">暂无数据</p>
                 : items.map(renderItemCard)}
             </div>
-            <div className="lg:col-span-1 min-h-[400px] sticky top-4 self-start">
+            <div className="min-h-[400px] self-start xl:sticky xl:top-4">
               <AssetPreviewPanel tab={activeTab} item={previewItem} returnTo={returnTo} />
             </div>
           </div>
         )}
+            </div>
+          </main>
+        </div>
       </div>
 
       <BrandAssetEditor

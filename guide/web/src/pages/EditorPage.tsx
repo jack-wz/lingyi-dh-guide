@@ -45,7 +45,6 @@ import {
 import FontFamilyPicker from '../components/brand-editor/FontFamilyPicker';
 import { useFontCatalog } from '../utils/brandFonts';
 import { libraryPayloadToBrandPack } from '@shared/brandPack';
-import EditorCoachmark from '../components/EditorCoachmark';
 import { formatApiErrorMessage, parseApiErrorResponse } from '../utils/apiError';
 
 import { applyBrandLibraryItemToDsl } from '../utils/applyBrandPack';
@@ -106,6 +105,7 @@ export default function EditorPage() {
   const [showExitDialog, setShowExitDialog] = useState(false);
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('layers');
   const [dismissBrandLookBanner, setDismissBrandLookBanner] = useState(false);
+  const [showProductionDetails, setShowProductionDetails] = useState(false);
   const [activeTool, setActiveTool] = useState<ToolKey | null>(null);
   const [leftPanelWidth, setLeftPanelWidth] = useState(176);
   const [rightPanelWidth, setRightPanelWidth] = useState(288);
@@ -725,6 +725,14 @@ export default function EditorPage() {
   const renderWarnings = getRenderWarnings(dsl, selectedDhId, renderPipelineKey);
   const readyToRender = renderIssues.length === 0;
   const segmentItems = dsl.segments.map((seg, index) => ({ seg, index }));
+  const hasBrandAsset = Boolean(
+    dsl.globalConfig.brand_pack_id ||
+    dsl.globalConfig.brand_pack ||
+    dsl.globalConfig.brand_color ||
+    dsl.globalConfig.brand_logo_url
+  );
+  const hasScriptContent = dsl.segments.some((seg) => Boolean(seg.narration_text?.trim()));
+  const hasSceneVisuals = dsl.segments.some((seg) => Boolean(seg.scene_image_url || seg.objects?.length || seg.overlays?.length));
 
   return (
     <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden">
@@ -763,8 +771,8 @@ export default function EditorPage() {
               title="选择数字人"
             >
               <IconUser size={14} />
-              数字人
-              {selectedDhId && <span className="w-1.5 h-1.5 rounded-full bg-brand-green" />}
+              <span className="hidden xl:inline">1 · </span>数字人
+              {selectedDhId && <IconCheck size={12} className="text-brand-green" />}
             </button>
             <button
               type="button"
@@ -777,7 +785,8 @@ export default function EditorPage() {
               title="选择品牌包"
             >
               <IconPalette size={14} />
-              品牌
+              <span className="hidden xl:inline">2 · </span>品牌
+              {hasBrandAsset && <IconCheck size={12} className="text-brand-green" />}
             </button>
             <button
               type="button"
@@ -786,7 +795,8 @@ export default function EditorPage() {
               title="从资产库选择脚本"
             >
               <IconType size={14} />
-              脚本
+              <span className="hidden xl:inline">3 · </span>脚本
+              {hasScriptContent && <IconCheck size={12} className="text-brand-green" />}
             </button>
           </div>
           <div className="w-px h-4 bg-border mx-0.5" />
@@ -829,9 +839,10 @@ export default function EditorPage() {
               });
               window.open(`/api/hyperframes/${id}/preview-html?${params.toString()}`, '_blank');
             }}
-            className="w-9 h-9 rounded-md flex items-center justify-center text-brand-blue hover:bg-brand-blue/10 transition-colors"
+            className="h-9 px-3 rounded-md flex items-center gap-1.5 text-brand-blue hover:bg-brand-blue/10 transition-colors text-[12px] font-medium"
             title="新标签打开成片预览（与 HyperFrames 导出一致，含变量与 objects）">
             <IconFilm size={18} />
+            <span className="hidden xl:inline">成片预览</span>
           </button>
           <button onClick={saveTemplate} disabled={saving}
             className="h-9 px-3 text-[14px] flex items-center gap-1.5 bg-secondary text-secondary-foreground hover:bg-accent rounded-md transition-colors disabled:opacity-50">
@@ -876,14 +887,36 @@ export default function EditorPage() {
         </div>
       </div>
 
-      {(() => {
-        const hasBrand = !!(
-          dsl.globalConfig.brand_pack_id ||
-          dsl.globalConfig.brand_pack ||
-          dsl.globalConfig.brand_color ||
-          dsl.globalConfig.brand_logo_url
-        );
-        return !hasBrand ? (
+      <div className="relative z-20 flex h-10 shrink-0 items-center gap-1.5 border-b border-border bg-card px-4 text-[11px]">
+        <span className="mr-1 hidden font-medium text-muted-foreground lg:inline">制作进度</span>
+        {[
+          { label: '数字人', done: Boolean(selectedDhId), action: () => openAssetPicker('digital_human') },
+          { label: '品牌', done: hasBrandAsset, action: () => openAssetPicker('brand') },
+          { label: '脚本', done: hasScriptContent, action: () => openAssetPicker('script', undefined, 'full') },
+          { label: '画面', done: hasSceneVisuals, action: () => { setInspectorTab('design'); setShowProps(true); } },
+        ].map((step, index) => (
+          <button key={step.label} type="button" onClick={step.action}
+            className={`flex h-7 items-center gap-1.5 rounded-full border px-2.5 transition-colors ${step.done ? 'border-brand-green/25 bg-brand-green/5 text-foreground' : 'border-brand-amber/30 bg-brand-amber/5 text-brand-amber hover:bg-brand-amber/10'}`}>
+            <span className={`flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-semibold ${step.done ? 'bg-brand-green text-white' : 'bg-brand-amber/15'}`}>
+              {step.done ? <IconCheck size={10} /> : index + 1}
+            </span>
+            {step.label}
+          </button>
+        ))}
+        <IconChevronRight size={13} className="text-muted-foreground" />
+        <button type="button" onClick={openRenderReview}
+          className={`flex h-7 items-center gap-1.5 rounded-full border px-2.5 font-medium ${readyToRender ? 'border-foreground bg-foreground text-background' : 'border-brand-amber/30 bg-brand-amber/5 text-brand-amber'}`}>
+          <IconZap size={12} /> {readyToRender ? '可生成' : `${renderIssues.length} 项待补充`}
+        </button>
+        <button type="button" onClick={() => setShowProductionDetails((value) => !value)}
+          data-testid="editor-production-status-toggle"
+          className="ml-auto flex h-7 items-center gap-1 rounded-md px-2 text-muted-foreground hover:bg-accent hover:text-foreground">
+          {showProductionDetails ? '收起制作状态' : '查看制作状态'}
+          <IconChevronRight size={12} className={showProductionDetails ? '-rotate-90' : 'rotate-90'} />
+        </button>
+      </div>
+
+      {!hasBrandAsset ? (
           <div className="px-4 py-2 bg-brand-amber/10 border-b border-brand-amber/20 text-xs text-muted-foreground shrink-0 flex items-center justify-between gap-3">
             <span>尚未关联资产库品牌包，字幕样式与成片字体可能与预览不一致。</span>
             <div className="flex items-center gap-2 shrink-0">
@@ -902,29 +935,31 @@ export default function EditorPage() {
               </Link>
             </div>
           </div>
-        ) : null;
-      })()}
+        ) : null}
 
-      <HfPipelineStatusBar
-        dsl={dsl}
-        pipelineKey={DEFAULT_EDITOR_PIPELINE_KEY}
-        onOpenMotionPanel={() => {
-          setInspectorTab('motion');
-          setShowProps(true);
-        }}
-      />
-
-      {!dismissBrandLookBanner && (
-        <BrandLookPresetBanner
-          dsl={dsl}
-          editorId={id || ''}
-          onApply={(updater) => {
-            updateEditorDsl(updater);
-            setInspectorTab('motion');
-            setShowProps(true);
-          }}
-          onDismiss={() => setDismissBrandLookBanner(true)}
-        />
+      {showProductionDetails && (
+        <>
+          <HfPipelineStatusBar
+            dsl={dsl}
+            pipelineKey={DEFAULT_EDITOR_PIPELINE_KEY}
+            onOpenMotionPanel={() => {
+              setInspectorTab('motion');
+              setShowProps(true);
+            }}
+          />
+          {!dismissBrandLookBanner && (
+            <BrandLookPresetBanner
+              dsl={dsl}
+              editorId={id || ''}
+              onApply={(updater) => {
+                updateEditorDsl(updater);
+                setInspectorTab('motion');
+                setShowProps(true);
+              }}
+              onDismiss={() => setDismissBrandLookBanner(true)}
+            />
+          )}
+        </>
       )}
 
       {/* 主体 */}
@@ -1004,7 +1039,6 @@ export default function EditorPage() {
           onIssueClick={jumpToRenderIssue}
         />
       )}
-      <EditorCoachmark />
       <AssetPickerModal
         open={assetPicker.open}
         category={assetPicker.category}

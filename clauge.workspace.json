@@ -1,0 +1,126 @@
+{
+  "workspace": {
+    "name": "Pixelle-Video Dev",
+    "description": "零一数字人导购平台开发工作区",
+    "layout": {
+      "sidebar": {
+        "panels": [
+          {
+            "id": "file_explorer",
+            "title": "文件浏览器",
+            "type": "explorer",
+            "root_path": "/Users/wuzhu/Documents/AI 产品/数字人/零一数字人导购平台/项目demo/Pixelle-Video",
+            "expanded_paths": [
+              "api",
+              "guide/server/src",
+              "guide/web/src",
+              "pixelle_video"
+            ]
+          },
+          {
+            "id": "git_panel",
+            "title": "Git 状态",
+            "type": "git",
+            "show_status": true,
+            "show_log": true,
+            "show_branches": true,
+            "show_diff": true
+          }
+        ]
+      },
+      "main": {
+        "editor": {
+          "tab_behavior": "smart",
+          "autosave": true,
+          "word_wrap": true
+        }
+      },
+      "panels": {
+        "bottom": [
+          {
+            "id": "terminal",
+            "title": "终端",
+            "type": "terminal",
+            "default_shell": "bash",
+            "startup_commands": [
+              "cd '/Users/wuzhu/Documents/AI 产品/数字人/零一数字人导购平台/项目demo/Pixelle-Video'",
+              "source .venv/bin/activate 2>/dev/null || true"
+            ]
+          },
+          {
+            "id": "database_panel",
+            "title": "数据库 (SQLite)",
+            "type": "database",
+            "connection": {
+              "driver": "sqlite",
+              "database": "guide/data/templates.db"
+            },
+            "default_queries": [
+              "SELECT COUNT(*) FROM templates",
+              "SELECT COUNT(*) FROM render_jobs",
+              "SELECT COUNT(*) FROM digital_humans"
+            ]
+          }
+        ],
+        "right": [
+          {
+            "id": "api_client",
+            "title": "API 客户端",
+            "type": "rest",
+            "base_url": "http://127.0.0.1:8000",
+            "environments": [
+              {
+                "name": "local",
+                "base_url": "http://127.0.0.1:8000",
+                "variables": {}
+              },
+              {
+                "name": "production",
+                "base_url": "${PIXELLE_PUBLIC_URL}",
+                "variables": {}
+              }
+            ]
+          },
+          {
+            "id": "history_panel",
+            "title": "历史记录",
+            "type": "history",
+            "filters": ["git", "api", "sql", "terminal"]
+          }
+        ]
+      }
+    },
+    "quick_actions": [
+      {
+        "label": "启动平台",
+        "command": "./start_platform.sh",
+        "icon": "play"
+      },
+      {
+        "label": "API 文档",
+        "url": "http://127.0.0.1:8000/docs",
+        "icon": "book"
+      },
+      {
+        "label": "运行测试",
+        "command": "make -C guide test-guide",
+        "icon": "test"
+      },
+      {
+        "label": "验证渲染",
+        "command": "make -C guide validate-renders",
+        "icon": "check"
+      },
+      {
+        "label": "Git 提交",
+        "command": "git add . && git commit -m 'update'",
+        "icon": "git-commit"
+      },
+      {
+        "label": "刷新索引",
+        "command": "node .gitnexus/run.cjs analyze",
+        "icon": "refresh"
+      }
+    ]
+  }
+}

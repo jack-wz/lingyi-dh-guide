@@ -1,0 +1,314 @@
+{
+  "name": "Pixelle-Video API Collection",
+  "description": "零一数字人导购平台完整 API 集合",
+  "base_url": "http://127.0.0.1:8000",
+  "version": "0.1.0",
+  "folders": [
+    {
+      "name": "01 - Health & System",
+      "requests": [
+        {
+          "name": "Health Check",
+          "method": "GET",
+          "path": "/health",
+          "description": "检查 API 服务健康状态"
+        },
+        {
+          "name": "API Version",
+          "method": "GET",
+          "path": "/version",
+          "description": "获取 API 版本信息"
+        },
+        {
+          "name": "Root Info",
+          "method": "GET",
+          "path": "/",
+          "description": "获取所有可用端点列表"
+        },
+        {
+          "name": "Guide Health",
+          "method": "GET",
+          "path": "/api/guide/health",
+          "description": "检查导购平台服务健康状态"
+        }
+      ]
+    },
+    {
+      "name": "02 - Templates",
+      "requests": [
+        {
+          "name": "List Templates",
+          "method": "GET",
+          "path": "/api/templates",
+          "description": "获取所有模板列表"
+        },
+        {
+          "name": "Create Template",
+          "method": "POST",
+          "path": "/api/templates",
+          "body": {
+            "name": "新模板",
+            "type": "default",
+            "description": "",
+            "dsl_json": "{}"
+          },
+          "description": "创建新模板"
+        },
+        {
+          "name": "Get Template",
+          "method": "GET",
+          "path": "/api/templates/{id}",
+          "params": [{"name": "id", "type": "path", "description": "模板 ID"}],
+          "description": "获取模板详情"
+        },
+        {
+          "name": "Update Template",
+          "method": "PUT",
+          "path": "/api/templates/{id}",
+          "body": {
+            "name": "updated name"
+          },
+          "description": "更新模板"
+        },
+        {
+          "name": "Delete Template",
+          "method": "DELETE",
+          "path": "/api/templates/{id}",
+          "description": "删除模板"
+        }
+      ]
+    },
+    {
+      "name": "03 - Digital Humans",
+      "requests": [
+        {
+          "name": "List Digital Humans",
+          "method": "GET",
+          "path": "/api/digital-humans",
+          "description": "获取所有数字人列表"
+        },
+        {
+          "name": "Create Digital Human",
+          "method": "POST",
+          "path": "/api/digital-humans",
+          "body": {
+            "name": "DH-001",
+            "face_photo_url": "",
+            "half_body_photo_url": "",
+            "full_body_photo_url": "",
+            "voice_sample_url": ""
+          },
+          "description": "创建新数字人"
+        },
+        {
+          "name": "Get Digital Human",
+          "method": "GET",
+          "path": "/api/digital-humans/{id}",
+          "description": "获取数字人详情"
+        },
+        {
+          "name": "Update Digital Human",
+          "method": "PUT",
+          "path": "/api/digital-humans/{id}",
+          "description": "更新数字人信息"
+        },
+        {
+          "name": "Delete Digital Human",
+          "method": "DELETE",
+          "path": "/api/digital-humans/{id}",
+          "description": "删除数字人"
+        }
+      ]
+    },
+    {
+      "name": "04 - Render Jobs",
+      "requests": [
+        {
+          "name": "List Render Jobs",
+          "method": "GET",
+          "path": "/api/renders",
+          "description": "获取所有渲染任务列表"
+        },
+        {
+          "name": "Create Render Job",
+          "method": "POST",
+          "path": "/api/renders",
+          "body": {
+            "template_id": "template-id",
+            "digital_human_id": "",
+            "variables_json": "{}",
+            "pipeline_key": "standard",
+            "input_mode": "template"
+          },
+          "description": "创建新渲染任务"
+        },
+        {
+          "name": "Get Render Job",
+          "method": "GET",
+          "path": "/api/renders/{id}",
+          "description": "获取渲染任务详情"
+        },
+        {
+          "name": "Poll Render Job",
+          "method": "GET",
+          "path": "/api/renders/{id}/progress",
+          "description": "查询渲染进度"
+        },
+        {
+          "name": "Cancel Render Job",
+          "method": "POST",
+          "path": "/api/renders/{id}/cancel",
+          "description": "取消渲染任务"
+        }
+      ]
+    },
+    {
+      "name": "05 - Library",
+      "requests": [
+        {
+          "name": "List Library Items",
+          "method": "GET",
+          "path": "/api/library",
+          "description": "获取素材库列表"
+        },
+        {
+          "name": "Create Library Item",
+          "method": "POST",
+          "path": "/api/library",
+          "body": {
+            "category": "brand",
+            "name": "New Item",
+            "description": "",
+            "tags": "[]",
+            "payload_json": "{}"
+          },
+          "description": "创建素材库项目"
+        },
+        {
+          "name": "Get Library Item",
+          "method": "GET",
+          "path": "/api/library/{id}",
+          "description": "获取素材库项目详情"
+        }
+      ]
+    },
+    {
+      "name": "06 - Assets & Uploads",
+      "requests": [
+        {
+          "name": "List Assets",
+          "method": "GET",
+          "path": "/api/assets",
+          "description": "获取所有资源文件"
+        },
+        {
+          "name": "Upload Asset",
+          "method": "POST",
+          "path": "/api/uploads",
+          "content_type": "multipart/form-data",
+          "description": "上传资源文件"
+        }
+      ]
+    },
+    {
+      "name": "07 - Config & Ops",
+      "requests": [
+        {
+          "name": "Get Config",
+          "method": "GET",
+          "path": "/api/config",
+          "description": "获取系统配置"
+        },
+        {
+          "name": "Get Ops Status",
+          "method": "GET",
+          "path": "/api/ops",
+          "description": "获取运营状态"
+        }
+      ]
+    },
+    {
+      "name": "08 - Legacy Media APIs",
+      "requests": [
+        {
+          "name": "LLM Generate",
+          "method": "POST",
+          "path": "/api/llm/generate",
+          "body": {
+            "prompt": "写一个30秒的电商导购脚本",
+            "model": "qwen-plus"
+          },
+          "description": "调用 LLM 生成文本"
+        },
+        {
+          "name": "TTS Generate",
+          "method": "POST",
+          "path": "/api/tts/generate",
+          "body": {
+            "text": "欢迎观看我们的电商导购视频",
+            "voice": "zh-CN-XiaoxiaoNeural",
+            "speed": 1.1
+          },
+          "description": "文本转语音"
+        },
+        {
+          "name": "Image Generate",
+          "method": "POST",
+          "path": "/api/image/generate",
+          "body": {
+            "prompt": "电商导购场景，真实自然，竖屏短视频配图",
+            "workflow": "api/dashscope/wan2.6-t2i"
+          },
+          "description": "生成图片"
+        },
+        {
+          "name": "Video Generate (Sync)",
+          "method": "POST",
+          "path": "/api/video/generate/sync",
+          "body": {
+            "prompt": "电商导购场景，真实自然，竖屏短视频",
+            "workflow": "api/dashscope/wan2.7-t2v"
+          },
+          "description": "同步生成视频（适合30秒以内）"
+        },
+        {
+          "name": "Video Generate (Async)",
+          "method": "POST",
+          "path": "/api/video/generate/async",
+          "body": {
+            "prompt": "电商导购场景，真实自然，竖屏短视频",
+            "workflow": "api/dashscope/wan2.7-t2v"
+          },
+          "description": "异步生成视频（带任务跟踪）"
+        },
+        {
+          "name": "Get Task Status",
+          "method": "GET",
+          "path": "/api/tasks/{task_id}",
+          "description": "查询任务状态"
+        },
+        {
+          "name": "Content Narration",
+          "method": "POST",
+          "path": "/api/content/narration",
+          "body": {
+            "product": "商品名称",
+            "features": ["特点1", "特点2"],
+            "style": "professional"
+          },
+          "description": "生成商品解说文案"
+        }
+      ]
+    }
+  ],
+  "environments": {
+    "local": {
+      "name": "本地开发",
+      "base_url": "http://127.0.0.1:8000"
+    },
+    "production": {
+      "name": "生产环境",
+      "base_url": "${PIXELLE_PUBLIC_URL}"
+    }
+  }
+}

@@ -1,0 +1,236 @@
+{
+  "name": "Pixelle-Video SQLite Database",
+  "description": "零一数字人导购平台数据库查询配置",
+  "driver": "sqlite",
+  "database": {
+    "path": "guide/data/templates.db",
+    "type": "better-sqlite3",
+    "wal_mode": true,
+    "foreign_keys": true
+  },
+  "schema": {
+    "tables": [
+      {
+        "name": "templates",
+        "description": "视频模板表",
+        "columns": [
+          {"name": "id", "type": "TEXT", "pk": true},
+          {"name": "name", "type": "TEXT"},
+          {"name": "type", "type": "TEXT"},
+          {"name": "description", "type": "TEXT"},
+          {"name": "cover_url", "type": "TEXT"},
+          {"name": "status", "type": "TEXT", "check": "draft|pending|published|offline"},
+          {"name": "dsl_json", "type": "TEXT"},
+          {"name": "version", "type": "INTEGER"},
+          {"name": "published_at", "type": "TEXT"},
+          {"name": "created_at", "type": "TEXT"},
+          {"name": "updated_at", "type": "TEXT"}
+        ]
+      },
+      {
+        "name": "digital_humans",
+        "description": "数字人表",
+        "columns": [
+          {"name": "id", "type": "TEXT", "pk": true},
+          {"name": "name", "type": "TEXT"},
+          {"name": "face_photo_url", "type": "TEXT"},
+          {"name": "half_body_photo_url", "type": "TEXT"},
+          {"name": "full_body_photo_url", "type": "TEXT"},
+          {"name": "voice_sample_url", "type": "TEXT"},
+          {"name": "voice_clone_id", "type": "TEXT"},
+          {"name": "image_model_id", "type": "TEXT"},
+          {"name": "status", "type": "TEXT", "check": "pending|pending_assets|training|ready|failed"},
+          {"name": "provider_job_id", "type": "TEXT"},
+          {"name": "training_error", "type": "TEXT"},
+          {"name": "last_trained_at", "type": "TEXT"},
+          {"name": "created_at", "type": "TEXT"},
+          {"name": "updated_at", "type": "TEXT"}
+        ]
+      },
+      {
+        "name": "render_jobs",
+        "description": "渲染任务表",
+        "columns": [
+          {"name": "id", "type": "TEXT", "pk": true},
+          {"name": "template_id", "type": "TEXT", "fk": "templates(id)"},
+          {"name": "digital_human_id", "type": "TEXT", "fk": "digital_humans(id)"},
+          {"name": "status", "type": "TEXT", "check": "queued|parsing|scene_gen|video_gen|ffmpeg|completed|failed|cancelling|cancelled"},
+          {"name": "pipeline_key", "type": "TEXT"},
+          {"name": "input_mode", "type": "TEXT"},
+          {"name": "topic", "type": "TEXT"},
+          {"name": "script_text", "type": "TEXT"},
+          {"name": "variables_json", "type": "TEXT"},
+          {"name": "template_dsl_snapshot", "type": "TEXT"},
+          {"name": "provider_config_snapshot", "type": "TEXT"},
+          {"name": "output_url", "type": "TEXT"},
+          {"name": "error_message", "type": "TEXT"},
+          {"name": "progress", "type": "REAL"},
+          {"name": "stage", "type": "TEXT"},
+          {"name": "retry_count", "type": "INTEGER"},
+          {"name": "max_retries", "type": "INTEGER"},
+          {"name": "worker_id", "type": "TEXT"},
+          {"name": "heartbeat_at", "type": "TEXT"},
+          {"name": "cancel_requested", "type": "INTEGER"},
+          {"name": "parent_job_id", "type": "TEXT"},
+          {"name": "started_at", "type": "TEXT"},
+          {"name": "created_at", "type": "TEXT"},
+          {"name": "updated_at", "type": "TEXT"},
+          {"name": "completed_at", "type": "TEXT"}
+        ]
+      },
+      {
+        "name": "render_logs",
+        "description": "渲染日志表",
+        "columns": [
+          {"name": "id", "type": "INTEGER", "pk": true, "auto": true},
+          {"name": "render_job_id", "type": "TEXT", "fk": "render_jobs(id)"},
+          {"name": "level", "type": "TEXT", "check": "info|warn|error"},
+          {"name": "message", "type": "TEXT"},
+          {"name": "created_at", "type": "TEXT"}
+        ]
+      },
+      {
+        "name": "assets",
+        "description": "资源文件表",
+        "columns": [
+          {"name": "id", "type": "TEXT", "pk": true},
+          {"name": "name", "type": "TEXT"},
+          {"name": "type", "type": "TEXT"},
+          {"name": "file_url", "type": "TEXT"},
+          {"name": "metadata", "type": "TEXT"},
+          {"name": "created_at", "type": "TEXT"}
+        ]
+      },
+      {
+        "name": "library_items",
+        "description": "素材库表",
+        "columns": [
+          {"name": "id", "type": "TEXT", "pk": true},
+          {"name": "category", "type": "TEXT", "check": "brand|look_preset|voice|script|knowledge|knowledge_doc"},
+          {"name": "name", "type": "TEXT"},
+          {"name": "description", "type": "TEXT"},
+          {"name": "status", "type": "TEXT", "check": "active|archived"},
+          {"name": "tags", "type": "TEXT"},
+          {"name": "file_url", "type": "TEXT"},
+          {"name": "parent_id", "type": "TEXT"},
+          {"name": "payload_json", "type": "TEXT"},
+          {"name": "created_at", "type": "TEXT"},
+          {"name": "updated_at", "type": "TEXT"}
+        ]
+      }
+    ]
+  },
+  "queries": {
+    "templates": [
+      {
+        "name": "所有模板",
+        "sql": "SELECT id, name, type, status, published_at, created_at, updated_at FROM templates ORDER BY updated_at DESC",
+        "description": "列出所有模板，按更新时间排序"
+      },
+      {
+        "name": "已发布模板",
+        "sql": "SELECT id, name, type, published_at FROM templates WHERE status = 'published' ORDER BY published_at DESC",
+        "description": "仅显示已发布模板"
+      },
+      {
+        "name": "模板搜索",
+        "sql": "SELECT id, name, type, status FROM templates WHERE name LIKE ? OR description LIKE ? ORDER BY updated_at DESC",
+        "params": ["%keyword%", "%keyword%"],
+        "description": "按名称或描述搜索模板"
+      }
+    ],
+    "digital_humans": [
+      {
+        "name": "所有数字人",
+        "sql": "SELECT id, name, status, voice_clone_id, last_trained_at, created_at FROM digital_humans ORDER BY created_at DESC",
+        "description": "列出所有数字人"
+      },
+      {
+        "name": "可用数字人",
+        "sql": "SELECT id, name, voice_clone_id, image_model_id, last_trained_at FROM digital_humans WHERE status = 'ready' ORDER BY last_trained_at DESC",
+        "description": "仅显示训练完成的数字人"
+      },
+      {
+        "name": "训练失败数字人",
+        "sql": "SELECT id, name, training_error, last_trained_at FROM digital_humans WHERE status = 'failed'",
+        "description": "显示训练失败的数字人及其错误信息"
+      }
+    ],
+    "render_jobs": [
+      {
+        "name": "最近渲染任务",
+        "sql": "SELECT id, template_id, status, progress, pipeline_key, created_at, updated_at FROM render_jobs ORDER BY created_at DESC LIMIT 50",
+        "description": "最近50个渲染任务"
+      },
+      {
+        "name": "渲染任务按状态统计",
+        "sql": "SELECT status, COUNT(*) as count FROM render_jobs GROUP BY status ORDER BY count DESC",
+        "description": "按状态统计渲染任务数量"
+      },
+      {
+        "name": "失败渲染任务",
+        "sql": "SELECT id, template_id, error_message, created_at FROM render_jobs WHERE status = 'failed' ORDER BY created_at DESC",
+        "description": "显示失败的渲染任务"
+      },
+      {
+        "name": "进行中的渲染任务",
+        "sql": "SELECT id, template_id, status, progress, stage, started_at FROM render_jobs WHERE status IN ('queued', 'parsing', 'scene_gen', 'video_gen', 'ffmpeg') ORDER BY created_at DESC",
+        "description": "显示正在执行的渲染任务"
+      },
+      {
+        "name": "渲染任务平均耗时",
+        "sql": "SELECT pipeline_key, COUNT(*) as count, AVG(julianday(completed_at) - julianday(started_at)) * 24 * 60 as avg_minutes FROM render_jobs WHERE status = 'completed' AND started_at IS NOT NULL AND completed_at IS NOT NULL GROUP BY pipeline_key",
+        "description": "按流水线统计平均渲染耗时（分钟）"
+      }
+    ],
+    "logs": [
+      {
+        "name": "渲染任务日志",
+        "sql": "SELECT r.id, r.level, r.message, r.created_at FROM render_logs r WHERE r.render_job_id = ? ORDER BY r.created_at",
+        "params": ["job-id"],
+        "description": "查询特定渲染任务的所有日志"
+      },
+      {
+        "name": "错误日志",
+        "sql": "SELECT r.render_job_id, r.level, r.message, r.created_at FROM render_logs r WHERE r.level = 'error' ORDER BY r.created_at DESC LIMIT 50",
+        "description": "最近50条错误日志"
+      }
+    ],
+    "library": [
+      {
+        "name": "素材库分类统计",
+        "sql": "SELECT category, COUNT(*) as count FROM library_items GROUP BY category",
+        "description": "按分类统计素材库项目"
+      },
+      {
+        "name": "活跃素材",
+        "sql": "SELECT id, name, category, status, created_at FROM library_items WHERE status = 'active' ORDER BY updated_at DESC",
+        "description": "显示活跃的素材库项目"
+      }
+    ],
+    "assets": [
+      {
+        "name": "所有资源",
+        "sql": "SELECT id, name, type, file_url, created_at FROM assets ORDER BY created_at DESC LIMIT 30",
+        "description": "最近30个资源文件"
+      },
+      {
+        "name": "资源按类型统计",
+        "sql": "SELECT type, COUNT(*) as count FROM assets GROUP BY type",
+        "description": "按类型统计资源数量"
+      }
+    ],
+    "analytics": [
+      {
+        "name": "每日渲染量",
+        "sql": "SELECT DATE(created_at) as date, COUNT(*) as count FROM render_jobs GROUP BY DATE(created_at) ORDER BY date DESC LIMIT 30",
+        "description": "最近30天每日渲染任务量"
+      },
+      {
+        "name": "成功率统计",
+        "sql": "SELECT CASE WHEN status = 'completed' THEN 'success' WHEN status = 'failed' THEN 'failed' ELSE 'other' END as result, COUNT(*) as count FROM render_jobs GROUP BY result",
+        "description": "渲染任务成功率统计"
+      }
+    ]
+  }
+}

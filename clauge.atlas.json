@@ -1,0 +1,118 @@
+{
+  "project": "lingyi-dh-guide",
+  "repo_path": "/Users/wuzhu/Documents/AI 产品/数字人/零一数字人导购平台/项目demo/Pixelle-Video",
+  "knowledge_graph": {
+    "provider": "gitnexus",
+    "repo_name": "lingyi-dh-guide",
+    "stats": {
+      "symbols": 6089,
+      "relationships": 13418,
+      "execution_flows": 300
+    }
+  },
+  "atlas": {
+    "layers": [
+      {
+        "name": "API Gateway",
+        "description": "FastAPI 网关层，包含所有 HTTP 路由和中间件",
+        "paths": ["api/routers/*.py", "api/app.py", "api/config.py"],
+        "color": "#4A90D9",
+        "symbols": [
+          "api.app:app",
+          "api.routers.health:router",
+          "api.routers.guide:router",
+          "api.routers.llm:router",
+          "api.routers.tts:router",
+          "api.routers.image:router",
+          "api.routers.content:router",
+          "api.routers.video:router",
+          "api.routers.tasks:router",
+          "api.routers.files:router",
+          "api.routers.resources:router",
+          "api.routers.frame:router"
+        ]
+      },
+      {
+        "name": "Guide Server",
+        "description": "导购平台 Express API，模板 / 数字人 / 渲染任务管理",
+        "paths": ["guide/server/src/**/*.ts"],
+        "color": "#7B68EE",
+        "symbols": [
+          "guide/server/src/index.ts",
+          "guide/server/src/app.ts",
+          "guide/server/src/routes/templates.ts",
+          "guide/server/src/routes/digital-humans.ts",
+          "guide/server/src/routes/renders.ts",
+          "guide/server/src/routes/library.ts",
+          "guide/server/src/routes/assets.ts",
+          "guide/server/src/routes/tasks.ts",
+          "guide/server/src/routes/ops.ts",
+          "guide/server/src/routes/hyperframes.ts",
+          "guide/server/src/routes/tts.ts",
+          "guide/server/src/routes/config.ts",
+          "guide/server/src/routes/ai.ts",
+          "guide/server/src/routes/uploads.ts"
+        ]
+      },
+      {
+        "name": "Database",
+        "description": "SQLite 数据层，better-sqlite3",
+        "paths": ["guide/server/src/db/**"],
+        "color": "#50C878",
+        "symbols": [
+          "guide/server/src/db/database.ts:getDb",
+          "guide/server/src/db/database.ts:initializeDb",
+          "guide/server/src/db/database.ts:migrateDb"
+        ],
+        "tables": [
+          "templates",
+          "digital_humans",
+          "render_jobs",
+          "render_logs",
+          "assets",
+          "library_items"
+        ]
+      },
+      {
+        "name": "Web Frontend",
+        "description": "导购平台前端，React + Vite + TypeScript",
+        "paths": ["guide/web/src/**/*", "web/**/*"],
+        "color": "#FF6B6B",
+        "symbols": [
+          "guide/web/src"
+        ]
+      },
+      {
+        "name": "Worker / Pipeline",
+        "description": "渲染工作流，FFmpeg 合成，HyperFrames 流水线",
+        "paths": ["guide/worker/**", "guide/scripts/**", "guide/shared/**"],
+        "color": "#FFA500",
+        "symbols": [
+          "guide/worker",
+          "guide/scripts"
+        ]
+      },
+      {
+        "name": "Pixelle Core",
+        "description": "Pixelle 核心服务，LLM / TTS / Image / Video 生成",
+        "paths": ["pixelle_video/**/*.py"],
+        "color": "#9B59B6",
+        "symbols": [
+          "pixelle_video.service:PixelleVideoService",
+          "pixelle_video.pipelines",
+          "pixelle_video.services"
+        ]
+      }
+    ],
+    "navigation": {
+      "context_resource": "gitnexus://repo/lingyi-dh-guide/context",
+      "clusters_resource": "gitnexus://repo/lingyi-dh-guide/clusters",
+      "processes_resource": "gitnexus://repo/lingyi-dh-guide/processes"
+    },
+    "rules": {
+      "impact_before_edit": true,
+      "detect_changes_before_commit": true,
+      "warn_high_risk": true
+    }
+  }
+}
