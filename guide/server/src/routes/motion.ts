@@ -4,6 +4,9 @@ import { getDb } from '../db/database.js';
 import { compileLottie, validatePlan, applySlots, type MotionPlan } from '../../../shared/lottieCompiler.js';
 import { compileGsap, validateSpec, type MotionSpec, GSAP_CSP } from '../../../shared/gsapCompiler.js';
 import { judgeDeliveryMode, looksLikeLottieJson } from '../../../shared/types/motion.js';
+import { RESOURCE_PACK_CATALOG, RESOURCE_PACK_COUNTS, assertCatalogComplete, listByKind } from '../../../shared/resourcePacks.js';
+import { RECIPE_REGISTRY, detectAssetGaps, buildProductBrief, assertWritebackCompliant } from '../../../shared/recipeRegistry.js';
+import type { DSL } from '../../../shared/types/editor.js';
 
 const router = Router();
 
@@ -66,6 +69,63 @@ router.post('/lottie/compile', (req: Request, res: Response) => {
     delivery_mode: judgeDeliveryMode('lottie', false),
     lineage,
   });
+});
+
+/* GET /api/motion/packs — built-in enterprise resource pack catalog with counts + compliance. */
+router.get('/packs', (_req: Request, res: Response) => {
+  const problems = assertCatalogComplete();
+  res.json({
+    counts: RESOURCE_PACK_COUNTS,
+    total: RESOURCE_PACK_CATALOG.length,
+    items: RESOURCE_PACK_CATALOG,
+    by_kind: Object.fromEntries(Object.keys(RESOURCE_PACK_COUNTS).map((k) => [k, listByKind(k as any)])) as Record<string, unknown>,
+    compliance_ok: problems.length === 0,
+    compliance_problems: problems,
+  });
+});
+
+/* GET /api/motion/recipes — AI production Recipe registry (inputs/outputs/cost/writeback). */
+router.get('/recipes', (_req: Request, res: Response) => {
+  res.json({ recipes: RECIPE_REGISTRY, total: RECIPE_REGISTRY.length });
+});
+
+/* POST /api/motion/gaps — scans a DSL and returns user-language fill list ("将 AI 补 N 张场景图…"). */
+router.post('/gaps', (req: Request, res: Response) => {
+  const { dsl } = req.body || {};
+  if (!dsl || !Array.isArray(dsl.segments)) return res.status(400).json({ error: 'dsl.segments required' });
+  const result = detectAssetGaps(dsl as DSL);
+  res.json(result);
+});
+
+/* POST /api/motion/proposal — Product Brief / Proposal (采纳前不黑盒生成).
+ * deterministic scaffold: derive a structured brief the user adopts before DSL/Shot. */
+router.post('/proposal', (req: Request, res: Response) => {
+  const { topic, script, brand_category, segment_count } = req.body || {};
+  const brief = buildProductBrief({
+    topic: typeof topic === 'string' ? topic : '',
+    script: typeof script === 'string' ? script : '',
+    brandCategory: typeof brand_category === 'string' ? brand_category : '',
+    segmentCount: Number.isFinite(Number(segment_count)) ? Number(segment_count) : undefined,
+  });
+  const gaps = brief.missingAssets;
+  res.status(201).json({ brief, gaps, adopted: false });
+});
+
+/* POST /api/motion/proposal/adopt — user adopts the proposal; returns the recommended pack ids + recipe list to run. */
+router.post('/proposal/adopt', (req: Request, res: Response) => {
+  const { brief } = req.body || {};
+  if (!brief || !brief.recommendedPacks) return res.status(400).json({ error: 'brief.recommendedPacks required' });
+  const recipes = brief.recommendedPacks
+    .map((id: string) => RECIPE_REGISTRY.find((r) => r.id === 'product_image_to_scene'))
+    .filter(Boolean);
+  res.json({ adopted: true, pack_ids: brief.recommendedPacks, recipes: RECIPE_REGISTRY, writeback_rule: 'ai 结果必须写回资产库并记录血缘' });
+});
+
+/* POST /api/motion/writeback-check — enforce writeback rule for a generated result. */
+router.post('/writeback-check', (req: Request, res: Response) => {
+  const { result, recipe_id } = req.body || {};
+  const verdict = assertWritebackCompliant(result || {}, String(recipe_id || ''));
+  res.json(verdict);
 });
 
 /* POST /api/motion/lottie/slots — re-apply slot overrides without re-running the compiler. */
