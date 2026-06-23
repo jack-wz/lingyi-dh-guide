@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { getDb } from '../db/database.js';
 import { compileLottie, validatePlan, applySlots, type MotionPlan } from '../../../shared/lottieCompiler.js';
+import { compileGsap, validateSpec, type MotionSpec, GSAP_CSP } from '../../../shared/gsapCompiler.js';
 import { judgeDeliveryMode, looksLikeLottieJson } from '../../../shared/types/motion.js';
 
 const router = Router();
@@ -73,6 +74,44 @@ router.post('/lottie/slots', (req: Request, res: Response) => {
   if (!plan) return res.status(400).json({ error: 'plan is required' });
   const merged = applySlots(plan as MotionPlan, slots || {});
   res.json({ slot_values: merged, delivery_mode: judgeDeliveryMode('lottie', false) });
+});
+
+/* POST /api/motion/gsap/compile — deterministic MotionSpec→GSAP timeline snippet.
+ * Output is constrained GSAP code (no arbitrary JS), runs in a strict-CSP sandbox iframe.
+ * deliveryMode: interactive inputs → interactive_preview (never baked to video);
+ * time-driven → video_overlay (after pre-render to transparent WebM). */
+router.post('/gsap/compile', (req: Request, res: Response) => {
+  const { spec, scope } = req.body || {};
+  if (!spec || typeof spec !== 'object') return res.status(400).json({ error: 'spec is required' });
+  const validation = validateSpec(spec as MotionSpec);
+  if (validation.blockers.length) return res.status(422).json({ error: 'invalid spec', blockers: validation.blockers, warnings: validation.warnings });
+  const result = compileGsap(spec as MotionSpec);
+  if (result.blockers.length) return res.status(422).json({ error: 'compile blocked', blockers: result.blockers, warnings: result.warnings });
+
+  const db = getDb();
+  const motionAssetId = uuidv4();
+  const now = new Date().toISOString();
+  const lineage = {
+    scope: 'project', generation_prompt: spec.description || 'gsap motion skill',
+    model: 'gsap-compiler-v1', aspect_ratio: '9:16', duration_ms: spec.durationMs,
+    review_status: 'pending', kind: 'gsap', delivery_mode: result.deliveryMode,
+    ...scope,
+  };
+
+  db.prepare('INSERT INTO assets (id, name, type, file_url, metadata) VALUES (?, ?, ?, ?, ?)').run(
+    motionAssetId, `gsap-${spec.type}`, 'motion_recipe', `/uploads/${motionAssetId}.gsap.js`,
+    JSON.stringify({ ...lineage, code_chars: result.code.length, csp: GSAP_CSP }),
+  );
+
+  res.status(201).json({
+    motion_asset_id: motionAssetId,
+    delivery_mode: result.deliveryMode,
+    deliverable_to_video: result.deliverableToVideo,
+    code: result.code,
+    csp: GSAP_CSP,
+    warnings: result.warnings,
+    lineage,
+  });
 });
 
 export default router;
