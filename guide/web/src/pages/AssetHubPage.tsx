@@ -25,6 +25,8 @@ import BrandAssetEditor from '../components/BrandAssetEditor';
 import ConfirmDialog from '../components/ConfirmDialog';
 import ImportCatalogBanner from '../components/ImportCatalogBanner';
 import type { AssetHubTab, LibraryItem, LibrarySummary } from '../types/library';
+import { ASSET_GROUPS, tabToGroup, groupDef } from '../types/library';
+import type { AssetGroup } from '../types/library';
 
 const TABS: { id: AssetHubTab; label: string; hint: string; primary?: boolean }[] = [
   { id: 'digital_human', label: '数字人', hint: '训练与管理数字人形象', primary: true },
@@ -209,6 +211,9 @@ export default function AssetHubPage() {
   const [savingLookPreset, setSavingLookPreset] = useState(false);
   const [applyingBrandHints, setApplyingBrandHints] = useState(false);
   const [seedTagOverrides, setSeedTagOverrides] = useState<Record<string, string>>({});
+  const [scope, setScope] = useState<'enterprise' | 'project' | 'all'>('all');
+  const editorRoundtrip = Boolean(returnTo) && (searchParams.get('segment_id') || searchParams.get('slot'));
+  const activeGroup: AssetGroup = useMemo(() => tabToGroup(activeTab), [activeTab]);
 
   const parseEditorIdFromReturnTo = (href: string | null) => {
     const match = String(href || '').match(/^\/editor\/([^/?]+)/);
@@ -1022,26 +1027,55 @@ export default function AssetHubPage() {
 
         <div className="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
           <aside className="h-fit rounded-xl border border-border bg-card p-3 shadow-sm lg:sticky lg:top-4">
-            <p className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">核心资产</p>
+            <p className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">资源分组</p>
             <div className="space-y-1">
-              {TABS.filter((tab) => tab.primary).map((tab) => (
-                <button key={tab.id} type="button" data-testid={`asset-tab-${tab.id}`} onClick={() => setTab(tab.id)}
-                  className={`w-full rounded-lg px-3 py-2.5 text-left transition-colors ${activeTab === tab.id ? 'bg-foreground text-background' : 'hover:bg-accent'}`}>
-                  <span className="flex items-center justify-between gap-2 text-sm font-medium">
-                    {tab.label}
-                    <span className={`text-[10px] ${activeTab === tab.id ? 'text-background/60' : 'text-muted-foreground'}`}>{summary?.counts?.[tab.id] ?? '—'}</span>
-                  </span>
-                  <span className={`mt-0.5 block truncate text-[10px] ${activeTab === tab.id ? 'text-background/60' : 'text-muted-foreground'}`}>{tab.hint}</span>
-                </button>
-              ))}
+              {ASSET_GROUPS.map((grp) => {
+                const counts = grp.tabs.map((t) => Number(summary?.counts?.[t] || 0));
+                const total = counts.reduce((a, b) => a + b, 0);
+                const isActive = activeGroup === grp.id;
+                return (
+                  <button key={grp.id} type="button" data-testid={`asset-group-${grp.id}`}
+                    onClick={() => setTab(grp.defaultTab)}
+                    className={`w-full rounded-lg px-3 py-2.5 text-left transition-colors ${isActive ? 'bg-foreground text-background' : 'hover:bg-accent'}`}>
+                    <span className="flex items-center justify-between gap-2 text-sm font-medium">
+                      {grp.label}
+                      <span className={`text-[10px] ${isActive ? 'text-background/60' : 'text-muted-foreground'}`}>{total || '—'}</span>
+                    </span>
+                    <span className={`mt-0.5 block truncate text-[10px] ${isActive ? 'text-background/60' : 'text-muted-foreground'}`}>{grp.hint}</span>
+                    {isActive && grp.tabs.length > 1 && (
+                      <span className="mt-1.5 flex flex-wrap gap-1">
+                        {grp.tabs.map((t) => (
+                          <span key={t} role="button" data-testid={`asset-tab-${t}`}
+                            onClick={(e) => { e.stopPropagation(); setTab(t); }}
+                            className={`cursor-pointer rounded px-1.5 py-0.5 text-[10px] ${activeTab === t ? 'bg-background text-foreground' : 'bg-background/20 text-background/80 hover:bg-background/30'}`}>
+                            {TABS.find((tb) => tb.id === t)?.label || t}
+                          </span>
+                        ))}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
             <div className="my-3 h-px bg-border" />
-            <p className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">视觉与内容</p>
+            <p className="px-2 pb-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">筛选</p>
             <div className="space-y-1">
-              {TABS.filter((tab) => !tab.primary).map((tab) => (
-                <button key={tab.id} type="button" data-testid={`asset-tab-${tab.id}`} onClick={() => setTab(tab.id)}
-                  className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors ${activeTab === tab.id ? 'bg-accent font-medium text-foreground' : 'text-muted-foreground hover:bg-accent hover:text-foreground'}`}>
-                  <span>{tab.label}</span><span className="text-[10px] opacity-70">{summary?.counts?.[tab.id] ?? '—'}</span>
+              <button type="button" disabled className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm text-muted-foreground opacity-60" title="开发中">
+                <span>收藏</span><span className="text-[10px]">即将上线</span>
+              </button>
+              <button type="button" disabled className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm text-muted-foreground opacity-60" title="开发中">
+                <span>最近使用</span><span className="text-[10px]">即将上线</span>
+              </button>
+              <button type="button" disabled className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm text-muted-foreground opacity-60" title="开发中">
+                <span>审核状态</span><span className="text-[10px]">即将上线</span>
+              </button>
+            </div>
+            <div className="my-3 h-px bg-border" />
+            <div className="flex flex-wrap gap-1">
+              {(['all', 'enterprise', 'project'] as const).map((s) => (
+                <button key={s} type="button" data-testid={`scope-${s}`} onClick={() => setScope(s)}
+                  className={`rounded-md px-2 py-1 text-[10px] border ${scope === s ? 'bg-foreground text-background border-foreground' : 'border-border text-muted-foreground'}`}>
+                  {s === 'all' ? '全部' : s === 'enterprise' ? '企业' : '项目'}
                 </button>
               ))}
             </div>
@@ -1094,6 +1128,10 @@ export default function AssetHubPage() {
             <input value={search} onChange={e => setSearch(e.target.value)} placeholder={`搜索${tabMeta?.label}...`}
               className="flex-1 bg-transparent text-sm outline-none" />
           </div>
+          <button type="button" data-testid="ai-produce" className="shrink-0 flex items-center gap-1 px-3 py-2 rounded-md bg-foreground text-background text-sm"
+            onClick={() => setDevNotice(true)}>
+            AI 生产
+          </button>
           {activeTab === 'digital_human' && (
             <Link to="/digital-humans/new" className="flex items-center gap-1 px-3 py-2 rounded-md bg-brand-blue text-white text-sm">
               <IconPlus size={14} /> 新建数字人
@@ -1202,11 +1240,63 @@ export default function AssetHubPage() {
           <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_340px]">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 2xl:grid-cols-3">
               {loading ? <p className="col-span-full text-center text-muted-foreground py-12">加载中...</p>
-                : items.length === 0 ? <p className="col-span-full text-center text-muted-foreground py-12">暂无数据</p>
-                : items.map(renderItemCard)}
+                : items.length === 0 ? (
+                  <div className="col-span-full rounded-xl border border-dashed border-border p-6 text-center">
+                    <p className="text-sm font-medium">本分组暂无资产</p>
+                    <p className="mt-1 text-xs text-muted-foreground">从这里开始生产「{groupDef(activeGroup).label}」所需资源</p>
+                    <div className="mt-4 flex flex-wrap justify-center gap-2">
+                      <button type="button" className="px-3 py-1.5 rounded-md border border-border text-xs hover:bg-accent"
+                        onClick={() => setScope('enterprise')}>从企业资产选择</button>
+                      {activeTab === 'media' ? (
+                        <label className="px-3 py-1.5 rounded-md bg-brand-blue text-white text-xs cursor-pointer">
+                          上传商品/参考素材
+                          <input type="file" className="hidden" accept="image/*,video/*,audio/*"
+                            onChange={e => { const f = e.target.files?.[0]; if (f) handleMediaUpload(f); e.target.value = ''; }} />
+                        </label>
+                      ) : (
+                        <button type="button" className="px-3 py-1.5 rounded-md border border-border text-xs hover:bg-accent"
+                          onClick={() => setTab('media')}>上传商品/参考素材</button>
+                      )}
+                      <button type="button" className="px-3 py-1.5 rounded-md border border-border text-xs hover:bg-accent"
+                        onClick={() => setDevNotice(true)}>从内置可商用资源创建</button>
+                      <button type="button" className="px-3 py-1.5 rounded-md border border-border text-xs hover:bg-accent"
+                        onClick={() => setDevNotice(true)}>AI 生成商品场景/B-roll</button>
+                      <button type="button" className="px-3 py-1.5 rounded-md border border-border text-xs hover:bg-accent"
+                        onClick={() => setTab('template')}>应用镜头模板或动效包</button>
+                    </div>
+                  </div>
+                ) : items.map(renderItemCard)}
             </div>
             <div className="min-h-[400px] self-start xl:sticky xl:top-4">
-              <AssetPreviewPanel tab={activeTab} item={previewItem} returnTo={returnTo} />
+              {previewItem ? (
+                <>
+                  <AssetPreviewPanel tab={activeTab} item={previewItem} returnTo={returnTo} />
+                  {editorRoundtrip && (
+                    <button type="button" data-testid="apply-to-current-shot"
+                      className="mt-3 w-full rounded-md bg-foreground px-3 py-2 text-xs font-medium text-background hover:opacity-90"
+                      onClick={() => {
+                        try {
+                          const slot = searchParams.get('slot');
+                          if (slot && previewItem) localStorage.setItem(`pendingSlotPick:${slot}`, JSON.stringify({ id: previewItem.id, file_url: previewItem.file_url, name: previewItem.name }));
+                        } catch { /* ignore */ }
+                        navigate(returnTo || '/assets');
+                      }}>
+                      {searchParams.get('slot') ? '替换当前槽位并返回编辑器' : '加入当前镜头并返回编辑器'}
+                    </button>
+                  )}
+                </>
+              ) : (
+                <div className="rounded-xl border border-dashed border-border bg-card p-5 text-center">
+                  <p className="text-sm font-medium">本项目缺少什么？</p>
+                  <p className="mt-1 text-xs text-muted-foreground">选中资产可在此预览。当前建议：</p>
+                  <ul className="mt-3 space-y-1 text-left text-xs text-muted-foreground">
+                    {groupDef(activeGroup).id === 'product_scene' && <li>· 上传一张商品图 → AI 生成场景图</li>}
+                    {groupDef(activeGroup).id === 'brand_role' && <li>· 新建品牌包或选择数字人</li>}
+                    {groupDef(activeGroup).id === 'script_audio' && <li>· 创建导购脚本 / 选择 BGM</li>}
+                    {groupDef(activeGroup).id === 'template_motion' && <li>· 应用镜头模板或外观预设</li>}
+                  </ul>
+                </div>
+              )}
             </div>
           </div>
         )}

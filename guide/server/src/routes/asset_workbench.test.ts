@@ -63,4 +63,34 @@ describe('asset workbench API', () => {
     assert.equal(status, 200);
     assert.ok(Array.isArray(json.items));
   });
+
+  it('filters by inferred category (lottie) not raw type LIKE', async () => {
+    // Insert a lottie-named asset that infers to category 'lottie' but has type 'file'.
+    const create = await request('POST', '/api/assets/', {
+      name: 'promo-lottie-badge.json', file_url: '/uploads/promo-lottie-badge.json', type: 'file',
+    });
+    assert.ok(create.status === 200 || create.status === 201, `create asset status=${create.status}`);
+    const byCat = await request('GET', '/api/assets/workbench?category=lottie');
+    assert.equal(byCat.status, 200);
+    const ids = (byCat.json.items || []).map((a: any) => a.id);
+    assert.ok(ids.length > 0, 'expect at least one lottie-inferred asset under category=lottie');
+    assert.ok(ids.includes(create.json.id), 'lottie-named file asset must appear under category=lottie');
+    // Same asset must NOT appear under category=image (inferred categories are exclusive).
+    const byImg = await request('GET', '/api/assets/workbench?category=image');
+    const imgIds = (byImg.json.items || []).map((a: any) => a.id);
+    assert.ok(!imgIds.includes(create.json.id), 'lottie asset must not appear under category=image');
+    // available_groups present.
+    assert.ok(Array.isArray(byCat.json.available_groups));
+  });
+
+  it('exposes available_groups and supports group filter', async () => {
+    const plain = await request('GET', '/api/assets/workbench');
+    assert.ok(Array.isArray(plain.json.available_groups));
+    const groups = plain.json.available_groups.map((g: any) => g.id);
+    assert.ok(groups.includes('brand_role'));
+    assert.ok(groups.includes('product_scene'));
+    const scoped = await request('GET', '/api/assets/workbench?group=template_motion');
+    assert.equal(scoped.status, 200);
+    assert.ok(typeof scoped.json.total === 'number');
+  });
 });

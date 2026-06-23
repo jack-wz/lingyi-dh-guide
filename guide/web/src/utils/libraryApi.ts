@@ -44,10 +44,46 @@ export async function fetchLibraryItem(id: string, signal?: AbortSignal): Promis
   return res.json() as Promise<LibraryItem>;
 }
 
-export function assetHubHref(editorId: string, tab?: string): string {
+export function assetHubHref(editorId: string, tab?: string, opts?: { segmentId?: string; slot?: string }): string {
   const params = new URLSearchParams();
   if (tab) params.set('tab', tab);
   params.set('from', `/editor/${editorId}`);
+  if (opts?.segmentId) params.set('segment_id', opts.segmentId);
+  if (opts?.slot) params.set('slot', opts.slot);
   const q = params.toString();
   return `/assets?${q}`;
+}
+
+export interface WorkbenchFilters {
+  group?: string;
+  scope?: 'enterprise' | 'project' | 'all';
+  category?: string;
+  search?: string;
+  kind?: string;
+  usage_status?: string;
+  limit?: number;
+  offset?: number;
+  signal?: AbortSignal;
+}
+
+export async function fetchWorkbenchAssets(opts: WorkbenchFilters = {}): Promise<{
+  items: any[]; total: number; limit: number; offset: number;
+  categories: Record<string, number>; available_categories: string[];
+  available_groups: { id: string; categories: string[] }[];
+}> {
+  const params = new URLSearchParams();
+  if (opts.group) params.set('group', opts.group);
+  if (opts.scope) params.set('scope', opts.scope);
+  if (opts.category) params.set('category', opts.category);
+  if (opts.search) params.set('search', opts.search);
+  if (opts.kind) params.set('kind', opts.kind);
+  if (opts.usage_status) params.set('usage_status', opts.usage_status);
+  if (opts.limit) params.set('limit', String(opts.limit));
+  if (opts.offset) params.set('offset', String(opts.offset));
+  const res = await fetch(`/api/assets/workbench?${params}`, { signal: opts.signal });
+  if (!res.ok) {
+    const body = await parseApiErrorResponse(res);
+    throw new Error(formatApiErrorMessage(body, '加载工作台资产失败'));
+  }
+  return res.json();
 }
