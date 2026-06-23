@@ -194,6 +194,11 @@ export default function PreviewInteractionLayer({
     if (session?.target && preview) {
       if (suppressPreviewRebuildRef) suppressPreviewRebuildRef.current = true;
       commitTransform(session.target, preview);
+      // Keep the live preview showing the final committed transform until the
+      // next render; this avoids a one-frame jump where the selection box snaps
+      // back to the pre-gesture position before React re-renders with new state.
+      pendingTransformRef.current = preview;
+      setLiveTransform(preview);
       const state = useEditorStore.getState();
       const seg = state.dsl?.segments[state.currentSegIndex];
       const dsl = state.dsl;
@@ -462,15 +467,15 @@ export default function PreviewInteractionLayer({
   const selectedOverlay = selectedOverlayIndex >= 0 ? segment.overlays[selectedOverlayIndex] : undefined;
 
   const resolveTransform = (target: DragTarget, base: LiveTransform): LiveTransform => {
-    if (gestureRef.current?.target && liveTransform && targetsMatch(gestureRef.current.target, target)) {
-      return liveTransform;
+    if (gestureRef.current?.target && pendingTransformRef.current && targetsMatch(gestureRef.current.target, target)) {
+      return pendingTransformRef.current;
     }
     return base;
   };
 
   const isTargetGesturing = (target: DragTarget) => (
     gestureRef.current?.target != null
-    && liveTransform != null
+    && pendingTransformRef.current != null
     && targetsMatch(gestureRef.current.target, target)
   );
 
