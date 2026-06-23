@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MouseEvent } from 'react';
-import { useEditorStore } from '../store/editorStore';
+import { useEditorStore, type DSL } from '../store/editorStore';
 import { getSegmentLocalTime } from '../utils/overlayTiming';
 import { duplicateCanvasSelection, removeCanvasSelection } from '../utils/canvasSelectionActions';
 import { buildEditorPreviewHtml } from '../utils/buildPreviewHtml';
@@ -14,7 +14,7 @@ import PreviewInteractionLayer from './PreviewInteractionLayer';
 import { usePreviewLayout } from './VideoCanvas/hooks/usePreviewLayout';
 import { useSegmentPreviewAudio } from '../hooks/useSegmentPreviewAudio';
 
-export default function VideoCanvas() {
+export default function VideoCanvas({ updateDsl: updateDslProp }: { updateDsl?: (updater: (dsl: DSL) => DSL) => void } = {}) {
   const dsl = useEditorStore(s => s.dsl);
   const currentSegIndex = useEditorStore(s => s.currentSegIndex);
   const currentTime = useEditorStore(s => s.currentTime);
@@ -24,7 +24,8 @@ export default function VideoCanvas() {
   const getSegmentStartTime = useEditorStore(s => s.getSegmentStartTime);
   const selectedElement = useEditorStore(s => s.selectedElement);
   const setSelectedElement = useEditorStore(s => s.setSelectedElement);
-  const updateDsl = useEditorStore(s => s.updateDsl);
+  const storeUpdateDsl = useEditorStore(s => s.updateDsl);
+  const updateDsl = updateDslProp ?? storeUpdateDsl;
 
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const suppressPreviewRebuildRef = useRef(false);
@@ -309,6 +310,7 @@ export default function VideoCanvas() {
           suppressPreviewRebuildRef={suppressPreviewRebuildRef}
           interactionEnabled={!isPreviewMode}
           showSubtitleOverlay={!hfReady || hfRuntimeFailed}
+          updateDsl={updateDsl}
         />
 
         <div className="absolute top-2 right-2 z-20 flex rounded-md border border-white/20 bg-black/55 backdrop-blur-sm p-0.5 pointer-events-auto">

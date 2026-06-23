@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState, type RefObject } from 'react';
 import type { PointerEvent as ReactPointerEvent } from 'react';
-import { useEditorStore } from '../store/editorStore';
+import { useEditorStore, type DSL } from '../store/editorStore';
 import { getSegmentLocalTime, isOverlayVisibleAtLocalTime } from '../utils/overlayTiming';
 import { isTimedElementVisibleAtLocalTime } from '../utils/elementTiming';
 import {
@@ -92,12 +92,14 @@ export default function PreviewInteractionLayer({
   suppressPreviewRebuildRef,
   interactionEnabled = true,
   showSubtitleOverlay = true,
+  updateDsl: updateDslProp,
 }: {
   layout: Layout;
   iframeRef?: RefObject<HTMLIFrameElement | null>;
   suppressPreviewRebuildRef?: RefObject<boolean>;
   interactionEnabled?: boolean;
   showSubtitleOverlay?: boolean;
+  updateDsl?: (updater: (dsl: DSL) => DSL) => void;
 }) {
   const dsl = useEditorStore(s => s.dsl);
   const currentSegIndex = useEditorStore(s => s.currentSegIndex);
@@ -106,7 +108,8 @@ export default function PreviewInteractionLayer({
   const getSegmentStartTime = useEditorStore(s => s.getSegmentStartTime);
   const selectedElement = useEditorStore(s => s.selectedElement);
   const setSelectedElement = useEditorStore(s => s.setSelectedElement);
-  const updateDsl = useEditorStore(s => s.updateDsl);
+  const storeUpdateDsl = useEditorStore(s => s.updateDsl);
+  const updateDsl = updateDslProp ?? storeUpdateDsl;
 
   const gestureRef = useRef<GestureSession | null>(null);
   const rafRef = useRef<number | null>(null);

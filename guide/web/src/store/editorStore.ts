@@ -78,13 +78,15 @@ export const useEditorStore = create<EditorState>((set, get) => ({
   setDsl: (dsl) => set({ dsl, historyPast: [], historyFuture: [] }),
   setPreviewVariables: (variables) => set({ previewVariables: variables }),
   updateDsl: (updater) => {
-    const { dsl } = get();
-    if (!dsl) return;
-    set((state) => ({
-      dsl: updater(dsl),
-      historyPast: [...state.historyPast.slice(-39), dsl],
-      historyFuture: [],
-    }));
+    set((state) => {
+      const { dsl } = state;
+      if (!dsl) return state;
+      return {
+        dsl: updater(dsl),
+        historyPast: [...state.historyPast.slice(-39), dsl],
+        historyFuture: [],
+      };
+    });
   },
   undo: () => {
     const { dsl, historyPast, historyFuture } = get();

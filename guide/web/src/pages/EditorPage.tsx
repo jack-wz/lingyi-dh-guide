@@ -992,7 +992,7 @@ export default function EditorPage() {
         {/* 中间：画布 + 底部脚本/时间轴面板（参考 opentalking） */}
         <div ref={centerColumnRef} className="flex-1 flex flex-col overflow-hidden min-h-0 min-w-0">
           <div className="relative flex-1 min-h-[140px] overflow-hidden">
-            <VideoCanvas />
+            <VideoCanvas updateDsl={updateEditorDsl} />
             {showSafeZone && (
               <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center" data-testid="safe-zone-overlay">
                 <div className="relative" style={{ height: '100%', aspectRatio: '9 / 16', maxWidth: '100%' }}>
