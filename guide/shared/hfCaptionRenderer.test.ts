@@ -8,6 +8,15 @@ import {
   renderCaptionPillClip,
   renderCaptionPopClip,
   renderCaptionStaggerClip,
+  renderCaptionMatrixDecodeClip,
+  renderCaptionEmojiPopClip,
+  renderCaptionGlitchRgbClip,
+  renderCaptionKineticSlamClip,
+  renderCaptionNeonAccentClip,
+  renderCaptionParallaxLayersClip,
+  renderCaptionParticleBurstClip,
+  renderCaptionTextureClip,
+  renderCaptionWeightShiftClip,
   renderHfCaptionClip,
   splitCaptionWords,
 } from './hfCaptionRenderer.js';
@@ -87,6 +96,79 @@ describe('hfCaptionRenderer', () => {
     const narrowPad = narrow!.css.match(/padding: (\d+)px/)?.[1];
     assert.ok(refPad && narrowPad);
     assert.ok(Number(narrowPad) < Number(refPad));
+  });
+
+  it('renders caption-matrix-decode with scramble timeline', () => {
+    const clip = renderCaptionMatrixDecodeClip({ ...BASE_CTX, styleId: 'hf-caption-matrix-decode' });
+    assert.ok(clip);
+    assert.match(clip!.html, /data-hf-component="caption-matrix-decode"/);
+    assert.match(clip!.script, /caption-matrix-decode-s1/);
+    assert.ok(clip!.script.includes('gsap.timeline'));
+  });
+
+  it('renders caption-emoji-pop with emoji emphasis', () => {
+    const clip = renderCaptionEmojiPopClip({ ...BASE_CTX, styleId: 'hf-caption-emoji-pop', emphasisWords: ['抢购'] });
+    assert.ok(clip);
+    assert.match(clip!.html, /data-hf-component="caption-emoji-pop"/);
+    assert.match(clip!.html, /emoji-pop-emoji/);
+    assert.ok(clip!.script.includes('gsap.timeline'));
+  });
+
+  it('renders caption-glitch-rgb with chromatic aberration', () => {
+    const clip = renderCaptionGlitchRgbClip({ ...BASE_CTX, styleId: 'hf-caption-glitch-rgb' });
+    assert.ok(clip);
+    assert.match(clip!.html, /data-hf-component="caption-glitch-rgb"/);
+    assert.match(clip!.css, /glitch-scanlines/);
+    assert.ok(clip!.script.includes('gsap.timeline'));
+  });
+
+  it('renders caption-kinetic-slam with alternating entrances', () => {
+    const clip = renderCaptionKineticSlamClip({ ...BASE_CTX, styleId: 'hf-caption-kinetic-slam' });
+    assert.ok(clip);
+    assert.match(clip!.html, /data-hf-component="caption-kinetic-slam"/);
+    assert.match(clip!.script, /expo\.out/);
+    assert.ok(clip!.script.includes('gsap.timeline'));
+  });
+
+  it('renders caption-neon-accent with glow classes', () => {
+    const clip = renderCaptionNeonAccentClip({ ...BASE_CTX, styleId: 'hf-caption-neon-accent' });
+    assert.ok(clip);
+    assert.match(clip!.html, /data-hf-component="caption-neon-accent"/);
+    assert.match(clip!.css, /nacc-word--accent/);
+    assert.ok(clip!.script.includes('gsap.timeline'));
+  });
+
+  it('renders caption-parallax-layers with front and behind text', () => {
+    const clip = renderCaptionParallaxLayersClip({ ...BASE_CTX, styleId: 'hf-caption-parallax-layers' });
+    assert.ok(clip);
+    assert.match(clip!.html, /data-hf-component="caption-parallax-layers"/);
+    assert.match(clip!.html, /plx-front/);
+    assert.match(clip!.html, /plx-behind/);
+    assert.ok(clip!.script.includes('gsap.timeline'));
+  });
+
+  it('renders caption-particle-burst with particle elements', () => {
+    const clip = renderCaptionParticleBurstClip({ ...BASE_CTX, styleId: 'hf-caption-particle-burst', emphasisWords: ['抢购'] });
+    assert.ok(clip);
+    assert.match(clip!.html, /data-hf-component="caption-particle-burst"/);
+    assert.match(clip!.css, /ptb-particle/);
+    assert.ok(clip!.script.includes('gsap.timeline'));
+  });
+
+  it('renders caption-texture with lava mask', () => {
+    const clip = renderCaptionTextureClip({ ...BASE_CTX, styleId: 'hf-caption-texture' });
+    assert.ok(clip);
+    assert.match(clip!.html, /data-hf-component="caption-texture"/);
+    assert.match(clip!.script, /compositions\/components\/lava\.png/);
+    assert.ok(clip!.script.includes('gsap.timeline'));
+  });
+
+  it('renders caption-weight-shift with weight transition', () => {
+    const clip = renderCaptionWeightShiftClip({ ...BASE_CTX, styleId: 'hf-caption-weight-shift' });
+    assert.ok(clip);
+    assert.match(clip!.html, /data-hf-component="caption-weight-shift"/);
+    assert.match(clip!.script, /fontWeight/);
+    assert.ok(clip!.script.includes('gsap.timeline'));
   });
 });
 

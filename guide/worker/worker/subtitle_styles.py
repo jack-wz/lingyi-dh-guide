@@ -172,6 +172,18 @@ HF_ASS_FALLBACKS: dict[str, str] = {
     "hf-caption-neon": "gradient-glow",
     "hf-caption-editorial": "brand-elegant",
     "hf-caption-gradient": "gradient-glow",
+    "hf-caption-pop": "bold-yellow",
+    "hf-caption-stagger": "bold-yellow",
+    "hf-caption-clip-wipe": "bold-yellow",
+    "hf-caption-matrix-decode": "bold-yellow",
+    "hf-caption-emoji-pop": "bold-yellow",
+    "hf-caption-glitch-rgb": "bold-white-stroke",
+    "hf-caption-kinetic-slam": "bold-white-stroke",
+    "hf-caption-neon-accent": "gradient-glow",
+    "hf-caption-parallax-layers": "brand-elegant",
+    "hf-caption-particle-burst": "bold-yellow",
+    "hf-caption-texture": "bold-white-stroke",
+    "hf-caption-weight-shift": "brand-elegant",
 }
 
 

@@ -14,11 +14,14 @@ import {
 describe('subtitleStyles hf grouping', () => {
   it('exposes classic and hyperframes style groups', () => {
     assert.ok(CLASSIC_SUBTITLE_STYLES.length >= 8);
-    assert.equal(HF_SUBTITLE_STYLES.length, 7);
+    assert.equal(HF_SUBTITLE_STYLES.length, 17);
     assert.ok(HF_SUBTITLE_STYLES.some((s) => s.id === 'hf-caption-highlight'));
     assert.ok(HF_SUBTITLE_STYLES.some((s) => s.id === 'hf-caption-pill'));
     assert.ok(HF_SUBTITLE_STYLES.some((s) => s.id === 'hf-caption-pop'));
     assert.ok(HF_SUBTITLE_STYLES.some((s) => s.id === 'hf-caption-stagger'));
+    assert.ok(HF_SUBTITLE_STYLES.some((s) => s.id === 'hf-caption-matrix-decode'));
+    assert.ok(HF_SUBTITLE_STYLES.some((s) => s.id === 'hf-caption-kinetic-slam'));
+    assert.ok(HF_SUBTITLE_STYLES.some((s) => s.id === 'hf-caption-texture'));
   });
 
   it('detects hyperframes subtitle usage in dsl', () => {
