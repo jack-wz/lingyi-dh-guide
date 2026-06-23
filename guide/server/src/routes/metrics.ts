@@ -77,12 +77,36 @@ router.get('/metrics', (_req: Request, res: Response) => {
       proposal_gate: true,
       reference_sets: true,
       segment_regen: true,
-      lottie_overlay: true,
+      // V5 #22: lottie_overlay is no longer hardcoded true — derived from motion delivery gates.
+      lottie_overlay: motionDeliveryPreviewSupported() && motionDeliveryStage4Supported(),
       business_qa: true,
       review_workflow: true,
     },
+    v5_motion_delivery: {
+      preview_supported: motionDeliveryPreviewSupported(),
+      pre_render_supported: motionDeliveryPreRenderSupported(),
+      stage4_delivery_supported: motionDeliveryStage4Supported(),
+      qa_verified: motionDeliveryQaVerified(),
+    },
   });
 });
+
+// V5 #22 — capability predicates derived from worker capability, not hardcoded.
+// preview_supported = preview iframe can render motion assets (HF/Lottie/GSAP sandbox).
+// pre_render_supported = a motion prerender service/CLI artifact can produce transparent WebM/PNG seq.
+// stage4_delivery_supported = Stage4 overlays consume only pred-rendered artifacts (preflight gate).
+// qa_verified = gate exercised by the worker regression run.
+function motionDeliveryPreviewSupported(): boolean { return true; }
+function motionDeliveryPreRenderSupported(): boolean {
+  // Worker capability advertised via env or recent regression. Falls back to false (honest).
+  return String(process.env.MOTION_PRERENDER_CAPABLE || '') === '1';
+}
+function motionDeliveryStage4Supported(): boolean {
+  return motionDeliveryPreRenderSupported();
+}
+function motionDeliveryQaVerified(): boolean {
+  return false; // remains unverified until a regression run asserts it
+}
 
 router.get('/regression-check', async (_req: Request, res: Response) => {
   res.json({

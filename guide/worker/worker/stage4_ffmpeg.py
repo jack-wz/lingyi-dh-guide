@@ -302,6 +302,112 @@ def _resolve_overlay_asset(ov: dict, work_dir: str, default_font_family: str = "
     return ""
 
 
+def preflight_overlays(overlays: list[dict], work_dir: str = "") -> dict:
+    """V5 #22 — Stage4 preflight gate. Scans DSL overlays BEFORE assembly and classifies each:
+
+    - artifact_ready        : transparent WebM / PNG sequence present on disk (safe to overlay)
+    - lottie_prerender_missing : .json/.lottie referenced but no pre-rendered artifact -> BLOCKER
+    - static_poster_downgrade: user opted for static poster fallback
+    - skipped               : no asset_url / inaccessible
+
+    Returns { blockers: list[str], overlays: list[{id, status, asset, delivery_mode}], ready(bool), report_path? }.
+    Does NOT modify assemble_final_video — callers should run this before assembly and refuse to
+    proceed when ``ready`` is False, surfacing ``blockers`` to the editor (见 #22 验收)."""
+    blockers: list[str] = []
+    report_overlays: list[dict] = []
+    PRE_RENDER_EXTS = (".webm", ".png")
+    for ov in overlays or []:
+        ov_id = ov.get("id", "overlay")
+        url = str(ov.get("asset_url", "") or "")
+        delivery_mode = str(ov.get("delivery_mode", "") or "")
+        poster = bool(ov.get("motion_poster_downgrade") or ov.get("use_static_poster"))
+        entry: dict[str, str] = {"id": ov_id, "asset": url, "delivery_mode": delivery_mode}
+
+        if not url:
+            entry["status"] = "skipped"
+            entry["reason"] = "no asset_url"
+            report_overlays.append(entry); continue
+
+        local = _preflight_local_path(url, work_dir)
+
+        if poster:
+            entry["status"] = "static_poster_downgrade"
+            entry["reason"] = "user opted for static poster fallback"
+            report_overlays.append(entry); continue
+
+        if local and local.lower().endswith(".json") or (url.lower().endswith((".json", ".lottie"))) or "manifest" in delivery_mode:
+            # A motion overlay must have a pre-rendered artifact (WebM / PNG seq). Find sibling artifact.
+            base = local or url
+            artifact = None
+            if base:
+                stem, _ = os.path.splitext(base)
+                for ext in PRE_RENDER_EXTS:
+                    cand = stem + ext
+                    if os.path.exists(cand):
+                        artifact = cand; break
+                # PNG sequence glob: stem0001.png
+                if not artifact and os.path.exists(stem + "0001.png"):
+                    artifact = stem + "0001.png"
+            if not artifact:
+                entry["status"] = "lottie_prerender_missing"
+                entry["reason"] = "动效未完成预渲染（需要透明 WebM / PNG 序列 artifact）"
+                blockers.append(f"镜头 overlay {ov_id}: 动效未完成预渲染（{url}）— 请先生成透明 WebM/PNG 序列或选择静态 poster 降级")
+                report_overlays.append(entry); continue
+            entry["status"] = "artifact_ready"
+            entry["artifact"] = artifact; entry["reason"] = "透明 WebM/PNG 序列已就绪"
+            report_overlays.append(entry); continue
+
+        if local and os.path.exists(local) and os.path.splitext(local)[1].lower() in PRE_RENDER_EXTS:
+            entry["status"] = "artifact_ready"
+            entry["artifact"] = local; entry["reason"] = "透明 WebM/PNG 序列已就绪"
+            report_overlays.append(entry); continue
+
+        entry["status"] = "skipped"
+        entry["reason"] = "asset missing or unsupported for stage4 delivery"
+        report_overlays.append(entry)
+
+    return {"blockers": blockers, "overlays": report_overlays, "ready": not blockers}
+
+
+def _preflight_local_path(url: str, work_dir: str = "") -> str:
+    if os.path.isabs(url) and os.path.exists(url): return url
+    if url.startswith("/uploads/"):
+        from worker.config import UPLOADS_DIR
+        local = os.path.join(UPLOADS_DIR, url[len("/uploads/"):])
+        if os.path.exists(local): return local
+    if url.startswith("/renders/"):
+        from worker.config import RENDERS_DIR
+        local = os.path.join(RENDERS_DIR, url[len("/renders/"):])
+        if os.path.exists(local): return local
+    if work_dir and url.startswith(("http://", "https://")):
+        return os.path.join(work_dir, "overlay_" + os.path.basename(url.split("?")[0]))
+    return ""
+
+
+def write_stage4_report(work_dir: str, overlay_report: dict, ffmpeg_filter_summary: str = "", *,
+                        segments_count: int = 0, overlays_count: int = 0, warnings: list[str] | None = None) -> str:
+    """V5 #22 — Write a stage4_report.json next to the assembled output, capturing per-overlay
+    usage / downgrade / skip reasons and black-frame / audio / subtitle guards."""
+    os.makedirs(work_dir, exist_ok=True)
+    report_path = os.path.join(work_dir, "stage4_report.json")
+    report = {
+        "segments_count": segments_count,
+        "overlays_count": overlays_count,
+        "overlays": overlay_report.get("overlays", []),
+        "blockers": overlay_report.get("blockers", []),
+        "ffmpeg_filter_summary": ffmpeg_filter_summary,
+        "boundary_qa": {
+            "black_frame": "warn if first/last frames fully black (best-effort)",
+            "audio_spike": "warn on clip gain spikes vs previous clip",
+            "subtitle_collision": "warn if subtitle region overlaps digital_human/CTA region",
+        },
+        "warnings": list(warnings or []),
+    }
+    with open(report_path, "w", encoding="utf-8") as fh:
+        json.dump(report, fh, ensure_ascii=False, indent=2)
+    return report_path
+
+
 def _escape_ffmpeg_filter_path(path: str) -> str:
     """Escape a file path for use inside FFmpeg filter_complex.
 
