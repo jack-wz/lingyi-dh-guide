@@ -393,6 +393,30 @@ export const SUBTITLE_STYLE_DEFINITIONS: SubtitleStyleDefinition[] = [
     hf_component: 'caption-stagger-slide',
     hf_fallback_id: 'bold-yellow',
   },
+  {
+    id: 'hf-caption-clip-wipe',
+    name: '裁剪擦除（HF）',
+    description: 'HyperFrames 逐词 clip-path 擦除字幕，每次只显示一行',
+    preview: {
+      text: '品质好物 放心选购',
+      color: '#ffffff',
+      bg: 'transparent',
+      outline: '#000000',
+      fontSize: 13,
+      fontWeight: 800,
+      borderRadius: 0,
+    },
+    render: {
+      color: '#ffffff',
+      bg: 'transparent',
+      size: '34px',
+      weight: 800,
+      outline: '#000000',
+    },
+    engine: 'hyperframes',
+    hf_component: 'caption-clip-wipe',
+    hf_fallback_id: 'default',
+  },
 ];
 
 const aliasToCanonical = new Map<string, string>();

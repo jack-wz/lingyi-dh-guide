@@ -473,6 +473,114 @@ export function renderCaptionStaggerClip(ctx: HfCaptionRenderContext): HfCaption
   return { html, css, script, timelineId: timing.timelineId, requiresGsap: binding?.requiresGsap ?? true };
 }
 
+function groupCaptionWordsIntoLines(
+  words: CaptionWord[],
+  visibleEnd: number,
+  maxChars = 14,
+): Array<{ wordStart: number; wordEnd: number; start: number; end: number }> {
+  if (!words.length) return [];
+  const groups: Array<{ wordStart: number; wordEnd: number; start: number; end: number }> = [];
+  let currentStart = 0;
+  let currentLen = 0;
+  for (let i = 0; i < words.length; i++) {
+    const wlen = words[i].text.length;
+    if (currentLen > 0 && currentLen + wlen > maxChars) {
+      const prevEnd = i - 1;
+      const nextStart = i < words.length ? words[i].start : words[prevEnd].end + 0.5;
+      groups.push({
+        wordStart: currentStart,
+        wordEnd: prevEnd,
+        start: words[currentStart].start,
+        end: Math.min(words[prevEnd].end + 0.35, nextStart - 0.05),
+      });
+      currentStart = i;
+      currentLen = wlen;
+    } else {
+      currentLen += wlen;
+    }
+  }
+  const last = words[words.length - 1];
+  groups.push({
+    wordStart: currentStart,
+    wordEnd: words.length - 1,
+    start: words[currentStart].start,
+    end: Math.min(last.end + 0.4, visibleEnd),
+  });
+  return groups;
+}
+
+export function renderCaptionClipWipeClip(ctx: HfCaptionRenderContext): HfCaptionClipOutput {
+  const binding = getHfStyleBinding(ctx.styleId);
+  const timing = buildCaptionTiming(ctx, 'caption-clip-wipe');
+  const visibleEnd = timing.visibleStart + timing.visibleDuration;
+  const groups = groupCaptionWordsIntoLines(timing.words, visibleEnd, 14);
+  const emphasis = new Set((ctx.emphasisWords || []).map((w) => w.toLowerCase()));
+  const isPhraseEmphasis = (text: string) => {
+    const lower = text.toLowerCase();
+    return Array.from(emphasis).some((kw) => lower.includes(kw));
+  };
+
+  const { layout } = timing;
+  const lineHtml = groups.map((g, gi) => {
+    const groupWords = timing.words.slice(g.wordStart, g.wordEnd + 1);
+    const wordSpans = groupWords.map((w, i) => {
+      const wi = g.wordStart + i;
+      const emphasized = isPhraseEmphasis(w.text);
+      const color = emphasized ? ctx.accentColor : ctx.textColor;
+      return `<span class="wipe-word ${emphasized ? 'wipe-word--emph' : ''}" id="wipe-w-${timing.timelineId}-${wi}" style="font-size:${timing.fontSize}px;color:${color};text-shadow:0 4px 18px rgba(0,0,0,0.55);" data-emph="${emphasized}" data-dbg-emphasis="${Array.from(emphasis).join(',')}" data-dbg-accent="${ctx.accentColor}" data-dbg-textcolor="${ctx.textColor}">${escapeHtml(w.text)}</span>`;
+    }).join('<span class="wipe-gap" aria-hidden="true">&nbsp;</span>');
+    return `<div class="wipe-group" id="wipe-grp-${timing.timelineId}-${gi}" style="visibility:hidden;">${wordSpans}</div>`;
+  }).join('');
+
+  const html = wrapCaptionClip('caption-clip-wipe', 'hf-caption-clip-wipe', ctx, timing, `
+      <div class="wipe-shell" id="wipe-shell-${timing.timelineId}" style="padding:0 ${layout.sideInsetPct}%;max-width:${layout.maxWidthPct}%;">
+        ${lineHtml}
+      </div>`);
+
+  const css = `
+    .hf-caption-clip-wipe .wipe-shell {
+      display: flex; flex-direction: column; align-items: center; justify-content: flex-end;
+      position: absolute; left: 0; right: 0; ${captionPositionStyle(ctx.position, ctx.canvasHeight)} height: 35%;
+      pointer-events: none;
+    }
+    .hf-caption-clip-wipe .wipe-group {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
+      gap: ${layout.gap + 2}px; padding: 0 ${layout.sideInsetPct}%;
+      font-family: ${ctx.fontFamily}; font-weight: 800; line-height: 1.15;
+      text-shadow: 0 4px 18px rgba(0,0,0,0.55);
+    }
+    .hf-caption-clip-wipe .wipe-word {
+      display: inline-block; clip-path: inset(0 100% 0 0); will-change: clip-path;
+    }
+    .hf-caption-clip-wipe .wipe-gap { display: inline-block; width: 4px; }
+  `;
+
+  const wordsJson = JSON.stringify(timing.words);
+  const groupsJson = JSON.stringify(groups);
+  const script = gsapTimelineScript(timing.timelineId, `
+      var WORDS = ${wordsJson};
+      var GROUPS = ${groupsJson};
+      GROUPS.forEach(function(g, gi) {
+        var grp = document.getElementById('wipe-grp-' + timelineId + '-' + gi);
+        if (!grp) return;
+        var groupWords = WORDS.slice(g.wordStart, g.wordEnd + 1);
+        tl.set(grp, { visibility: 'visible' }, g.start);
+        groupWords.forEach(function(w, i) {
+          var wi = g.wordStart + i;
+          var el = document.getElementById('wipe-w-' + timelineId + '-' + wi);
+          if (!el) return;
+          tl.to(el, { clipPath: 'inset(0 0% 0 0)', duration: 0.28, ease: 'power2.out' }, w.start);
+        });
+        var wordEls = grp.querySelectorAll('.wipe-word');
+        tl.to(wordEls, { clipPath: 'inset(0 0% 0 100%)', duration: 0.22, stagger: 0.03, ease: 'power2.in' }, g.end - 0.15);
+        tl.set(grp, { visibility: 'hidden' }, g.end);
+      });
+  `);
+
+  return { html, css, script, timelineId: timing.timelineId, requiresGsap: binding?.requiresGsap ?? true };
+}
+
 const RENDERERS: Record<string, (ctx: HfCaptionRenderContext) => HfCaptionClipOutput> = {
   'caption-highlight': renderCaptionHighlightClip,
   'caption-pill-karaoke': renderCaptionPillClip,
@@ -481,6 +589,7 @@ const RENDERERS: Record<string, (ctx: HfCaptionRenderContext) => HfCaptionClipOu
   'caption-gradient-fill': renderCaptionGradientClip,
   'caption-pop-bounce': renderCaptionPopClip,
   'caption-stagger-slide': renderCaptionStaggerClip,
+  'caption-clip-wipe': renderCaptionClipWipeClip,
 };
 
 export function renderHfCaptionClip(ctx: HfCaptionRenderContext): HfCaptionClipOutput | null {

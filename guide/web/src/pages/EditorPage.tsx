@@ -159,6 +159,7 @@ export default function EditorPage() {
             animation: seg.subtitle?.animation || 'fadeIn',
             font_size: typeof seg.subtitle?.font_size === 'number' ? seg.subtitle.font_size : undefined,
             font_family: typeof seg.subtitle?.font_family === 'string' ? seg.subtitle.font_family : undefined,
+            hf_params: seg.subtitle?.hf_params,
           },
           transition: seg.transition || { type: 'none', duration: 0.5 },
           digital_human: seg.digital_human || opentalkingDigitalHumanDefaults(false),

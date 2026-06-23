@@ -79,6 +79,15 @@ export const HF_STYLE_BINDINGS: HfStyleBinding[] = [
     brandTokenKeys: ['brand_color', 'accent_color'],
   },
   {
+    styleId: 'hf-caption-clip-wipe',
+    hfName: 'caption-clip-wipe',
+    slot: 'subtitle',
+    fallbackStyleId: 'bold-yellow',
+    verticalSafe: true,
+    requiresGsap: true,
+    brandTokenKeys: ['brand_color', 'accent_color'],
+  },
+  {
     styleId: 'hf-grain',
     hfName: 'grain-overlay',
     slot: 'overlay',
