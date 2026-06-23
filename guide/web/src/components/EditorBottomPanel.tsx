@@ -17,13 +17,13 @@ interface Props {
 }
 
 const MODE_BUTTONS: Array<{ id: BottomMode; label: string }> = [
-  { id: 'script', label: '场景脚本' },
-  { id: 'timeline', label: '时间轴' },
+  { id: 'script', label: '镜头脚本' },
+  { id: 'timeline', label: '精调（时间轴）' },
 ];
 
 const MODE_HINT: Record<BottomMode, string> = {
-  script: '编辑各分镜口播与时长',
-  timeline: '点击分镜块切换 · 拖动元素层调整出现时间',
+  script: '编辑各镜头口播与时长',
+  timeline: '精调模式：点击分镜块切换 · 拖动元素层调整出现时间',
 };
 
 const STORAGE_KEY = 'guide.editor.bottomPanelHeight';

@@ -115,6 +115,7 @@ export default function EditorPage() {
     voiceSubType?: 'tts' | 'bgm';
     scriptMode?: 'full' | 'segment';
   }>({ open: false, category: 'digital_human' });
+  const [showSafeZone, setShowSafeZone] = useState(false);
   const generateSettingsRef = useRef<HTMLDivElement | null>(null);
   const centerColumnRef = useRef<HTMLDivElement | null>(null);
   const previousSelectionKey = useRef('');
@@ -880,6 +881,12 @@ export default function EditorPage() {
               </div>
             )}
           </div>
+          <button type="button" data-testid="toggle-safe-zone" onClick={() => setShowSafeZone(s => !s)}
+            title="显示安全区/字幕区/数字人区参考"
+            className={`h-9 px-3 text-xs flex items-center gap-1.5 rounded-md border transition-colors ${showSafeZone ? 'border-brand-blue bg-brand-blue/10 text-brand-blue' : 'border-border text-muted-foreground hover:bg-accent'}`}>
+            <IconLayout size={14} />
+            {showSafeZone ? '隐藏安全区' : '安全区'}
+          </button>
           <button onClick={openRenderReview}
             className="h-9 px-4 text-[14px] flex items-center gap-1.5 bg-primary text-primary-foreground hover:opacity-90 rounded-md transition-opacity font-medium">
             <IconZap size={16} />
@@ -984,8 +991,18 @@ export default function EditorPage() {
 
         {/* 中间：画布 + 底部脚本/时间轴面板（参考 opentalking） */}
         <div ref={centerColumnRef} className="flex-1 flex flex-col overflow-hidden min-h-0 min-w-0">
-          <div className="flex-1 min-h-[140px] overflow-hidden">
+          <div className="relative flex-1 min-h-[140px] overflow-hidden">
             <VideoCanvas />
+            {showSafeZone && (
+              <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center" data-testid="safe-zone-overlay">
+                <div className="relative" style={{ height: '100%', aspectRatio: '9 / 16', maxWidth: '100%' }}>
+                  <div className="absolute inset-y-[5%] left-[8%] right-[8%] border-2 border-dashed border-brand-blue/50 rounded" title="9:16 安全区" />
+                  <div className="absolute inset-x-[8%] bottom-[6%] h-[18%] border border-dashed border-brand-amber/60 rounded" title="字幕区" />
+                  <div className="absolute right-[10%] top-[18%] h-[28%] w-[34%] border border-dashed border-brand-green/60 rounded" title="数字人区域" />
+                  <span className="absolute top-2 left-2 rounded bg-black/70 px-1.5 py-0.5 text-[10px] text-white">安全区 · 字幕区 · 数字人区 · 冲突检测为预览参考</span>
+                </div>
+              </div>
+            )}
           </div>
           <EditorBottomPanel
             dsl={dsl}

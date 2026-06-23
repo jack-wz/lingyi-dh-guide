@@ -10,6 +10,23 @@ import {
   IconTrash,
 } from './Icons';
 
+function shotStatus(seg: Segment): 'missing' | 'ready' | 'warning' {
+  const issues: string[] = [];
+  if (!seg.scene_image_url) issues.push('场景图');
+  if (seg.digital_human?.enabled && !seg.avatar_id) issues.push('数字人');
+  if (!seg.narration_text.trim()) issues.push('口播');
+  if (!seg.subtitle?.style_id) issues.push('字幕样式');
+  if (issues.length >= 2) return 'missing';
+  if (issues.length === 1) return 'warning';
+  return 'ready';
+}
+
+const SHOT_STATUS_META: Record<'missing' | 'ready' | 'warning', { label: string; cls: string }> = {
+  ready: { label: '就绪', cls: 'bg-brand-green/15 text-brand-green' },
+  warning: { label: '待完善', cls: 'bg-brand-amber/15 text-brand-amber' },
+  missing: { label: '缺素材', cls: 'bg-destructive/15 text-destructive' },
+};
+
 export default function EditorLeftPanel({
   dsl: _dsl,
   currentSegIndex,
@@ -41,8 +58,8 @@ export default function EditorLeftPanel({
   return (
     <aside className="bg-card border-r border-border flex flex-col shrink-0 min-h-0" style={style}>
       <div className="px-3 py-2 border-b border-border flex items-center justify-between gap-2 shrink-0">
-        <p className="text-xs font-medium text-foreground">分镜</p>
-        <p className="text-[10px] text-muted-foreground">{totalCount} 个场景</p>
+        <p className="text-xs font-medium text-foreground">镜头</p>
+        <p className="text-[10px] text-muted-foreground">{totalCount} 个镜头</p>
         <button
           type="button"
           onClick={onAddSegment}
@@ -91,13 +108,12 @@ export default function EditorLeftPanel({
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1">
-                    <span className="text-[10px] font-medium">场景 {index + 1}</span>
+                    <span className="text-[10px] font-medium">镜头 {index + 1}</span>
                     <span className="text-[9px] text-muted-foreground">{seg.duration_sec}s</span>
-                    {issues.length > 0 && (
-                      <span className="ml-auto w-4 h-4 rounded-full bg-brand-amber/15 text-brand-amber flex items-center justify-center" title={issues.join('、')}>
-                        <IconAlertCircle size={11} />
-                      </span>
-                    )}
+                    {(() => {
+                      const meta = SHOT_STATUS_META[shotStatus(seg)];
+                      return <span className={`ml-auto shrink-0 rounded px-1 py-0.5 text-[9px] ${meta.cls}`} title={issues.join('、')}>{meta.label}</span>;
+                    })()}
                   </div>
                   <p className="text-[10px] text-muted-foreground line-clamp-2 mt-1">
                     {seg.narration_text || seg.scene_description || '未填写内容'}

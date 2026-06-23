@@ -2,7 +2,7 @@ import type { PipelineOption } from '@shared/data/pipelines';
 import { resolveDiagnosticsPipelineKey } from '@shared/data/pipelines';
 import type { ConfigDiagnostics, DSL } from '@shared/types/editor';
 import { IconAlertCircle, IconCheck, IconZap } from '../../../components/Icons';
-import { estimateRenderCostRisk } from '../utils/renderIssues';
+import { estimateRenderCostRisk, getGenerationExpectation } from '../utils/renderIssues';
 
 export default function RenderReviewDialog({
   dsl,
@@ -35,6 +35,7 @@ export default function RenderReviewDialog({
 }) {
   const totalDuration = dsl.segments.reduce((sum, seg) => sum + Number(seg.duration_sec || 0), 0);
   const estimate = estimateRenderCostRisk(dsl, pipeline, diagnostics);
+  const expectation = getGenerationExpectation(dsl, pipeline, diagnostics);
   const diagKey = pipeline ? resolveDiagnosticsPipelineKey(pipeline.key) : '';
   const pipelineDiagnostics = diagKey ? diagnostics?.pipelines?.[diagKey] : undefined;
   const pipelineBlockers = pipelineDiagnostics?.blockers || [];
@@ -69,9 +70,20 @@ export default function RenderReviewDialog({
           </button>
         </div>
 
-        <div className="px-4 py-3 space-y-3 max-h-[min(280px,50vh)] overflow-y-auto">
+        <div className="px-4 py-3 border-b border-border bg-secondary/30">
+          <p className="text-[13px] font-medium text-foreground">{expectation.oneLine}</p>
+          {expectation.aiFills.length > 0 && (
+            <p className="mt-1 text-[11px] text-muted-foreground">
+              缺槽检测：将 AI 补 {expectation.aiFills.join('、')}
+            </p>
+          )}
+        </div>
+
+        <div className="px-4 py-3 space-y-3 max-h-[min(260px,50vh)] overflow-y-auto">
           <p className="text-[13px] text-foreground leading-relaxed">
-            <span className="font-medium">{dsl.segments.length} 场景</span>
+            <span className="font-medium">{dsl.segments.length} 镜头</span>
+            <span className="text-muted-foreground"> · </span>
+            就绪 {expectation.readyShots} · 待完善 {expectation.warningShots} · 缺素材 {expectation.missingShots}
             <span className="text-muted-foreground"> · </span>
             {totalDuration}s
             <span className="text-muted-foreground"> · </span>
