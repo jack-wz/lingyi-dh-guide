@@ -102,7 +102,6 @@ export default function InspectorPanel({
           ) : tab === 'motion' ? (
             <MotionPanel
               dsl={dsl}
-              editorId={editorId}
               currentSegIndex={currentSegIndex}
               updateDsl={updateDsl}
             />
