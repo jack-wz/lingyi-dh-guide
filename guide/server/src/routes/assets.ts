@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { getDb } from '../db/database.js';
 
 const router = Router();
-const ASSET_TYPES = ['image', 'video', 'audio', 'sticker', 'logo', 'file'] as const;
+const ASSET_TYPES = ['image', 'video', 'audio', 'sticker', 'logo', 'file', 'svg', 'lottie', 'motion_recipe', 'motion_preview', 'motion_overlay'] as const;
 
 function parseMetadata(raw: unknown): Record<string, unknown> {
   if (!raw) return {};
@@ -106,11 +106,19 @@ router.delete('/:id', (req: Request, res: Response) => {
 
 export function inferAssetType(filename: string, mimeType = ''): string {
   const lower = filename.toLowerCase();
-  if (/\.(gif|png|jpe?g|webp|svg)$/i.test(lower) || mimeType.startsWith('image/')) {
+  if (/\.(lottie)$/i.test(lower)) return 'lottie';
+  if (/\.(svg)$/i.test(lower)) return 'svg';
+  if (/\.(gif|png|jpe?g|webp)$/i.test(lower) || (mimeType.startsWith('image/') && !/svg/.test(lower))) {
     return /\.gif$/i.test(lower) ? 'sticker' : 'image';
   }
   if (/\.(mp4|mov|webm|avi)$/i.test(lower) || mimeType.startsWith('video/')) return 'video';
   if (/\.(mp3|wav|m4a|ogg)$/i.test(lower) || mimeType.startsWith('audio/')) return 'audio';
+  // JSON: must not default to lottie without content check; callers can override type.
+  if (/\.(json)$/i.test(lower)) {
+    // Heuristic: motion recipe json should be uploaded with explicit type; default keep as file.
+    if (/motion_recipe|recipe/.test(lower)) return 'motion_recipe';
+    return 'file';
+  }
   return 'file';
 }
 

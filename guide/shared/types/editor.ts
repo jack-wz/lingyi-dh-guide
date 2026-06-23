@@ -47,6 +47,10 @@ export interface Segment {
     render_width_pct?: number;
     render_height_pct?: number;
     rotation?: number;
+    // V5 motion overlay references (#19) — additive, optional.
+    motion_asset_id?: string;
+    motion_slot_values?: Record<string, string | number | boolean>;
+    delivery_mode?: 'video_overlay' | 'interactive_preview' | 'web_code';
   }>;
   thumbnail_url?: string;
   diagnostics?: string[];
@@ -78,6 +82,10 @@ export interface EditorObject {
     provider?: string;
     shape_type?: string;
     animation?: string;
+    // V5 motion references (#19) — additive, optional.
+    motion_asset_id?: string;
+    motion_slot_values?: Record<string, string | number | boolean>;
+    delivery_mode?: 'video_overlay' | 'interactive_preview' | 'web_code';
   };
   seg_start_time?: number;
   duration?: number;
