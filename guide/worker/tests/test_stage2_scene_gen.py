@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from worker.scene_fusion import scene_fusion_role_prefix
+from worker.pipeline_log import PipelineStepError
 from worker.stage2_scene_gen import (
     _SCENE_FUSION_CONSTRAINTS,
     _scene_fusion_prompt,
@@ -66,6 +67,36 @@ class Stage2SceneGenTests(unittest.TestCase):
                         call_kwargs = mock_parallel.call_args.kwargs
                         self.assertEqual(len(call_kwargs["segments"]), 4)
                         self.assertEqual(call_kwargs["workers"], 4)
+
+    @patch("worker.stage2_scene_gen.get_scene_fusion_parallel_workers", return_value=1)
+    def test_strict_mode_fails_when_kie_input_unresolvable(self, _mock_workers):
+        segments = [
+            {
+                "scene_image_url": "/uploads/scene_0.png",
+                "scene_description": "",
+                "narration_text": "口播0",
+                "digital_human": {"enabled": True},
+            }
+        ]
+        with tempfile.TemporaryDirectory() as work_dir:
+            uploads = os.path.join(work_dir, "uploads")
+            dh_dir = os.path.join(uploads, "digital-humans", "dh_test")
+            os.makedirs(dh_dir, exist_ok=True)
+            open(os.path.join(dh_dir, "half_body.png"), "wb").write(b"png")
+            open(os.path.join(uploads, "scene_0.png"), "wb").write(b"png")
+
+            with patch("worker.stage2_scene_gen.UPLOADS_DIR", uploads):
+                with patch(
+                    "worker.stage2_scene_gen.resolve_kie_input_url",
+                    return_value="",
+                ):
+                    with self.assertRaises(PipelineStepError):
+                        generate_scene_images(
+                            {"segments": segments},
+                            {"half_body_photo_url": "/uploads/digital-humans/dh_test/half_body.png"},
+                            work_dir,
+                            strict=True,
+                        )
 
 
 if __name__ == "__main__":

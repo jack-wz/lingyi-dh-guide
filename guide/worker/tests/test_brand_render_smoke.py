@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -140,6 +141,8 @@ class TestBrandRenderSmoke(unittest.TestCase):
                     }
                 ]
 
+                from worker.brand_fonts import get_ass_font_name
+
                 manifest = prepare_brand_fonts(global_config, work_dir)
                 self.assertIn(family, manifest["family_paths"])
 
@@ -147,7 +150,9 @@ class TestBrandRenderSmoke(unittest.TestCase):
                 generate_ass(segments, global_config, ass_path)
                 with open(ass_path, encoding="utf-8-sig") as f:
                     ass_text = f.read()
-                self.assertRegex(ass_text, rf"Style: [^,]+,{family},")
+                # ASS must use the libass-compatible internal font name, not the DSL directory name
+                ass_font_name = get_ass_font_name(family)
+                self.assertRegex(ass_text, rf"Style: [^,]+,{re.escape(ass_font_name)},")
 
                 output_path = os.path.join(work_dir, "final.mp4")
                 result = assemble_final_video(segments, [], global_config, work_dir, output_path)

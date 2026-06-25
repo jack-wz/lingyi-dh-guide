@@ -1,6 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { getDataDir, getDb } from '../db/database.js';
-import { enrichJob } from '../render-utils.js';
+import { getDb } from '../db/database.js';
 
 const router = Router();
 const ACTIVE_RENDER_STATUSES = ['queued', 'parsing', 'scene_gen', 'video_gen', 'ffmpeg', 'cancelling'];
@@ -25,21 +24,24 @@ export interface UnifiedTask {
 
 function mapRenderTask(row: Record<string, unknown>): UnifiedTask {
   const id = String(row.id);
+  const templateName = String(row.template_name || '').trim();
+  const pipelineKey = String(row.pipeline_key || 'standard');
+  const stage = String(row.stage || row.status || '');
   return {
     id,
     task_type: 'render',
     status: String(row.status || ''),
     progress: Number(row.progress || 0),
-    stage: String(row.stage || ''),
-    title: `渲染任务 ${id.slice(0, 8)}`,
-    subtitle: String(row.pipeline_key || 'standard'),
+    stage,
+    title: templateName || `渲染任务 ${id.slice(0, 8)}`,
+    subtitle: `${pipelineKey} · ${stage}`,
     error_message: String(row.error_message || ''),
     output_url: String(row.output_url || ''),
     template_id: String(row.template_id || ''),
     digital_human_id: String(row.digital_human_id || ''),
     created_at: String(row.created_at || ''),
     updated_at: String(row.updated_at || row.created_at || ''),
-    link: `/renders/${id}`,
+    link: `/render/${id}`,
   };
 }
 
@@ -76,13 +78,13 @@ router.get('/', (req: Request, res: Response) => {
       ? ['completed', 'failed', 'cancelled']
       : ACTIVE_RENDER_STATUSES;
 
-  let renderSql = 'SELECT * FROM render_jobs';
+  let renderSql = 'SELECT rj.*, t.name AS template_name, t.type AS template_type FROM render_jobs rj LEFT JOIN templates t ON t.id = rj.template_id';
   const renderParams: unknown[] = [];
   if (renderStatuses) {
-    renderSql += ` WHERE status IN (${renderStatuses.map(() => '?').join(',')})`;
+    renderSql += ` WHERE rj.status IN (${renderStatuses.map(() => '?').join(',')})`;
     renderParams.push(...renderStatuses);
   }
-  renderSql += ' ORDER BY datetime(updated_at) DESC LIMIT ?';
+  renderSql += ' ORDER BY datetime(rj.updated_at) DESC LIMIT ?';
   renderParams.push(limit);
 
   const renderRows = db.prepare(renderSql).all(...renderParams) as Array<Record<string, unknown>>;
@@ -105,7 +107,7 @@ router.get('/', (req: Request, res: Response) => {
   const dhRows = db.prepare(dhSql).all(...dhParams) as Array<Record<string, unknown>>;
 
   const items = [
-    ...renderRows.map((row) => mapRenderTask(enrichJob(row, getDataDir()) as Record<string, unknown>)),
+    ...renderRows.map((row) => mapRenderTask(row)),
     ...dhRows.map(mapDhTask),
   ]
     .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
@@ -124,8 +126,10 @@ router.get('/:id', (req: Request, res: Response) => {
   }
 
   if (taskType !== 'dh_training') {
-    const job = db.prepare('SELECT * FROM render_jobs WHERE id = ?').get(req.params.id) as Record<string, unknown> | undefined;
-    if (job) return res.json(mapRenderTask(enrichJob(job, getDataDir()) as Record<string, unknown>));
+    const job = db
+      .prepare('SELECT rj.*, t.name AS template_name, t.type AS template_type FROM render_jobs rj LEFT JOIN templates t ON t.id = rj.template_id WHERE rj.id = ?')
+      .get(req.params.id) as Record<string, unknown> | undefined;
+    if (job) return res.json(mapRenderTask(job));
   }
 
   return res.status(404).json({ error: 'Task not found' });

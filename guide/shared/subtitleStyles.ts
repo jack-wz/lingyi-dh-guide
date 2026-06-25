@@ -396,10 +396,10 @@ export const SUBTITLE_STYLE_DEFINITIONS: SubtitleStyleDefinition[] = [
   {
     id: 'hf-caption-clip-wipe',
     name: '裁剪擦除（HF）',
-    description: 'HyperFrames 逐词 clip-path 擦除字幕，每次只显示一行',
+    description: 'HyperFrames 逐词 clip-path 擦除字幕，醒目黄色字+深色描边',
     preview: {
       text: '品质好物 放心选购',
-      color: '#ffffff',
+      color: '#FFD700',
       bg: 'transparent',
       outline: '#000000',
       fontSize: 13,
@@ -407,7 +407,7 @@ export const SUBTITLE_STYLE_DEFINITIONS: SubtitleStyleDefinition[] = [
       borderRadius: 0,
     },
     render: {
-      color: '#ffffff',
+      color: '#FFD700',
       bg: 'transparent',
       size: '34px',
       weight: 800,
@@ -415,7 +415,7 @@ export const SUBTITLE_STYLE_DEFINITIONS: SubtitleStyleDefinition[] = [
     },
     engine: 'hyperframes',
     hf_component: 'caption-clip-wipe',
-    hf_fallback_id: 'default',
+    hf_fallback_id: 'bold-yellow',
   },
   {
     id: 'hf-caption-matrix-decode',

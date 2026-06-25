@@ -1,3 +1,84 @@
+# AGENTS.md
+
+> Repo-specific guidance for OpenCode sessions. The blocks at the bottom (GitNexus, Clauge) are auto-maintained by external tools — do not edit inside the `<!-- :start -->` / `<!-- :end -->` markers.
+
+## Product boundaries (read first)
+
+- **The active product is the `guide/` monorepo.** Everything else is legacy/frozen.
+  - `guide/server/` — Express API (internal port `3001`, only reachable via the FastAPI proxy on `:8000`).
+  - `guide/worker/` — Python render pipeline (Stages 1–4). Run scripts assume **repo root** as cwd, with `PYTHONPATH=guide/worker`.
+  - `guide/web/` — React editor / debug console.
+  - `guide/shared/` — TS types + HyperFrames composition logic, consumed by both `server` and `web` via the `@shared/*` path alias.
+  - `guide/data/` — SQLite (`templates.db`), `config.json`, uploads, renders. **Gitignored, local only.**
+- **Do NOT modify** `pixelle_video/` (legacy Python package, only imported by `api/` for compat) or `archive/legacy-pixelle/` (archived old product line). The root `pyproject.toml` describes the legacy package, not the guide product.
+- The `api/` FastAPI gateway proxies `/api/templates|renders|digital-humans|uploads|config` + `/uploads` `/renders` static to the guide server on `:3001`.
+
+## Commands
+
+The root `Makefile` only delegates — every real target lives in `guide/Makefile`. Run from repo root:
+
+```bash
+make test-guide                 # worker unit tests (Python, the big suite)
+make test-guide-server          # Express API unit tests (node --import tsx --test)
+make test-guide-shared          # shared TS tests (HF adapters, composer)
+make test-guide-fast            # timeline/ASS/audit unit tests only (fast gate)
+make test-guide-e2e             # Playwright; self-boots isolated :3100 server + :5180 web
+make lint-guide                 # ruff over guide/worker/worker + guide/scripts (no-op if ruff missing)
+make validate-renders           # audit all render jobs under guide/data/renders
+make validate-render-job JOB=<uuid>   # audit one render job (required arg)
+make poll-render-job JOB=<uuid>
+make verify-final-delivery JOB=<uuid>
+make smoke-integrator           # full integrator smoke (default template_editor)
+make smoke-integrator SUBMIT_ONLY=1   # submit only, skip poll
+make restart-worker             # reload worker code after editing worker/
+```
+
+Root entry points: `./start_platform.sh` (orchestrates API `:8000` + web `:5173`); `./start_api.sh`; `./start_guide_web.sh`. If `:8000` is already occupied, recover the guide upstream via `make -C guide start-guide-internal`.
+Docs: `http://127.0.0.1:8000/docs`, editor `http://127.0.0.1:5173`, debug console `:5173/debug`.
+
+### Single-test invocation
+
+- **Python worker test:** tests are invoked *from repo root*, not `guide/`. `run_pytest.sh` already `cd`s to repo root and exports `PYTHONPATH=guide/worker`, and prefers `uv run pytest`. Run one file:
+  ```bash
+  uv run pytest guide/worker/tests/test_timeline_sync.py -q
+  uv run pytest guide/worker/tests/test_timeline_sync.py::TestClass::test_method -q
+  ```
+  **First run of worker tests needs `make setup-worker-venv`** (creates `guide/worker/.venv`) only when `uv` is absent; with `uv` present it reuses the root venv.
+- **Server/shared TS test:** server tests are `node --import tsx --test $(find src -name '*.test.ts')`; run one file with:
+  ```bash
+  cd guide/server && node --import tsx --test src/render-utils.test.ts
+  cd guide && node --import tsx --test shared/<file>.test.ts
+  ```
+- **Playwright:** `cd guide/web && npx playwright test <spec>` (or `npm run test:e2e <spec>`).
+
+### Do NOT use
+
+- `npm test` at the guide root — that script mixes `npm run test --workspace=server` with a stale `python3 -m unittest` discovery that does **not** match how tests actually run. Use the `make` targets above.
+- `make -C guide test-guide-server` from a path with spaces — the server `test` script uses a shell glob expansion that can break; prefer `cd guide/server && npm test`.
+
+## Setup prerequisites
+
+- `guide/scripts/preflight.sh` checks node/uv/ffmpeg and `guide/.env`. Run it before first start.
+- Copy `guide/.env.example` → `guide/.env` and fill `KIE_API_KEY`, `YUNTTS_API_KEY`, `WAVESPEED_API_KEY`, `SERVER_URL`. `guide/data/config.example.json` → `guide/data/config.json` is the parallel runtime config (also gitignored).
+- Verify keys without booting services: `uv run python guide/scripts/verify_providers.py`.
+- Some lint targets (web) and renders need Playwright Chromium (`npx playwright install --with-deps chromium`); `smoke-brand-render` needs `ffmpeg-full` from Homebrew on PATH (`/opt/homebrew/opt/ffmpeg-full/bin`).
+
+## Toolchain quirks
+
+- **`guide/` is an npm workspace root** (`web`, `server`). Install with `npm ci` inside `guide/`. `shared/` is *not* a workspace — it's consumed via `tsconfig` path alias `@shared/*` and is tested by direct glob (`node --import tsx --test shared/*.test.ts`).
+- **Two Python layers, do not confuse them:** the root `pyproject.toml` (legacy `pixelle-video`, `uv`-managed, deps for ComfyUI/fastmcp/streamlit) vs `guide/worker/requirements.txt` (the worker's actual runtime deps: requests, edge-tts, faster-whisper, pytest). Worker tests pull from the worker requirements, not the root pyproject.
+- **Ruff** is configured only in the root `pyproject.toml`: `line-length=100`, `target-version=py311`, selects `E,F,I`, ignores `E501`. `lint-guide` only lints `guide/worker/worker` and `guide/scripts` — it does **not** lint the root `pixelle_video/` package or random scripts. There is no root-level typecheck or lint for the TS side; `guide/web` has `eslint .`, `guide/server` has none (relies on `tsc -b` via `build`).
+- **HyperFrames** (`@hyperframes/core`, pinned `0.6.114`): `npm run hf:compose|lint|render` in `guide/`. The `hyperframes_template` pipeline (debug path only, gated by `ENABLE_HF_TEMPLATE_PIPELINE=1`) renders via `hyperframes render` rather than Stage4 FFmpeg. Set `SKIP_HF_RENDER_SMOKE=1` to skip the slow Chrome render step in `smoke-hf-render` / CI.
+- **Render pipeline contract** (see `guide/CONTEXT.md`): three execution paths — ① delivery (Worker, picks one of seven `pipeline_key`s, default `template_editor`) ② preview (HF iframe, no delivery) ③ debug (`hyperframes_template`, env-gated). Delivery films burn a **single ASS subtitle track** via one Stage4 FFmpeg pass; never double-burn FFmpeg + HF subtitles. Default integrator contract: `{"pipeline_key":"template_editor","input_mode":"template"}`.
+
+## CI gate order (`.github/workflows/guide-ci.yml`)
+
+The `guide-worker` job runs, in order: `smoke-integrator-ci` → `smoke-integrator-hf-ci` → `setup-worker-venv` → `validate-renders-ci` (fast timeline gate) → `test-guide` → `smoke-hf-render` (with `SKIP_HF_RENDER_SMOKE=1`). `guide-server` runs `npm run test --workspace=server`, `guide-shared` runs `make test-guide-shared`, `guide-e2e` runs Playwright on isolated ports. Mirroring this locally: run `make test-guide-shared && make test-guide-server && make validate-renders-ci && make test-guide` before pushing guide/ changes.
+
+## Editing guardrails (from GitNexus block below)
+
+This repo is GitNexus-indexed as `lingyi-dh-guide` (default branch `main`). Before editing any function/class/method, run `impact({target, direction:"upstream"})` and warn on HIGH/CRITICAL risk. Before renaming a symbol, use GitNexus `rename` (call-graph aware), not find-and-replace. Run `detect_changes()` before committing. Refresh the index with `node .gitnexus/run.cjs analyze`.
+
 <!-- gitnexus:start -->
 # GitNexus — Code Intelligence
 

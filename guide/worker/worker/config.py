@@ -88,7 +88,7 @@ def get_kie_avatar_config():
     )
     prompt = cfg.get("avatar_prompt") or get_prompt(
         "avatar_infinitetalk",
-        "自然口播，轻微头部动作和表情，电商导购短视频风格",
+        "自然真实的口播，说话人表情生动有情绪、嘴型与音频精准同步，头部动作轻微自然、眼神有交流感，避免僵硬和过度夸张，保持真人质感，电商导购短视频风格",
     )
     try:
         poll_timeout = int(cfg.get("avatar_poll_timeout") or cfg.get("poll_timeout") or 300)

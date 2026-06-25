@@ -129,6 +129,9 @@ if api_config.cors_enabled:
 # Health check (no prefix)
 app.include_router(health_router)
 
+# Guide platform proxy (must come before legacy routers to avoid shadowing guide endpoints)
+app.include_router(guide_router, prefix=api_config.api_prefix)
+
 # API routers (with /api prefix)
 app.include_router(llm_router, prefix=api_config.api_prefix)
 app.include_router(tts_router, prefix=api_config.api_prefix)
@@ -139,7 +142,6 @@ app.include_router(tasks_router, prefix=api_config.api_prefix)
 app.include_router(files_router, prefix=api_config.api_prefix)
 app.include_router(resources_router, prefix=api_config.api_prefix)
 app.include_router(frame_router, prefix=api_config.api_prefix)
-app.include_router(guide_router, prefix=api_config.api_prefix)
 
 # Guide platform static assets (uploads / renders)
 app.mount("/uploads", StaticFiles(directory=str(UPLOADS_DIR)), name="guide-uploads")

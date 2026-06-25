@@ -6,7 +6,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { existsSync, readFileSync } from 'fs';
 import { removeRenderArtifacts } from '../render-artifacts.js';
-import { narrationRequiresDigitalHumanIssue } from '@shared/renderGuards';
+import { narrationRequiresDigitalHumanIssue, digitalHumanConsistencyIssue } from '@shared/renderGuards';
 import {
   ACTIVE_RENDER_STATUSES,
   getExposedPipelines,
@@ -212,6 +212,14 @@ router.post('/', (req: Request, res: Response) => {
     }
   }
 
+  const dhConsistencyIssue = digitalHumanConsistencyIssue(
+    String(digital_human_id || ''),
+    templateDsl as { meta?: { digital_human_id?: string }; segments?: Array<{ avatar_id?: string }> },
+  );
+  if (dhConsistencyIssue) {
+    return apiError(res, ErrorCodes.VALIDATION, dhConsistencyIssue);
+  }
+
   db.prepare(
     `INSERT INTO render_jobs (
        id, template_id, digital_human_id, status, stage, pipeline_key, input_mode,
@@ -274,6 +282,20 @@ router.post('/ai-generate', (req: Request, res: Response) => {
   }
   if (dh.status !== 'ready') {
     return apiError(res, ErrorCodes.DH_NOT_READY, `数字人未就绪: ${digital_human_id}`);
+  }
+
+  let aiTemplateDsl: Record<string, unknown> = {};
+  try {
+    aiTemplateDsl = JSON.parse(template.dsl_json || '{}');
+  } catch {
+    aiTemplateDsl = {};
+  }
+  const aiDhConsistencyIssue = digitalHumanConsistencyIssue(
+    String(digital_human_id || ''),
+    aiTemplateDsl as { meta?: { digital_human_id?: string }; segments?: Array<{ avatar_id?: string }> },
+  );
+  if (aiDhConsistencyIssue) {
+    return apiError(res, ErrorCodes.VALIDATION, aiDhConsistencyIssue);
   }
 
   db.prepare(

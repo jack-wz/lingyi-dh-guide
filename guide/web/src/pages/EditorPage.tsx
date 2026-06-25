@@ -54,6 +54,8 @@ import { applyLookPresetToDsl, migrateLookPresetPayload, parseLookPresetPayload 
 import { createEditorObject, getObjectLabel } from '../utils/editorObjects';
 import {
   applyDigitalHumanCatalogToDsl,
+  bindDigitalHumanToDsl,
+  dslDigitalHumanId,
   fetchDigitalHumanRecord,
   opentalkingDigitalHumanDefaults,
 } from '../utils/digitalHumanCatalog';
@@ -136,7 +138,7 @@ export default function EditorPage() {
           canvas_height: 1920,
           fps: 30,
           bgm_url: '',
-          bgm_volume: 0.3,
+          bgm_volume: 0.65,
           output_format: 'mp4',
           background_color: '#f6f6f6',
           bgm_enabled: Boolean(raw.globalConfig?.bgm_url),
@@ -224,7 +226,9 @@ export default function EditorPage() {
         if (cancelled || !dh?.id) return;
         appliedDhFromUrlRef.current = dhId;
         setSelectedDhId(dh.id);
-        updateDsl((draft) => applyDigitalHumanCatalogToDsl(draft, dh));
+        updateDsl((draft) =>
+          applyDigitalHumanCatalogToDsl(bindDigitalHumanToDsl(draft, dh.id), dh),
+        );
         setSavingState('dirty');
       })
       .catch(() => {});
@@ -330,15 +334,19 @@ export default function EditorPage() {
     setSaving(true);
     setSavingState('saving');
     try {
+      const effectiveDhId = selectedDhId || dsl.meta.digital_human_id || '';
+      const dslMetaSynced = effectiveDhId && effectiveDhId !== dsl.meta.digital_human_id
+        ? bindDigitalHumanToDsl(dsl, effectiveDhId)
+        : dsl;
       const dslToSave = {
-        ...dsl,
+        ...dslMetaSynced,
         meta: {
-          ...dsl.meta,
+          ...dslMetaSynced.meta,
           pipeline_key: DEFAULT_EDITOR_PIPELINE_KEY,
           input_mode: inputMode,
           topic,
           script_text: scriptText,
-          digital_human_id: selectedDhId || dsl.meta.digital_human_id,
+          digital_human_id: effectiveDhId,
           brand_pack_id: dsl.globalConfig.brand_pack_id || undefined,
         },
       };
@@ -547,21 +555,7 @@ export default function EditorPage() {
   const bindDigitalHuman = (dhId: string) => {
     setSelectedDhId(dhId);
     if (!dsl) return;
-    const talkingDefaults = opentalkingDigitalHumanDefaults(true);
-    updateDsl((draft) => ({
-      ...draft,
-      meta: { ...draft.meta, digital_human_id: dhId },
-      segments: draft.segments.map((seg) => ({
-        ...seg,
-        avatar_id: dhId,
-        layout: seg.layout || 'avatar-center',
-        digital_human: {
-          ...talkingDefaults,
-          ...seg.digital_human,
-          enabled: seg.type === 'narration' ? true : seg.digital_human.enabled,
-        },
-      })),
-    }));
+    updateDsl((draft) => bindDigitalHumanToDsl(draft, dhId));
     fetchDigitalHumanRecord(dhId)
       .then((dh) => {
         if (!dh?.id) return;
@@ -582,6 +576,15 @@ export default function EditorPage() {
     const isAIFullAuto = renderPipelineKey === 'ai_full_auto';
     const endpoint = isAIFullAuto ? '/api/renders/ai-generate' : '/api/renders';
     const resolvedDhId = selectedDhId || dsl.meta.digital_human_id || '';
+    const dslDhId = dslDigitalHumanId(dsl);
+    if (resolvedDhId && dslDhId && resolvedDhId !== dslDhId) {
+      setMessageDialog({
+        title: '数字人不一致',
+        message: `提交的数字人 (${resolvedDhId.slice(0, 8)}) 与模板中绑定的数字人 (${dslDhId.slice(0, 8)}) 不一致，请先在编辑器中重新选择数字人后再提交渲染。`,
+        destructive: true,
+      });
+      return;
+    }
     const body = isAIFullAuto
       ? {
           template_id: id,

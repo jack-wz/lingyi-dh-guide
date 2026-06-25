@@ -39,6 +39,43 @@ export function applyDigitalHumanCatalogToDsl(dsl: DSL, dh: DigitalHumanRecord):
   };
 }
 
+/**
+ * Fully bind a digital human to the DSL: updates meta.digital_human_id,
+ * every segment's avatar_id, and the digital_human_catalog entry.
+ *
+ * Use this instead of applyDigitalHumanCatalogToDsl when switching the
+ * active digital human — the catalog-only helper leaves meta/segments
+ * pointing at the previous DH, causing render-time voice/avatar mismatches.
+ */
+export function bindDigitalHumanToDsl(dsl: DSL, dhId: string): DSL {
+  if (!dhId) return dsl;
+  const talkingDefaults = opentalkingDigitalHumanDefaults(true);
+  return {
+    ...dsl,
+    meta: { ...dsl.meta, digital_human_id: dhId },
+    segments: (dsl.segments || []).map((seg) => ({
+      ...seg,
+      avatar_id: dhId,
+      digital_human: {
+        ...talkingDefaults,
+        ...(seg.digital_human || {}),
+        enabled: seg.type === 'narration' ? true : (seg.digital_human?.enabled ?? false),
+      },
+    })),
+  };
+}
+
+/**
+ * Returns the canonical digital human id for a DSL: prefers meta, then the
+ * first segment avatar_id. Returns '' when none is set.
+ */
+export function dslDigitalHumanId(dsl: { meta?: { digital_human_id?: string }; segments?: Array<{ avatar_id?: string }> }): string {
+  const fromMeta = (dsl.meta?.digital_human_id || '').trim();
+  if (fromMeta) return fromMeta;
+  const seg = (dsl.segments || []).find((s) => (s.avatar_id || '').trim());
+  return seg ? (seg.avatar_id as string) : '';
+}
+
 /** Opentalking default talking-head placement for narration segments. */
 export function opentalkingDigitalHumanDefaults(enabled = true) {
   const preset = OPENTALKING_DH_LAYOUTS.avatar_talking;

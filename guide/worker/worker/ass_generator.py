@@ -25,6 +25,7 @@ _FADE_OUT_MS = 280
 _SUBTITLE_FONT_MIN = 32
 _SUBTITLE_FONT_MAX = 120
 _SUBTITLE_FONT_DEFAULT = 72
+_KARAOKE_TAG_RE = re.compile(r"\{[^}]*\}")
 
 def _sec_to_ass(seconds: float) -> str:
     if seconds < 0:
@@ -204,7 +205,16 @@ def _format_karaoke_from_word_timings(
     seg_start: float,
     word_timings: list[dict],
 ) -> str | None:
-    """Build ASS karaoke tags from segment-local word timings when available."""
+    """Build ASS karaoke tags from segment-local word timings when available.
+
+    word_timings are typically clauses produced by split_caption_display_units.
+    Because phrase splitting is character-based and may cut through a clause,
+    a unit's text can appear (by time) in multiple phrase windows. Including the
+    full unit text in every overlapping phrase causes visible subtitle repetition.
+    We therefore only keep units whose text is actually present in this phrase,
+    and we validate that the concatenated karaoke text matches the phrase text.
+    If the alignment is dirty, fall back to plain phrase rendering.
+    """
     if not word_timings:
         return None
 
@@ -214,6 +224,10 @@ def _format_karaoke_from_word_timings(
     for item in word_timings:
         text = str(item.get("text", "")).strip()
         if not text:
+            continue
+        # A unit must be part of this phrase's text; otherwise it belongs to
+        # another phrase and including it here would duplicate content.
+        if text not in phrase:
             continue
         start = float(item.get("start", 0.0))
         end = float(item.get("end", start))
@@ -232,7 +246,15 @@ def _format_karaoke_from_word_timings(
     for unit in units:
         dur_cs = max(1, round((unit["end"] - unit["start"]) * 100))
         parts.append(rf"{{\k{dur_cs}}}{_escape_ass_text(unit['text'])}")
-    return "".join(parts) if parts else None
+    body = "".join(parts)
+
+    # Safety check: the karaoke text (without tags) must reconstruct the phrase
+    # in order. If not, phrase/word boundaries are misaligned; fall back.
+    karaoke_text = "".join(_KARAOKE_TAG_RE.sub("", body).split())
+    normalized_phrase = "".join(phrase.split())
+    if karaoke_text != normalized_phrase:
+        return None
+    return body if body else None
 
 
 def _format_phrase_text(text: str, animation: str, phrase_dur_sec: float) -> str:
@@ -314,7 +336,11 @@ def _parse_font_family_name(raw: str) -> str:
 
 
 def _resolve_subtitle_font_family(subtitle_cfg: dict, global_config: dict) -> str:
-    """Segment font_family → global subtitle_font_family → default_font_family."""
+    """Segment font_family → global subtitle_font_family → default_font_family.
+
+    Returns the DSL-level family name; brand_fonts.get_ass_font_name() must be
+    used to convert to the libass-internal name when building ASS Style lines.
+    """
     for source in (
         subtitle_cfg.get("font_family"),
         global_config.get("subtitle_font_family"),
@@ -347,7 +373,10 @@ def _resolve_margin_v(position: str, canvas_h: int) -> int:
         return max(40, round(80 * scale))
     if pos == "center":
         return 0
-    return max(60, round(120 * scale))
+    # Bottom: keep subtitles above the lower 15% of canvas to match preview
+    # (preview positions subtitles ~85% from top, leaving 15% bottom margin).
+    # Previous value was 120px which placed text too close to the edge.
+    return max(80, round(180 * scale))
 
 
 def _resolve_hf_karaoke_secondary_color(canonical_style: str) -> str | None:
@@ -442,10 +471,17 @@ def generate_ass(
         )
 
         seg_font = _resolve_subtitle_font_family(subtitle_cfg, global_config)
+        # Map DSL family name to the font's internal name for libass
+        try:
+            from worker.brand_fonts import get_ass_font_name
+
+            ass_font_name = get_ass_font_name(seg_font)
+        except ImportError:
+            ass_font_name = seg_font
         use_style = _style_name_for(
             canonical_style,
             seg_font_size,
-            seg_font,
+            ass_font_name,
             primary_override=primary_override if ass_degraded_hf else None,
             secondary_override=secondary_override if ass_degraded_hf and word_timings else None,
             alignment=ass_alignment,
@@ -488,7 +524,14 @@ def generate_ass(
             )
 
     if not style_defs:
-        style_defs.append(build_ass_style_line("Default", ass_font, base_font_size, "default"))
+        fallback_family = _resolve_subtitle_font_family({}, global_config)
+        try:
+            from worker.brand_fonts import get_ass_font_name
+
+            fallback_ass_name = get_ass_font_name(fallback_family)
+        except ImportError:
+            fallback_ass_name = fallback_family
+        style_defs.append(build_ass_style_line("Default", fallback_ass_name, base_font_size, "default"))
 
     header = f"""[Script Info]
 Title: Guide Platform Subtitles

@@ -72,12 +72,14 @@
         font-weight: 800;
         font-size: 88px;
         text-transform: uppercase;
-        color: #ffffff;
+        color: #ffd700;
         display: inline-block;
         letter-spacing: 0.04em;
         line-height: 1;
         clip-path: inset(0 100% 0 0);
         will-change: clip-path, color, opacity;
+        text-shadow: 0 2px 0 #000000, 0 0 20px rgba(0, 0, 0, 0.55),
+          0 4px 18px rgba(0, 0, 0, 0.55);
       }
     </style>
   </head>
@@ -216,9 +218,9 @@
               w.start,
             );
             if (isKW) {
-              tl.to(wordEl, { color: "#FFD700", duration: 0.05 }, w.start + 0.1);
+              tl.to(wordEl, { color: "#ffffff", duration: 0.05 }, w.start + 0.1);
             }
-            tl.to(wordEl, { color: "rgba(255,255,255,0.4)", duration: 0.2 }, w.end);
+            tl.to(wordEl, { color: "rgba(255,215,0,0.45)", duration: 0.2 }, w.end);
           });
 
           var wordEls = grp.querySelectorAll(".wp-word");

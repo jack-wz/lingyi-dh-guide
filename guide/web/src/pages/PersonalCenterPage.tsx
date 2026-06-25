@@ -142,43 +142,70 @@ export default function PersonalCenterPage() {
       <h1 className="text-2xl font-bold text-foreground mb-2">我的视频</h1>
       <p className="text-muted-foreground mb-6">查看您的视频生成历史记录</p>
 
-      {activeTasks.length > 0 && (
-        <section className="mb-8">
-          <h2 className="text-lg font-semibold text-foreground mb-4">进行中 ({activeTasks.length})</h2>
-          <div className="space-y-2">
+      <section className="mb-8">
+        <h2 className="text-lg font-semibold text-foreground mb-4">
+          生成中 ({activeTasks.length})
+        </h2>
+        {activeTasks.length === 0 ? (
+          <div className="bg-card border border-border rounded-xl p-8 text-center text-muted-foreground">
+            暂无生成中的视频
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {activeTasks.map((task) => (
               <Link
                 key={`${task.task_type}-${task.id}`}
                 to={task.link}
-                className="flex items-center gap-4 bg-card border border-border rounded-xl p-4 hover:border-brand-blue/40 transition-colors"
+                className="bg-card border border-border rounded-xl overflow-hidden hover:border-brand-blue/40 transition-colors"
               >
-                <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${task.task_type === 'dh_training' ? 'bg-brand-amber animate-pulse' : 'bg-brand-blue animate-pulse'}`} />
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium text-foreground truncate">{task.title}</div>
-                  <div className="text-xs text-muted-foreground mt-0.5">
-                    {task.task_type === 'dh_training' ? '数字人训练' : '视频渲染'} · {task.stage || task.status}
+                <div className="aspect-video bg-secondary relative flex items-center justify-center">
+                  <div className="text-center px-4">
+                    <div className={`inline-flex items-center justify-center w-12 h-12 rounded-full mb-2 ${task.task_type === 'dh_training' ? 'bg-brand-amber/20' : 'bg-brand-blue/20'}`}>
+                      <div className={`w-6 h-6 rounded-full ${task.task_type === 'dh_training' ? 'bg-brand-amber' : 'bg-brand-blue'} animate-pulse`} />
+                    </div>
+                    <div className="text-sm text-muted-foreground">
+                      {task.task_type === 'dh_training' ? '数字人训练' : '视频渲染'}
+                    </div>
+                  </div>
+                  <div className="absolute top-2 right-2 text-xs px-2 py-0.5 rounded bg-brand-blue text-white">
+                    {Math.round(task.progress)}%
                   </div>
                 </div>
-                <div className="text-sm text-muted-foreground shrink-0">{Math.round(task.progress)}%</div>
+                <div className="p-3">
+                  <div className="text-sm text-foreground/80 font-medium truncate">
+                    {task.title}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {task.subtitle || task.stage || task.status}
+                  </div>
+                  <div className="mt-2 w-full bg-secondary rounded-full h-1.5">
+                    <div
+                      className="bg-brand-blue h-1.5 rounded-full transition-all"
+                      style={{ width: `${Math.min(100, Math.max(0, task.progress))}%` }}
+                    />
+                  </div>
+                  <div className="mt-2 text-xs text-brand-blue hover:underline">
+                    查看进度
+                  </div>
+                </div>
               </Link>
             ))}
           </div>
-        </section>
-      )}
+        )}
+      </section>
 
-      {/* Stats */}
       <div className="grid grid-cols-3 gap-4 mb-8">
         <div className="bg-card border border-border rounded-xl p-4 text-center">
-          <div className="text-3xl font-bold text-brand-blue">{completedJobs.length}</div>
+          <div className="text-3xl font-bold text-brand-blue">{activeTasks.filter(t => t.task_type === 'render').length}</div>
+          <div className="text-sm text-muted-foreground mt-1">生成中</div>
+        </div>
+        <div className="bg-card border border-border rounded-xl p-4 text-center">
+          <div className="text-3xl font-bold text-brand-green">{completedJobs.length}</div>
           <div className="text-sm text-muted-foreground mt-1">成功生成</div>
         </div>
         <div className="bg-card border border-border rounded-xl p-4 text-center">
-          <div className="text-3xl font-bold text-destructive">{failedJobs.length}</div>
-          <div className="text-sm text-muted-foreground mt-1">生成失败</div>
-        </div>
-        <div className="bg-card border border-border rounded-xl p-4 text-center">
-          <div className="text-3xl font-bold text-muted-foreground">{cancelledJobs.length}</div>
-          <div className="text-sm text-muted-foreground mt-1">已取消</div>
+          <div className="text-3xl font-bold text-destructive">{failedJobs.length + cancelledJobs.length}</div>
+          <div className="text-sm text-muted-foreground mt-1">失败/取消</div>
         </div>
       </div>
 

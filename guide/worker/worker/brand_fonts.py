@@ -48,12 +48,66 @@ def _find_brand_system_font_file(family: str) -> str:
     return ""
 
 
+def _read_font_internal_name(font_path: str) -> str:
+    """Read the internal family name that libass/fontconfig will match.
+
+    Prefer fontconfig's fc-query (matches FFmpeg/libass exactly); fall back to
+    PIL's ImageFont.getname() when fontconfig is unavailable. Some brand fonts
+    store CJK names that PIL decodes poorly, so fc-query is authoritative.
+    """
+    try:
+        import shutil
+        import subprocess
+
+        if shutil.which("fc-query"):
+            out = subprocess.check_output(
+                ["fc-query", "-f", "%{family}\\n", font_path],
+                timeout=10,
+                stderr=subprocess.DEVNULL,
+            )
+            families = out.decode("utf-8", errors="replace").strip().split(",")
+            for fam in families:
+                fam = fam.strip()
+                if fam:
+                    return fam
+    except Exception:
+        pass
+
+    try:
+        from PIL import ImageFont
+
+        font = ImageFont.truetype(font_path, 24)
+        name = font.getname()
+        return str(name[0]) if name else ""
+    except Exception:
+        return ""
+
+
+# Cache: DSL family → internal font name, populated lazily by prepare_brand_fonts
+_FONT_NAME_MAP: dict[str, str] = {}
+
+
+def get_ass_font_name(family: str) -> str:
+    """Return the libass-compatible internal font name for a DSL family name.
+
+    libass matches fonts by their internal Name-table family, NOT the filename
+    or directory name. When a brand font's directory name (used in DSL) differs
+    from the internal name, this mapping ensures the ASS Style line uses the
+    name libass can actually resolve.
+    """
+    return _FONT_NAME_MAP.get(family, family)
+
+
 def _copy_font_to_workdir(family: str, src: str, fonts_dir: str) -> str:
     ext = os.path.splitext(src)[1] or ".ttf"
     safe = "".join(ch if ch.isalnum() or ch in "-_" else "_" for ch in family)
     dest = os.path.join(fonts_dir, f"{safe}{ext}")
     if not os.path.exists(dest):
         shutil.copy2(src, dest)
+    # Record internal name mapping so ASS generator can use it
+    internal = _read_font_internal_name(dest)
+    if internal:
+        _FONT_NAME_MAP[family] = internal
     return dest
 
 
@@ -77,9 +131,19 @@ def prepare_brand_fonts(
     work_dir: str,
     segments: list[dict] | None = None,
 ) -> dict[str, Any]:
-    """Copy brand font files into work_dir/fonts and write manifest.json."""
+    """Copy brand-pack font files into work_dir/fonts and write fonts_manifest.json."""
     fonts_dir = os.path.join(work_dir, "fonts")
     os.makedirs(fonts_dir, exist_ok=True)
+
+    # Remove stale non-font files that FFmpeg/libass would try to load as fonts.
+    font_exts = {".ttf", ".otf", ".woff", ".woff2"}
+    for name in os.listdir(fonts_dir):
+        path = os.path.join(fonts_dir, name)
+        if os.path.isfile(path) and os.path.splitext(name)[1].lower() not in font_exts:
+            try:
+                os.remove(path)
+            except OSError:
+                pass
 
     family_paths: dict[str, str] = {}
     entries = _iter_brand_font_entries(global_config)
@@ -110,7 +174,11 @@ def prepare_brand_fonts(
         "family_paths": family_paths,
         "fonts_dir": fonts_dir,
     }
-    with open(os.path.join(fonts_dir, "manifest.json"), "w", encoding="utf-8") as f:
+    # Keep the manifest outside the fonts directory: FFmpeg/libass scans the
+    # fontsdir and tries to load every file as a font, so a JSON file in that
+    # folder causes "Error opening memory font" and can abort the filter.
+    manifest_path = os.path.join(work_dir, "fonts_manifest.json")
+    with open(manifest_path, "w", encoding="utf-8") as f:
         json.dump(manifest, f, ensure_ascii=False, indent=2)
 
     if family_paths:
@@ -122,7 +190,7 @@ def prepare_brand_fonts(
 
 
 def load_font_manifest(work_dir: str) -> dict[str, Any]:
-    path = os.path.join(work_dir, "fonts", "manifest.json")
+    path = os.path.join(work_dir, "fonts_manifest.json")
     if not os.path.exists(path):
         return {"default_family": "PingFang SC", "family_paths": {}, "fonts_dir": os.path.join(work_dir, "fonts")}
     with open(path, encoding="utf-8") as f:

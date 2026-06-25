@@ -474,6 +474,10 @@ def assemble_final_video(
     log = job_logger or null_logger()
     stage = "Stage4"
 
+    # Normalize work_dir to an absolute path: we run ffmpeg with cwd=work_dir and
+    # build many paths from work_dir, so a relative work_dir would break inputs.
+    work_dir = os.path.abspath(work_dir)
+
     if not check_ffmpeg():
         log.fail(stage, "FFmpeg", "FFmpeg 不可用，无法组装成片")
 
@@ -513,7 +517,7 @@ def assemble_final_video(
     canvas_h = global_config.get("canvas_height", 1920)
     fps = global_config.get("fps", 30)
     bgm_url = global_config.get("bgm_url", "")
-    bgm_volume = global_config.get("bgm_volume", 0.3)
+    bgm_volume = global_config.get("bgm_volume", 0.65)
 
     # Collect valid clips
     clips = []
@@ -740,10 +744,14 @@ def assemble_final_video(
     # ---- Map outputs ----
     map_args = ["-map", f"[{current_video}]"]
 
-    # Mix BGM with clip audio
+    # Mix BGM with clip audio and normalize overall loudness so the background
+    # music is audible without drowning the narration.
+    # First normalize BGM to a consistent loudness so the volume slider maps
+    # predictably to perceived loudness regardless of the uploaded source file.
     if bgm_input_index is not None:
         filters.append(
-            f"[{bgm_input_index}:a]volume={bgm_volume},aresample=44100,"
+            f"[{bgm_input_index}:a]loudnorm=I=-16:TP=-1.5:LRA=11,"
+            f"volume={bgm_volume},aresample=44100,"
             f"aformat=sample_fmts=fltp:channel_layouts=mono[bgm]"
         )
         if base_audio_label:
@@ -751,7 +759,9 @@ def assemble_final_video(
                 f"[{base_audio_label}][bgm]amix=inputs=2:duration=first:"
                 f"dropout_transition=0:normalize=0[mixeda]"
             )
-            filters.append("[mixeda]alimiter=limit=0.95:level=false[aout]")
+            filters.append(
+                "[mixeda]loudnorm=I=-16:TP=-1.5:LRA=11[aout]"
+            )
             map_args += ["-map", "[aout]"]
         else:
             filters.append("[bgm]anull[aout]")

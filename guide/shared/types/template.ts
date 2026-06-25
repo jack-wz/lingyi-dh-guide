@@ -294,7 +294,7 @@ export function createDefaultDSL(input: {
       canvas_height: 1920,
       fps: 30,
       bgm_url: '',
-      bgm_volume: 0.3,
+      bgm_volume: 0.65,
       output_format: 'mp4',
       background_color: '#f6f6f6',
       bgm_enabled: false,

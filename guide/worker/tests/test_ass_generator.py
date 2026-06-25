@@ -184,7 +184,7 @@ class TestAssGenerator(unittest.TestCase):
         self.assertIn("Dialogue:", content)
         self.assertIn(r"{\k", content)
         self.assertIn("&H00EB6325", content)  # #2563eb primary override BGR
-        self.assertIn(",3,2,2,2,10,10,120,1", content)  # subtitle-card boxed ASS style
+        self.assertIn(",3,2,2,2,10,10,180,1", content)  # subtitle-card boxed ASS style
         self.assertIn("SecondaryColour", content)
 
     def test_generate_ass_uses_segment_subtitle_font_family(self):

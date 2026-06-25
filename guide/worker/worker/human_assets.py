@@ -24,17 +24,6 @@ def _resolve_local(url: str) -> str:
     return ""
 
 
-def _is_stage2_generated_scene(scene_path: str, work_dir: str) -> bool:
-    """True when Stage2 saved a KIE-fused or generated scene under work_dir."""
-    if not scene_path or not work_dir:
-        return False
-    try:
-        rel = os.path.relpath(scene_path, work_dir)
-    except ValueError:
-        return False
-    return not rel.startswith("..") and os.path.basename(rel).startswith("scene_")
-
-
 def _download_asset(url: str, work_dir: str, basename: str, server_base_url: str) -> str:
     if not url:
         return ""
@@ -101,21 +90,24 @@ def resolve_human_assets_on_segments(
             seg["human_face_path"] = face_local
         elif half_local:
             seg["human_face_path"] = half_local
-        if half_local and dh.get("enabled"):
-            existing_scene = seg.get("scene_image_path") or ""
-            if not _is_stage2_generated_scene(existing_scene, work_dir):
-                seg["scene_image_path"] = half_local
-                if half_url:
-                    seg["scene_image_url"] = half_url
-        elif half_local and not seg.get("scene_image_path"):
+
+        existing_scene = seg.get("scene_image_path") or ""
+        if existing_scene and os.path.exists(existing_scene):
+            print(
+                f"[HumanAssets] Segment {i + 1}: face={seg.get('human_face_path', '')}, "
+                f"scene={existing_scene} (preserved)"
+            )
+            continue
+
+        if half_local:
             seg["scene_image_path"] = half_local
             if half_url:
                 seg["scene_image_url"] = half_url
-        elif face_local and not seg.get("scene_image_path"):
+        elif face_local:
             seg["scene_image_path"] = face_local
             if face_url:
                 seg["scene_image_url"] = face_url
-        elif full_local and not seg.get("scene_image_path"):
+        elif full_local:
             seg["scene_image_path"] = full_local
             if full_url:
                 seg["scene_image_url"] = full_url

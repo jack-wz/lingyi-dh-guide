@@ -256,7 +256,13 @@ def _process_segment_scene(
             human_ref_url = shared.human_half_url or shared.human_face_url
             human_kie = resolve_kie_input_url(human_ref_url, kie, server_base_url)
         ref_kie = resolve_kie_input_url(scene_url, kie, server_base_url) if scene_url else ""
-        if ref_kie and human_kie:
+
+        fusion_error = ""
+        if not human_kie:
+            fusion_error = "无法上传数字人参考图到 KIE"
+        elif not ref_kie:
+            fusion_error = "无法上传场景图到 KIE"
+        else:
             fusion_prompt = _scene_fusion_prompt(seg)
             log.info(stage, "KieFusion", "数字人场景融合开始", segment=index)
             log.info(
@@ -284,13 +290,15 @@ def _process_segment_scene(
                 except Exception as exc:
                     log.error(stage, "KieFusion", f"下载融合场景失败: {exc}", segment=index)
                     scene_path = ""
-            elif strict:
-                log.fail(stage, "KieFusion", "KIE 场景融合未返回结果", segment=index)
-        if not scene_path:
-            if strict and ref_kie and human_kie:
-                log.fail(stage, "SceneImage", "融合场景缺失且 strict 模式禁止半身回退", segment=index)
-            log.warn(stage, "SceneImage", "使用数字人半身照作为场景", segment=index)
+            if not scene_path:
+                fusion_error = "KIE 场景融合未返回有效结果"
+
+        if fusion_error:
+            if strict:
+                log.fail(stage, "SceneImage", f"{fusion_error}，strict 模式禁止半身回退", segment=index)
+            log.warn(stage, "SceneImage", f"{fusion_error}，使用数字人半身照作为场景", segment=index)
             scene_path = shared.human_half_path
+
         seg["scene_image_path"] = scene_path
         seg["human_face_path"] = shared.human_face_path or shared.human_half_path
         log.info(stage, "SceneImage", f"场景就绪 → {scene_path or '(none)'}", segment=index)

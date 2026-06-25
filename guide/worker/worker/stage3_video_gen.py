@@ -140,6 +140,7 @@ def generate_segment_videos(
         stage=stage,
     )
     voice_persisted = False
+    direct_synthesis_failed_ids: set[str] = set()
 
     def _persist_voice_id(new_id: str, segment_index: int) -> None:
         nonlocal effective_voice_id, voice_persisted
@@ -158,6 +159,13 @@ def generate_segment_videos(
                     f"已持久化 digital_human={digital_human_id} voice_clone_id={cleaned}",
                     segment=segment_index,
                 )
+
+    def _mark_direct_synthesis_failed(voice_id: str) -> None:
+        if voice_id:
+            direct_synthesis_failed_ids.add(voice_id)
+
+    def _can_use_direct_synthesis(voice_id: str) -> bool:
+        return bool(voice_id) and voice_id not in direct_synthesis_failed_ids
 
     human_config_base = dict(human_photos or {})
     if voice_sample_url:
@@ -181,6 +189,8 @@ def generate_segment_videos(
                 tts=tts,
                 effective_voice_id=effective_voice_id,
                 persist_voice_id=_persist_voice_id,
+                can_use_direct_synthesis=_can_use_direct_synthesis,
+                mark_direct_synthesis_failed=_mark_direct_synthesis_failed,
                 strict=strict,
                 log=log,
                 stage=stage,
@@ -263,6 +273,8 @@ def _prepare_segment_tts(
     tts,
     effective_voice_id: str,
     persist_voice_id,
+    can_use_direct_synthesis,
+    mark_direct_synthesis_failed,
     strict: bool,
     log: PipelineLogger,
     stage: str,
@@ -288,6 +300,11 @@ def _prepare_segment_tts(
     voice_sample_path = _resolve_voice_sample(
         voice_sample_url, server_base_url, work_dir, log, stage, index,
     )
+    prompt_audio_url = _resolve_prompt_audio_url(
+        voice_sample_url, server_base_url, log, stage, index,
+    )
+    if prompt_audio_url:
+        log.info(stage, "VoiceSample", f"prompt_audio_url={prompt_audio_url}", segment=index)
 
     if has_narration:
         dh_label = (digital_human_id or "").strip() or "(none)"
@@ -303,29 +320,50 @@ def _prepare_segment_tts(
             voice_name = f"vh_{index}"
         discovered_voice_id = ""
 
-        if effective_voice_id:
+        if effective_voice_id and can_use_direct_synthesis(effective_voice_id) and not prompt_audio_url:
             log.info(stage, "TTS", f"使用已存储 voice_id={effective_voice_id}", segment=index)
             tts_path = tts.synthesize(text, effective_voice_id, audio_path)
             if not tts_path:
                 log.warn(stage, "TTS", "存储 voice_id 合成失败，尝试重新克隆", segment=index)
+                mark_direct_synthesis_failed(effective_voice_id)
         else:
-            log.info(stage, "TTS", "无可用 voice_clone_id，使用音色样本克隆/回退合成", segment=index)
+            if prompt_audio_url:
+                reason = "使用 IndexTTS-2 零样本音色克隆合成"
+            elif not effective_voice_id:
+                reason = "无可用 voice_clone_id，使用音色样本克隆/回退合成"
+            else:
+                reason = "该 voice_id 已在本任务中失败，使用音色样本克隆/回退合成"
+            log.info(stage, "TTS", reason, segment=index)
             tts_path = ""
 
-        if not tts_path and voice_sample_path and os.path.exists(voice_sample_path):
+        if not tts_path and prompt_audio_url:
             from worker.tts_adapter import YunTTSAdapter
 
             if isinstance(tts, YunTTSAdapter):
-                tts_path, discovered_voice_id = tts.clone_and_synthesize_with_voice_id(
-                    text, voice_sample_path, audio_path, voice_name=voice_name
-                )
+                # Digital-human narration must use Index/YunTTS zero-shot cloning.
+                # Retry a few times because YunTTS can be transient.
+                max_attempts = 3
+                for attempt in range(1, max_attempts + 1):
+                    tts_path, discovered_voice_id = tts.clone_and_synthesize_with_voice_id(
+                        text, voice_sample_path, audio_path, voice_name=voice_name,
+                        prompt_audio_url=prompt_audio_url,
+                    )
+                    if tts_path:
+                        break
+                    log.warn(
+                        stage,
+                        "TTS",
+                        f"Index TTS 克隆合成失败（尝试 {attempt}/{max_attempts}）",
+                        segment=index,
+                    )
             else:
                 tts_path = tts.clone_and_synthesize(
                     text, voice_sample_path, audio_path, voice_name=voice_name
                 )
             persist_voice_id(discovered_voice_id, index)
 
-        if not tts_path:
+        if not tts_path and not prompt_audio_url:
+            # Only fall back to Edge TTS when there is no voice sample (non-digital-human).
             from worker.tts_adapter import YunTTSAdapter
 
             if isinstance(tts, YunTTSAdapter):
@@ -361,12 +399,24 @@ def _prepare_segment_tts(
             except Exception as exc:
                 log.warn(stage, "TTS", f"读取音频时长失败: {exc}", segment=index)
         elif strict:
-            log.fail(
-                stage,
-                "TTS",
-                "旁白 TTS 合成失败（请检查 YunTTS 网络/API Key/音色样本）",
-                segment=index,
-            )
+            err_detail = ""
+            from worker.tts_adapter import YunTTSAdapter
+            if isinstance(tts, YunTTSAdapter):
+                err_detail = tts._client.last_error
+            if err_detail:
+                log.fail(
+                    stage,
+                    "TTS",
+                    f"旁白 TTS 合成失败: {err_detail}",
+                    segment=index,
+                )
+            else:
+                log.fail(
+                    stage,
+                    "TTS",
+                    "旁白 TTS 合成失败（请检查 YunTTS 网络/API Key/音色样本）",
+                    segment=index,
+                )
         else:
             log.warn(stage, "TTS", "合成失败，非 strict 模式将尝试无音频回退", segment=index)
             tts_path = ""
@@ -632,6 +682,61 @@ def _speedup_audio(
     except Exception as exc:
         log.warn(stage, "TTS", f"音频加速异常: {exc}", segment=seg_index)
     return audio_path
+
+
+def _resolve_prompt_audio_url(
+    voice_sample_url: str,
+    server_base_url: str,
+    log: PipelineLogger,
+    stage: str,
+    seg_index: int,
+) -> str:
+    """Return a publicly reachable URL for the voice sample to send to IndexTTS-2.
+
+    IndexTTS-2 /text-to-speech requires prompt_audio_url to be fetchable by YunTTS.
+    For local /uploads paths we construct the full URL from server_base_url.
+    """
+    if not voice_sample_url:
+        return ""
+
+    if voice_sample_url.startswith(("http://", "https://")):
+        return voice_sample_url
+
+    resolved = ""
+    if voice_sample_url.startswith("/uploads/") or voice_sample_url.startswith("/"):
+        if server_base_url:
+            resolved = f"{server_base_url.rstrip('/')}{voice_sample_url}"
+        else:
+            log.warn(stage, "VoiceSample", "server_base_url 为空，无法构造 prompt_audio_url", segment=seg_index)
+            return ""
+
+    # Absolute local path inside uploads dir: reconstruct the /uploads/ URL.
+    if os.path.isabs(voice_sample_url):
+        from worker.config import UPLOADS_DIR
+        uploads_root = os.path.abspath(UPLOADS_DIR)
+        sample_abs = os.path.abspath(voice_sample_url)
+        if sample_abs.startswith(uploads_root + os.sep):
+            relative = sample_abs[len(uploads_root):].replace(os.sep, "/")
+            if server_base_url:
+                resolved = f"{server_base_url.rstrip('/')}{relative}"
+            else:
+                log.warn(stage, "VoiceSample", "server_base_url 为空，无法构造 prompt_audio_url", segment=seg_index)
+                return ""
+
+    if not resolved:
+        log.warn(stage, "VoiceSample", f"无法识别音色样本 URL 格式: {voice_sample_url}", segment=seg_index)
+        return ""
+
+    lowered = resolved.lower()
+    if "localhost" in lowered or "127.0.0.1" in lowered or "0.0.0.0" in lowered:
+        log.warn(
+            stage,
+            "VoiceSample",
+            f"prompt_audio_url 包含本地地址 ({resolved})，IndexTTS-2 可能无法访问；"
+            "请设置 guide/.env 中的 SERVER_URL 为公网可访问地址",
+            segment=seg_index,
+        )
+    return resolved
 
 
 def _resolve_voice_sample(

@@ -117,13 +117,13 @@ export default function DesignPanel({
           previewType="audio"
           className="mt-2"
         />
-        <label className="mt-3 block text-xs text-muted-foreground">音量 {Math.round((cfg.bgm_volume ?? 0.3) * 100)}%</label>
+        <label className="mt-3 block text-xs text-muted-foreground">          音量 {Math.round((cfg.bgm_volume ?? 0.65) * 100)}%</label>
         <input
           type="range"
           min={0}
           max={1}
           step={0.01}
-          value={cfg.bgm_volume ?? 0.3}
+          value={cfg.bgm_volume ?? 0.65}
           onChange={(e) => updateGlobal({ bgm_volume: Number(e.target.value) })}
           className="w-full"
         />

@@ -66,3 +66,37 @@ export function getSegmentVoiceIdWarnings(
   });
   return warnings;
 }
+
+/**
+ * Returns the digital human id declared in the DSL: prefers meta.digital_human_id,
+ * falls back to the first non-empty segment avatar_id.
+ */
+export function dslDigitalHumanId(
+  dsl: { meta?: { digital_human_id?: string }; segments?: Array<{ avatar_id?: string }> },
+): string {
+  const fromMeta = String(dsl.meta?.digital_human_id || '').trim();
+  if (fromMeta) return fromMeta;
+  const seg = (dsl.segments || []).find((s) => String(s.avatar_id || '').trim());
+  return seg ? String(seg.avatar_id) : '';
+}
+
+/**
+ * Detects a mismatch between the render-request digital_human_id and the
+ * digital human bound inside the template DSL (meta or segment avatar_id).
+ * Returns an error message string when inconsistent, null when aligned.
+ */
+export function digitalHumanConsistencyIssue(
+  requestDhId: string,
+  dsl: { meta?: { digital_human_id?: string }; segments?: Array<{ avatar_id?: string }> },
+): string | null {
+  const reqId = String(requestDhId || '').trim();
+  if (!reqId) return null;
+  const dslId = dslDigitalHumanId(dsl);
+  if (!dslId) return null;
+  if (reqId === dslId) return null;
+  return (
+    `digital_human_id 不一致：请求传入 ${reqId.slice(0, 8)}…，` +
+    `模板 DSL 绑定 ${dslId.slice(0, 8)}…。` +
+    `请先在编辑器中统一数字人后再提交渲染，避免声音与形象不匹配。`
+  );
+}

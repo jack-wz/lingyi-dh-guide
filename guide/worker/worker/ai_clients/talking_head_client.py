@@ -254,7 +254,7 @@ class TalkingHeadClient:
 
         avatar_prompt = get_prompt(
             "avatar_infinitetalk",
-            "自然口播，轻微头部动作和表情，电商导购短视频风格",
+            "自然真实的口播，说话人表情生动有情绪、嘴型与音频精准同步，头部动作轻微自然、眼神有交流感，避免僵硬和过度夸张，保持真人质感，电商导购短视频风格",
         )
         payload = build_wavespeed_lipsync_payload(
             self.model,

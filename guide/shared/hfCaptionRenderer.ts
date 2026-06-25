@@ -535,7 +535,7 @@ export function renderCaptionClipWipeClip(ctx: HfCaptionRenderContext): HfCaptio
       const wi = g.wordStart + i;
       const emphasized = isPhraseEmphasis(w.text);
       const color = emphasized ? ctx.accentColor : ctx.textColor;
-      return `<span class="wipe-word ${emphasized ? 'wipe-word--emph' : ''}" id="wipe-w-${timing.timelineId}-${wi}" style="font-size:${timing.fontSize}px;color:${color};text-shadow:0 4px 18px rgba(0,0,0,0.55);" data-emph="${emphasized}" data-dbg-emphasis="${Array.from(emphasis).join(',')}" data-dbg-accent="${ctx.accentColor}" data-dbg-textcolor="${ctx.textColor}">${escapeHtml(w.text)}</span>`;
+      return `<span class="wipe-word ${emphasized ? 'wipe-word--emph' : ''}" id="wipe-w-${timing.timelineId}-${wi}" style="font-size:${timing.fontSize}px;color:${color};text-shadow:0 2px 0 #000000,0 0 20px rgba(0,0,0,0.55),0 4px 18px rgba(0,0,0,0.55);" data-emph="${emphasized}" data-dbg-emphasis="${Array.from(emphasis).join(',')}" data-dbg-accent="${ctx.accentColor}" data-dbg-textcolor="${ctx.textColor}">${escapeHtml(w.text)}</span>`;
     }).join('<span class="wipe-gap" aria-hidden="true">&nbsp;</span>');
     return `<div class="wipe-group" id="wipe-grp-${timing.timelineId}-${gi}" style="visibility:hidden;">${wordSpans}</div>`;
   }).join('');
@@ -556,7 +556,7 @@ export function renderCaptionClipWipeClip(ctx: HfCaptionRenderContext): HfCaptio
       display: flex; flex-wrap: wrap; align-items: center; justify-content: center;
       gap: ${layout.gap + 2}px; padding: 0 ${layout.sideInsetPct}%;
       font-family: ${ctx.fontFamily}; font-weight: 800; line-height: 1.15;
-      text-shadow: 0 4px 18px rgba(0,0,0,0.55);
+      text-shadow: 0 2px 0 #000000, 0 0 20px rgba(0,0,0,0.55), 0 4px 18px rgba(0,0,0,0.55);
     }
     .hf-caption-clip-wipe .wipe-word {
       display: inline-block; clip-path: inset(0 100% 0 0); will-change: clip-path;

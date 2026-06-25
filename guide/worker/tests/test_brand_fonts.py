@@ -44,7 +44,7 @@ class TestBrandFonts(unittest.TestCase):
                 self.assertIn("BiaoXiaoZhiBiaoTiHei", manifest["family_paths"])
                 path = resolve_brand_font_path(work, "BiaoXiaoZhiBiaoTiHei")
                 self.assertTrue(os.path.exists(path))
-                with open(os.path.join(work, "fonts", "manifest.json"), encoding="utf-8") as f:
+                with open(os.path.join(work, "fonts_manifest.json"), encoding="utf-8") as f:
                     saved = json.load(f)
                 self.assertEqual(saved["default_family"], "BiaoXiaoZhiBiaoTiHei")
             finally:
