@@ -1,4 +1,4 @@
 {
-  "embeddings": true,
+  "embeddings": false,
   "defaultBranch": "main"
 }
