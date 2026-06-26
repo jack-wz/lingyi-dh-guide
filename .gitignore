@@ -104,7 +104,13 @@ repositories/
 
 # Agent output artifacts
 output/
+render_*.md
 
 # Claude skills (local only)
 .claude/skills/
+
+# Runtime / ephemeral data
+guide/data/*.db
+guide/data/renders.db
+guide/scripts/create_production_template.py
 
