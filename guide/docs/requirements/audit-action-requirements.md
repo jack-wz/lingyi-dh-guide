@@ -265,6 +265,71 @@
 
 ---
 
+## MCP 复核与 Impact 分析
+
+GitNexus 索引重建成功后（6,628 nodes | 14,343 edges | 355 clusters | 300 flows），使用 MCP `impact` / `context` / `route_map` / `explain` 对关键符号进行复核与影响面分析。
+
+### 关键符号 Impact 汇总
+
+| 目标符号 | 文件 | 上游影响数 | 风险 | 分析结论 |
+|---|---|---|---|---|
+| `createApp` | `guide/server/src/app.ts:29` | 1 | LOW | 仅 `index.ts` 调用；添加全局错误处理中间件风险极低，但所有路由异常都会经过它，需确保不吞掉 `apiError()` 已处理的响应。 |
+| `run_pipeline` | `guide/worker/worker/pipeline.py:41` | 0 | LOW | **确认死代码**，无上游调用；可直接删除或移入 `archive/`。 |
+| `_generate_placeholder_clip` | `guide/worker/worker/stage3_video_gen.py:957` | 5 | LOW | 被 `_generate_clip_for_segment` 调用，最终进入 `run_pipeline` 执行流；修复 drawtext 转义需同步检查 fallback 路径（`cmd_without_text`）。 |
+| `_resolve_overlay_asset` | `guide/worker/worker/stage4_ffmpeg.py:263` | 5 | LOW | 被 `assemble_final_video` 调用，影响 Lottie/WebM/PNG 序列判定；修复运算符优先级时需保留现有测试覆盖。 |
+| `_JOB_CONFIG_SNAPSHOT` | `guide/worker/worker/config.py:24` | 0（图未捕获访问边） | LOW | 实际由 `set_job_config_snapshot` 写入、`_load_json` 读取；`set_job_config_snapshot` 仅有 `run_worker.py:process_job` 一个调用点。改为参数透传时影响面集中在 `process_job` → 各 `get_*_config()`。 |
+| `set_job_config_snapshot` | `guide/worker/worker/config.py:38` | 2 | LOW | 仅 `run_worker.py:process_job` 调用。 |
+| `process_job` | `guide/worker/run_worker.py` | 2 | LOW | worker 主入口；改造全局状态时必须保持单 job 串行语义。 |
+| `assemble_final_video` | `guide/worker/worker/stage4_ffmpeg.py` | 6 | LOW | Stage4 核心函数；`_resolve_overlay_asset`、BGM 混音、字幕生成等改动均汇聚于此。 |
+| `Segment` (template.ts) | `guide/shared/types/template.ts:76` | 3 | LOW | 引用面很小，可作为合并后的基准类型。 |
+| `Segment` (editor.ts) | `guide/shared/types/editor.ts:10` | **61** | **HIGH** | 23 个直接导入/引用，覆盖 editor store、EditorPage、所有 panel components、server routes；**类型统一是高风险改动，必须分阶段进行**。 |
+| `apiError` | `guide/server/src/apiErrors.ts` | 13 | MEDIUM | 13 处调用；全局错误处理中间件可直接复用，但需避免 double-json。 |
+| `cors_origins` | `api/config.py:31` | 0 | LOW | 默认值 `["*"]`；修改默认配置影响 FastAPI 网关，Express CORS 当前为 `cors()` 无选项，需同步配置。 |
+| `EditorPage` | `guide/web/src/pages/EditorPage.tsx:74` | 0 | LOW | 路由级页面组件，拆分/重构不影响上游调用，但内部 1121 行需渐进拆分。 |
+| `DigitalHumanDetailPage` | `guide/web/src/pages/DigitalHumanDetailPage.tsx` | 0 | LOW | 路由级页面；轮询间隔调整孤立。 |
+| `AssetHubPage` | `guide/web/src/pages/AssetHubPage.tsx` | 0 | LOW | 路由级页面；拆分孤立。 |
+
+### API 路由复核
+
+使用 `gitnexus_route_map` 扫描到 117 条路由。关键发现：
+
+1. **所有路由 middleware 为空** — 与审计结论一致：零认证、零速率限制、零请求日志。
+2. **静态资源路由** `/uploads`、`/renders`、`/brand-fonts` 直接由 `app.ts` 提供，无认证；这与 SEC-C1、SEC-H2 路径遍历风险直接相关。
+3. **消费端映射**：
+   - `/api/uploads` 被 4 个前端组件消费（`FileUploader`、`DigitalHumanDetailPage`、`MediaLogoPickerModal`、`AssetHubPage`）— 统一上传客户端收益大。
+   - `/api/library` 被 5 个消费方使用 — 是统一 API 客户端的重点。
+   - `/api/error-catalog` 被 `RenderResultPage` 和 `IntegratorPlayground` 消费 — 全局错误处理需保持该端点正常。
+
+### 安全 Taint 分析
+
+`gitnexus_explain` 当前返回 `no taint layer`。如需进行源代码→sink 的注入分析（如 `drawtext` 文本、上传文件名、CLI 参数），需先运行：
+
+```bash
+npx gitnexus@1.6.8 analyze --pdg
+```
+
+**建议**：在修复 REQ-WRK-P0-01（drawtext 注入）、REQ-SRV-P1-02（请求体验证）、REQ-SRV-P2-02（路径遍历加固）之前，先启用 PDG 层进行 taint 复核。
+
+### 基于 Impact 的落地顺序调整
+
+1. **可立即低风险执行**：
+   - REQ-SRV-P0-01（全局错误处理）：`createApp` 影响面仅 1，不会破坏现有路由。
+   - REQ-SRV-P0-03（CORS）：`cors_origins` 影响面 0，纯配置变更。
+   - REQ-WRK-P0-02（删除 `run_pipeline`）：已确认死代码，0 上游影响。
+   - REQ-WRK-P0-03（运算符优先级）：`_resolve_overlay_asset` 影响 5，但已有测试覆盖，风险可控。
+
+2. **需要小心测试覆盖**：
+   - REQ-WRK-P0-01（drawtext 注入）：影响 `run_pipeline` 执行流，需补充恶意输入单测。
+   - REQ-WRK-P0-04（print → logger）：改动文件多，需确保日志格式与现有日志收集兼容。
+
+3. **高风险，需分阶段**：
+   - REQ-SHR-P1-01（统一 `Segment` 类型）：`editor.ts:Segment` 61 处引用，**必须先建立兼容层**，禁止一次性删除旧类型。
+   - REQ-WEB-P0-01（TS strict）：会暴露大量 implicit any，建议按目录逐步开启 `strictNullChecks` → `noImplicitAny` → full strict。
+
+4. **前置依赖**：
+   - REQ-SRV-P0-02（认证层）是 REQ-SRV-P1-02（请求体验证）和多数安全改进的前提。
+   - REQ-SHR-P1-01 是 REQ-SRV-P1-03（消除 `as any`）和 REQ-WEB-P0-01 的前置。
+
 ## 下一步建议
 
 1. **P0 优先落地**：按 `安全 > 稳定性 > 类型安全` 顺序执行，先完成 REQ-SRV-P0-02（认证）、REQ-SRV-P0-01（错误处理）、REQ-SRV-P0-03（CORS）、REQ-WRK-P0-01（drawtext 注入）。
