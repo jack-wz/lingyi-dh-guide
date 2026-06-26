@@ -69,7 +69,7 @@ function VoiceRecorder({ onRecorded }: { onRecorded: (file: File) => void }) {
   );
 }
 
-function PhotoUpload({ label, value, onChange }: { label: string; value: string; onChange: (url: string) => void }) {
+function PhotoUpload({ label, value, onChange, onDelete }: { label: string; value: string; onChange: (url: string) => void; onDelete?: () => void }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -100,12 +100,22 @@ function PhotoUpload({ label, value, onChange }: { label: string; value: string;
       {value ? (
         <div className="relative">
           <img src={value} alt={label} className="w-32 h-32 object-cover rounded-lg mx-auto" />
-          <button
-            onClick={() => inputRef.current?.click()}
-            className="mt-2 text-sm text-brand-blue hover:text-blue-800"
-          >
-            替换
-          </button>
+          <div className="flex items-center justify-center gap-3 mt-2">
+            <button
+              onClick={() => inputRef.current?.click()}
+              className="text-sm text-brand-blue hover:text-blue-800"
+            >
+              替换
+            </button>
+            {onDelete && (
+              <button
+                onClick={onDelete}
+                className="text-sm text-red-500 hover:text-red-700"
+              >
+                删除
+              </button>
+            )}
+          </div>
         </div>
       ) : (
         <button onClick={() => inputRef.current?.click()} className="py-4" disabled={uploading}>
@@ -131,6 +141,8 @@ export default function DigitalHumanDetailPage() {
   const [loading, setLoading] = useState(true);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [messageDialog, setMessageDialog] = useState<{ title: string; message: string; destructive?: boolean } | null>(null);
+  const [deletePhotoField, setDeletePhotoField] = useState<string | null>(null);
+  const [deleteVoice, setDeleteVoice] = useState(false);
   const voiceInputRef = useRef<HTMLInputElement>(null);
   const dhRef = useRef<DigitalHuman | null>(null);
 
@@ -201,6 +213,18 @@ export default function DigitalHumanDetailPage() {
     } catch (e) {
       console.error('Upload failed', e);
     }
+  };
+
+  const confirmDeletePhoto = () => {
+    if (deletePhotoField) {
+      updateField(deletePhotoField, '');
+      setDeletePhotoField(null);
+    }
+  };
+
+  const confirmDeleteVoice = () => {
+    updateField('voice_sample_url', '');
+    setDeleteVoice(false);
   };
 
   const triggerTrain = async () => {
@@ -277,9 +301,9 @@ export default function DigitalHumanDetailPage() {
 
       <h2 className="text-lg font-semibold text-foreground/90 mb-3">照片上传</h2>
       <div className="grid grid-cols-3 gap-4 mb-6">
-        <PhotoUpload label="大头照片" value={dh.face_photo_url} onChange={(url) => updateField('face_photo_url', url)} />
-        <PhotoUpload label="半身照片" value={dh.half_body_photo_url} onChange={(url) => updateField('half_body_photo_url', url)} />
-        <PhotoUpload label="全身照片" value={dh.full_body_photo_url} onChange={(url) => updateField('full_body_photo_url', url)} />
+        <PhotoUpload label="大头照片" value={dh.face_photo_url} onChange={(url) => updateField('face_photo_url', url)} onDelete={() => setDeletePhotoField('face_photo_url')} />
+        <PhotoUpload label="半身照片" value={dh.half_body_photo_url} onChange={(url) => updateField('half_body_photo_url', url)} onDelete={() => setDeletePhotoField('half_body_photo_url')} />
+        <PhotoUpload label="全身照片" value={dh.full_body_photo_url} onChange={(url) => updateField('full_body_photo_url', url)} onDelete={() => setDeletePhotoField('full_body_photo_url')} />
       </div>
 
       <h2 className="text-lg font-semibold text-foreground/90 mb-1">声音样本（导购员端录制 5–30 秒）</h2>
@@ -296,9 +320,14 @@ export default function DigitalHumanDetailPage() {
         {dh.voice_sample_url ? (
           <div>
             <audio src={dh.voice_sample_url} controls className="mx-auto mb-2" />
-            <button onClick={() => voiceInputRef.current?.click()} className="text-sm text-brand-blue hover:text-blue-800">
-              替换音频
-            </button>
+            <div className="flex items-center justify-center gap-3">
+              <button onClick={() => voiceInputRef.current?.click()} className="text-sm text-brand-blue hover:text-blue-800">
+                替换音频
+              </button>
+              <button onClick={() => setDeleteVoice(true)} className="text-sm text-red-500 hover:text-red-700">
+                删除音频
+              </button>
+            </div>
           </div>
         ) : (
           <button onClick={() => voiceInputRef.current?.click()}>
@@ -348,6 +377,24 @@ export default function DigitalHumanDetailPage() {
         </div>
       )}
 
+      <ConfirmDialog
+        open={Boolean(deletePhotoField)}
+        title="删除照片"
+        message={deletePhotoField ? `确定删除「${deletePhotoField === 'face_photo_url' ? '大头照片' : deletePhotoField === 'half_body_photo_url' ? '半身照片' : '全身照片'}」吗？` : ''}
+        confirmLabel="删除"
+        destructive
+        onConfirm={confirmDeletePhoto}
+        onCancel={() => setDeletePhotoField(null)}
+      />
+      <ConfirmDialog
+        open={deleteVoice}
+        title="删除声音样本"
+        message="确定删除当前声音样本吗？删除后该数字人将无法用于语音克隆。"
+        confirmLabel="删除"
+        destructive
+        onConfirm={confirmDeleteVoice}
+        onCancel={() => setDeleteVoice(false)}
+      />
       <ConfirmDialog
         open={showDeleteDialog}
         title="删除数字人"

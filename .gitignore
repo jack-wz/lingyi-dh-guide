@@ -105,3 +105,6 @@ repositories/
 # Agent output artifacts
 output/
 
+# Claude skills (local only)
+.claude/skills/
+

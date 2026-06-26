@@ -203,7 +203,7 @@ export default function AssetHubPage() {
   const [brandEditorOpen, setBrandEditorOpen] = useState(false);
   const [brandEditorMode, setBrandEditorMode] = useState<'create' | 'edit'>('edit');
   const [brandEditorId, setBrandEditorId] = useState<string | undefined>(undefined);
-  const [deleteTarget, setDeleteTarget] = useState<{ kind: 'library' | 'media'; id: string; name: string } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ kind: 'library' | 'media' | 'digital_human'; id: string; name: string } | null>(null);
   const [lookPresetItems, setLookPresetItems] = useState<LibraryItem[]>([]);
   const [syncingLookPresets, setSyncingLookPresets] = useState(false);
   const [lookPresetSyncMsg, setLookPresetSyncMsg] = useState('');
@@ -372,6 +372,8 @@ export default function AssetHubPage() {
     if (deleteTarget.kind === 'library') {
       await fetch(`/api/library/${deleteTarget.id}`, { method: 'DELETE' });
       if (editing?.id === deleteTarget.id) setEditing(null);
+    } else if (deleteTarget.kind === 'digital_human') {
+      await fetch(`/api/digital-humans/${deleteTarget.id}`, { method: 'DELETE' });
     } else {
       await fetch(`/api/assets/${deleteTarget.id}`, { method: 'DELETE' });
     }
@@ -951,7 +953,10 @@ export default function AssetHubPage() {
           )}
           <div className="flex gap-2 mt-2 flex-wrap" onClick={e => e.stopPropagation()}>
             {activeTab === 'digital_human' && (
-              <Link to={`/digital-humans/${item.id}`} className="text-xs text-brand-blue hover:underline">管理</Link>
+              <>
+                <Link to={`/digital-humans/${item.id}`} className="text-xs text-brand-blue hover:underline">管理</Link>
+                <button type="button" className="text-xs text-red-500" onClick={() => setDeleteTarget({ kind: 'digital_human', id: item.id, name: item.name })}>删除</button>
+              </>
             )}
             {activeTab === 'template' && (
               <Link to={`/editor/${item.id}`} className="text-xs text-brand-blue hover:underline">编辑</Link>
